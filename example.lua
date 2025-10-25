@@ -548,7 +548,9 @@ local function layout()
                 local presetWidth = radioDefaultWidths[index] or radio.width
                 local radioWidth = math.max(4, math.min(presetWidth, maxRadioWidth))
                 radio:setSize(radioWidth, 1)
-                radio:setPosition(innerMargin, radioY)
+                -- center horizontally within the radioStep frame
+                local centerX = math.floor((radioStep.width - radioWidth) / 2) + 1
+                radio:setPosition(centerX, radioY)
                 if radio:isSelected() then
                     selectedRadio = radio
                 end
@@ -572,8 +574,9 @@ local function layout()
         if topY + detHeight - 1 > innerMargin + stepHeight - 1 then
             topY = innerMargin
         end
-        progressDeterminate:setSize(detWidth, detHeight)
-        progressDeterminate:setPosition(innerMargin, topY)
+    progressDeterminate:setSize(detWidth, detHeight)
+    local detX = math.floor((progressStep.width - detWidth) / 2) + 1
+    progressDeterminate:setPosition(detX, topY)
 
         local secondGap = math.max(1, math.floor(verticalSpace / 2))
         local secondY = topY + detHeight + secondGap
@@ -582,7 +585,8 @@ local function layout()
             secondY = maxYOffset
         end
         progressIndeterminate:setSize(indWidth, indHeight)
-        progressIndeterminate:setPosition(innerMargin, secondY)
+        local indX = math.floor((progressStep.width - indWidth) / 2) + 1
+        progressIndeterminate:setPosition(indX, secondY)
     end
 
     local navY = wizardY + wizardHeight + navGap
