@@ -155,6 +155,63 @@ centerWidget(stepCombo, comboStep, stepCombo.width, stepCombo.height)
 comboStep:addChild(stepCombo)
 addStep(comboStep)
 
+local radioButtons = {}
+local radioDefaultWidths = {}
+local selectedRadio
+
+-- Step 4: RadioButton showcase
+local radioStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(radioStep)
+
+local radioOptions = {
+    { label = "Classic", value = "classic" },
+    { label = "Modern", value = "modern" },
+    { label = "Minimal", value = "minimal" }
+}
+
+for index = 1, #radioOptions do
+    local option = radioOptions[index]
+    local radio = app:createRadioButton({
+        x = 2,
+        y = 1 + (index - 1) * 2,
+        width = 22,
+        height = 1,
+        label = option.label,
+        value = option.value,
+        group = "demoStyle",
+        selected = index == 2,
+        bg = colors.gray,
+        fg = colors.white,
+        focusBg = colors.lightGray,
+        focusFg = colors.black
+    })
+    radioStep:addChild(radio)
+    radioButtons[index] = radio
+    radioDefaultWidths[index] = radio.width
+    if radio:isSelected() then
+        selectedRadio = radio
+    end
+    radio:setOnChange(function(selfRadio, isSelected)
+        if isSelected then
+            selectedRadio = selfRadio
+        end
+    end)
+end
+addStep(radioStep, function()
+    if selectedRadio and selectedRadio:isSelected() then
+        app:setFocus(selectedRadio)
+    else
+        app:setFocus(nil)
+    end
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -307,6 +364,26 @@ local function layout()
     local comboHeight = math.min(defaultComboSize.height, stepHeight)
     stepCombo:setSize(comboWidth, comboHeight)
     centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
+
+    if #radioButtons > 0 then
+        local maxRadioWidth = math.max(4, stepWidth - innerMargin)
+        local freeRows = math.max(0, stepHeight - #radioButtons)
+        local gap = (#radioButtons > 1) and math.floor(freeRows / (#radioButtons - 1)) or 0
+        local radioY = innerMargin
+        for index = 1, #radioButtons do
+            local radio = radioButtons[index]
+            if radio then
+                local presetWidth = radioDefaultWidths[index] or radio.width
+                local radioWidth = math.max(4, math.min(presetWidth, maxRadioWidth))
+                radio:setSize(radioWidth, 1)
+                radio:setPosition(innerMargin, radioY)
+                if radio:isSelected() then
+                    selectedRadio = radio
+                end
+                radioY = math.min(innerMargin + stepHeight - 1, radioY + 1 + gap)
+            end
+        end
+    end
 
     local navY = wizardY + wizardHeight + navGap
     local maxNavY = math.max(1, rootHeight - actualNavHeight + 1)

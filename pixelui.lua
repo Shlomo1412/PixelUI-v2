@@ -66,6 +66,7 @@ local shrekbox = require("shrekbox")
 ---@field _animations table
 ---@field _animationTimer integer?
 ---@field _animationInterval number
+---@field _radioGroups table<string, { buttons: PixelUI.RadioButton[], lookup: table<PixelUI.RadioButton, boolean>, selected: PixelUI.RadioButton? }>
 
 ---@class PixelUI.Frame : PixelUI.Widget
 ---@field private _children PixelUI.Widget[]
@@ -79,6 +80,15 @@ local shrekbox = require("shrekbox")
 ---@field onClick fun(self:PixelUI.Button, button:integer, x:integer, y:integer)?
 ---@field clickEffect boolean
 ---@field private _pressed boolean
+
+---@class PixelUI.RadioButton : PixelUI.Widget
+---@field label string
+---@field value any
+---@field group string?
+---@field selected boolean
+---@field focusBg PixelUI.Color?
+---@field focusFg PixelUI.Color?
+---@field onChange fun(self:PixelUI.RadioButton, selected:boolean, value:any)?
 
 ---@class PixelUI.ComboBox : PixelUI.Widget
 ---@field items string[]
@@ -111,7 +121,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -153,6 +163,10 @@ local Button = {}
 Button.__index = Button
 setmetatable(Button, { __index = Widget })
 
+local RadioButton = {}
+RadioButton.__index = RadioButton
+setmetatable(RadioButton, { __index = Widget })
+
 local ComboBox = {}
 ComboBox.__index = ComboBox
 setmetatable(ComboBox, { __index = Widget })
@@ -161,6 +175,7 @@ local App = {}
 App.__index = App
 
 local borderSides = { "top", "right", "bottom", "left" }
+local RADIO_DOT_CHAR = string.char(7)
 
 local function clone_table(src)
 	if not src then
@@ -820,6 +835,231 @@ function Button:handleEvent(event, ...)
 			if self.onClick then
 				self.onClick(self, 1, x, y)
 			end
+			return true
+		end
+	end
+
+	return false
+end
+
+function RadioButton:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	local label = "Option"
+	if config and config.label ~= nil then
+		label = tostring(config.label)
+	end
+	baseConfig.focusable = true
+	baseConfig.height = baseConfig.height or 1
+	baseConfig.width = baseConfig.width or math.max(4, #label + 4)
+	local instance = setmetatable({}, RadioButton)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.label = label
+	if config and config.value ~= nil then
+		instance.value = config.value
+	else
+		instance.value = label
+	end
+	if config and config.group ~= nil then
+		if type(config.group) ~= "string" then
+			error("RadioButton group must be a string", 2)
+		end
+		instance.group = config.group
+	else
+		instance.group = nil
+	end
+	instance.selected = not not (config and config.selected)
+	instance.onChange = config and config.onChange or nil
+	instance.focusBg = config and config.focusBg or colors.lightGray
+	instance.focusFg = config and config.focusFg or colors.black
+	instance._registeredGroup = nil
+	instance._dotChar = RADIO_DOT_CHAR
+	if instance.group and instance.app then
+		instance:_registerWithGroup()
+		if instance.selected then
+			instance.app:_selectRadioInGroup(instance.group, instance, true)
+		else
+			local groups = instance.app._radioGroups
+			if groups then
+				local entry = groups[instance.group]
+				if entry and entry.selected and entry.selected ~= instance then
+					instance.selected = false
+				end
+			end
+		end
+	end
+	instance:_applySelection(instance.selected, true)
+	return instance
+end
+
+function RadioButton:_registerWithGroup()
+	if self.app and self.group then
+		self.app:_registerRadioButton(self)
+	end
+end
+
+function RadioButton:_unregisterFromGroup()
+	if self.app and self._registeredGroup then
+		self.app:_unregisterRadioButton(self)
+	end
+end
+
+function RadioButton:_notifyChange()
+	if self.onChange then
+		self.onChange(self, self.selected, self.value)
+	end
+end
+
+function RadioButton:_applySelection(selected, suppressEvent)
+	selected = not not selected
+	if self.selected == selected then
+		return
+	end
+	self.selected = selected
+	if not suppressEvent then
+		self:_notifyChange()
+	end
+end
+
+function RadioButton:setLabel(text)
+	expect(1, text, "string")
+	self.label = text
+end
+
+function RadioButton:setValue(value)
+	self.value = value
+end
+
+function RadioButton:getValue()
+	return self.value
+end
+
+function RadioButton:setGroup(group)
+	expect(1, group, "string", "nil")
+	if self.group == group then
+		return
+	end
+	self:_unregisterFromGroup()
+	self.group = group
+	if self.group then
+		self:_registerWithGroup()
+	end
+end
+
+function RadioButton:getGroup()
+	return self.group
+end
+
+function RadioButton:setOnChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onChange = handler
+end
+
+function RadioButton:setSelected(selected)
+	selected = not not selected
+	if self.group and self.app then
+		if selected then
+			self.app:_selectRadioInGroup(self.group, self, false)
+		else
+			local groups = self.app._radioGroups
+			local entry = groups and groups[self.group]
+			if entry and entry.selected == self then
+				self.app:_selectRadioInGroup(self.group, nil, false)
+			else
+				self:_applySelection(false, false)
+			end
+		end
+		return
+	end
+	if self.selected == selected then
+		return
+	end
+	self:_applySelection(selected, false)
+end
+
+function RadioButton:isSelected()
+	return self.selected
+end
+
+function RadioButton:_activate()
+	if self.group then
+		if not self.selected then
+			self:setSelected(true)
+		end
+	else
+		self:setSelected(not self.selected)
+	end
+end
+
+function RadioButton:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local baseBg = self.bg or colors.black
+	local baseFg = self.fg or colors.white
+	local drawBg = baseBg
+	local drawFg = baseFg
+
+	if self:isFocused() then
+		drawBg = self.focusBg or drawBg
+		drawFg = self.focusFg or drawFg
+	end
+
+	fill_rect(textLayer, ax, ay, width, height, drawBg, drawBg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, drawBg)
+	end
+
+	local textY = ay + math.floor((height - 1) / 2)
+	local dot = self.selected and (self._dotChar or "*") or " "
+	local indicator = "(" .. dot .. ")"
+	local label = self.label or ""
+	local display = indicator
+	if #label > 0 then
+		display = display .. " " .. label
+	end
+	if #display > width then
+		display = display:sub(1, width)
+	elseif #display < width then
+		display = display .. string.rep(" ", width - #display)
+	end
+	if width > 0 then
+		textLayer.text(ax, textY, display, drawFg, drawBg)
+	end
+end
+
+function RadioButton:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self:_activate()
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self:_activate()
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.space or keyCode == keys.enter then
+			self:_activate()
 			return true
 		end
 	end
@@ -1579,7 +1819,8 @@ function pixelui.create(options)
 		_popupLookup = {},
 		_animations = {},
 		_animationTimer = nil,
-		_animationInterval = animationInterval
+		_animationInterval = animationInterval,
+		_radioGroups = {}
 	}, App)
 
 	app.root = Frame:new(app, {
@@ -1648,6 +1889,13 @@ end
 ---@return PixelUI.ComboBox
 function App:createComboBox(config)
 	return ComboBox:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.RadioButton
+function App:createRadioButton(config)
+	return RadioButton:new(self, config)
 end
 
 function App:_ensureAnimationTimer()
@@ -1831,6 +2079,99 @@ function App:_drawPopups()
 	end
 end
 
+function App:_registerRadioButton(button)
+	if not button or not button.group then
+		return
+	end
+	local group = button.group
+	local groups = self._radioGroups
+	local entry = groups[group]
+	if not entry then
+		entry = { buttons = {}, lookup = {}, selected = nil }
+		groups[group] = entry
+	end
+	if not entry.lookup[button] then
+		entry.lookup[button] = true
+		entry.buttons[#entry.buttons + 1] = button
+	end
+	button._registeredGroup = group
+	if entry.selected then
+		if entry.selected == button then
+			button:_applySelection(true, true)
+		else
+			button:_applySelection(false, true)
+		end
+	elseif button.selected then
+		self:_selectRadioInGroup(group, button, true)
+	end
+end
+
+function App:_unregisterRadioButton(button)
+	if not button then
+		return
+	end
+	local group = button._registeredGroup
+	if not group then
+		return
+	end
+	local entry = self._radioGroups[group]
+	if not entry then
+		button._registeredGroup = nil
+		return
+	end
+	entry.lookup[button] = nil
+	for index = #entry.buttons, 1, -1 do
+		if entry.buttons[index] == button then
+			table.remove(entry.buttons, index)
+			break
+		end
+	end
+	if entry.selected == button then
+		entry.selected = nil
+		for i = 1, #entry.buttons do
+			local other = entry.buttons[i]
+			if other then
+				other:_applySelection(false, true)
+			end
+		end
+	end
+	button._registeredGroup = nil
+	if not next(entry.lookup) then
+		self._radioGroups[group] = nil
+	end
+end
+
+function App:_selectRadioInGroup(group, target, suppressEvent)
+	if not group then
+		return
+	end
+	suppressEvent = not not suppressEvent
+	local groups = self._radioGroups
+	local entry = groups[group]
+	if not entry then
+		entry = { buttons = {}, lookup = {}, selected = nil }
+		groups[group] = entry
+	end
+	if target then
+		if not entry.lookup[target] then
+			entry.lookup[target] = true
+			entry.buttons[#entry.buttons + 1] = target
+		end
+		target._registeredGroup = group
+	end
+	entry.selected = target
+	for i = 1, #entry.buttons do
+		local button = entry.buttons[i]
+		if button then
+			if button == target then
+				button:_applySelection(true, suppressEvent)
+			else
+				button:_applySelection(false, suppressEvent)
+			end
+		end
+	end
+end
+
 ---@since 0.1.0
 ---@param widget PixelUI.Widget?
 function App:setFocus(widget)
@@ -1958,12 +2299,16 @@ pixelui.widgets = {
 	end,
 	ComboBox = function(app, config)
 		return ComboBox:new(app, config)
+	end,
+	RadioButton = function(app, config)
+		return RadioButton:new(app, config)
 	end
 }
 
 pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Button = Button
+pixelui.RadioButton = RadioButton
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
 pixelui.easings = easings
