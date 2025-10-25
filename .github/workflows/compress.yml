@@ -11,6 +11,9 @@ jobs:
     # Skip if commit was made by github-actions bot to prevent infinite loop
     if: github.actor != 'github-actions[bot]'
     
+    permissions:
+      contents: write  # Required to checkout code and push compressed file
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
