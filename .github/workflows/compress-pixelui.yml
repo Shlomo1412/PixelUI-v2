@@ -1,0 +1,36 @@
+name: Compress PixelUI Lua
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  compress-pixelui:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install Lua minifier
+      run: npm install -g luamin
+
+    - name: Compress pixelui.lua
+      run: |
+        mkdir -p compressed
+        luamin pixelui.lua > compressed/pixelui.min.lua
+
+    - name: Commit compressed file
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add compressed/pixelui.min.lua
+        git diff --cached --quiet || git commit -m "Auto-compress pixelui.lua"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
