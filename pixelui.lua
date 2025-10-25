@@ -20,6 +20,7 @@ local shrekbox = require("shrekbox")
 ---@field window table? # Target window; defaults to the current terminal
 ---@field background PixelUI.Color? # Root background color
 ---@field rootBorder PixelUI.BorderConfig? # Border applied to the root frame
+---@field animationInterval number? # Animation tick interval in seconds (defaults to 0.05)
 
 ---@class PixelUI.Widget
 ---@field app PixelUI.App
@@ -62,6 +63,9 @@ local shrekbox = require("shrekbox")
 ---@field _focusWidget PixelUI.Widget?
 ---@field _popupWidgets PixelUI.Widget[]
 ---@field _popupLookup table<PixelUI.Widget, boolean>
+---@field _animations table
+---@field _animationTimer integer?
+---@field _animationInterval number
 
 ---@class PixelUI.Frame : PixelUI.Widget
 ---@field private _children PixelUI.Widget[]
@@ -92,15 +96,50 @@ local shrekbox = require("shrekbox")
 ---@field onChange fun(self:PixelUI.TextBox, value:string)?
 ---@field maxLength integer?
 
+---@class PixelUI.AnimationOptions
+---@field duration number?
+---@field easing (fun(t:number):number)|string?
+---@field update fun(progress:number, rawProgress:number, handle:PixelUI.AnimationHandle?)?
+---@field onComplete fun(handle:PixelUI.AnimationHandle?)?
+---@field onCancel fun(handle:PixelUI.AnimationHandle?)?
+
+---@class PixelUI.AnimationHandle
+---@field cancel fun(self:PixelUI.AnimationHandle)
+
 ---@alias PixelUI.WidgetConfig table
 
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
 ---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox }
+---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
 	version = "0.1.0"
+}
+
+local easings = {
+	linear = function(t)
+		return t
+	end,
+	easeInQuad = function(t)
+		return t * t
+	end,
+	easeOutQuad = function(t)
+		local inv = 1 - t
+		return 1 - inv * inv
+	end,
+	easeInOutQuad = function(t)
+		if t < 0.5 then
+			return 2 * t * t
+		end
+		local inv = -2 * t + 2
+		return 1 - (inv * inv) / 2
+	end,
+	easeOutCubic = function(t)
+		local inv = 1 - t
+		return 1 - inv * inv * inv
+	end
 }
 
 local Widget = {}
@@ -1523,6 +1562,7 @@ function pixelui.create(options)
 	local sw, sh = win.getSize()
 	local background = options.background or colors.black
 	box.fill(background)
+	local animationInterval = math.max(0.01, options.animationInterval or 0.05)
 
 	---@type PixelUI.App
 	local app = setmetatable({
@@ -1536,7 +1576,10 @@ function pixelui.create(options)
 		_parentTerminal = parentTerm,
 		_focusWidget = nil,
 		_popupWidgets = {},
-		_popupLookup = {}
+		_popupLookup = {},
+		_animations = {},
+		_animationTimer = nil,
+		_animationInterval = animationInterval
 	}, App)
 
 	app.root = Frame:new(app, {
@@ -1605,6 +1648,136 @@ end
 ---@return PixelUI.ComboBox
 function App:createComboBox(config)
 	return ComboBox:new(self, config)
+end
+
+function App:_ensureAnimationTimer()
+	if not self._animationTimer then
+		self._animationTimer = osLib.startTimer(self._animationInterval)
+	end
+end
+
+function App:_updateAnimations()
+	local list = self._animations
+	if not list or #list == 0 then
+		return
+	end
+	local now = osLib.clock()
+	local index = 1
+	while index <= #list do
+		local animation = list[index]
+		if animation._cancelled then
+			if animation.onCancel then
+				animation.onCancel(animation.handle)
+			end
+			animation._finished = true
+			table.remove(list, index)
+		else
+			if not animation.startTime then
+				animation.startTime = now
+			end
+			local elapsed = now - animation.startTime
+			local rawProgress
+			if animation.duration <= 0 then
+				rawProgress = 1
+			else
+				rawProgress = math.min(1, elapsed / animation.duration)
+			end
+			local eased = animation.easing(rawProgress)
+			if animation.update then
+				animation.update(eased, rawProgress, animation.handle)
+			end
+			if rawProgress >= 1 then
+				animation._finished = true
+				if animation.onComplete then
+					animation.onComplete(animation.handle)
+				end
+				table.remove(list, index)
+			else
+				index = index + 1
+			end
+		end
+	end
+end
+
+function App:_clearAnimations(invokeCancel)
+	local list = self._animations
+	if not list or #list == 0 then
+		self._animations = {}
+		self._animationTimer = nil
+		return
+	end
+	if invokeCancel then
+		for i = 1, #list do
+			local animation = list[i]
+			if animation and not animation._finished then
+				if animation.onCancel then
+					animation.onCancel(animation.handle)
+				end
+				animation._finished = true
+			end
+		end
+	end
+	self._animations = {}
+	self._animationTimer = nil
+end
+
+---@since 0.1.0
+---@param options PixelUI.AnimationOptions
+---@return PixelUI.AnimationHandle
+function App:animate(options)
+	expect(1, options, "table")
+	local update = options.update
+	if update ~= nil and type(update) ~= "function" then
+		error("options.update must be a function", 2)
+	end
+	local onComplete = options.onComplete
+	if onComplete ~= nil and type(onComplete) ~= "function" then
+		error("options.onComplete must be a function", 2)
+	end
+	local onCancel = options.onCancel
+	if onCancel ~= nil and type(onCancel) ~= "function" then
+		error("options.onCancel must be a function", 2)
+	end
+	local easing = options.easing
+	if easing == nil then
+		easing = easings.linear
+	elseif type(easing) == "string" then
+		easing = easings[easing]
+		if not easing then
+			error("Unknown easing '" .. options.easing .. "'", 2)
+		end
+	elseif type(easing) ~= "function" then
+		error("options.easing must be a function or easing name", 2)
+	end
+
+	if options.duration ~= nil and type(options.duration) ~= "number" then
+		error("options.duration must be a number", 2)
+	end
+	local duration = math.max(0.01, options.duration or 0.3)
+	local animation = {
+		update = update,
+		onComplete = onComplete,
+		onCancel = onCancel,
+		easing = easing,
+		duration = duration,
+		startTime = osLib.clock()
+	}
+
+	local handle = {}
+	function handle:cancel()
+		if animation._finished or animation._cancelled then
+			return
+		end
+		animation._cancelled = true
+	end
+	animation.handle = handle
+
+	self._animations[#self._animations + 1] = animation
+	if update then
+		update(0, 0, handle)
+	end
+	self:_ensureAnimationTimer()
+	return handle
 end
 
 function App:_registerPopup(widget)
@@ -1708,7 +1881,22 @@ function App:step(event, ...)
 		return
 	end
 
-	if event == "term_resize" then
+	local consumed = false
+
+	if event == "timer" then
+		local timerId = ...
+		if self._animationTimer and timerId == self._animationTimer then
+			self:_updateAnimations()
+			if self._animations and #self._animations > 0 then
+				self._animationTimer = osLib.startTimer(self._animationInterval)
+			else
+				self._animationTimer = nil
+			end
+			consumed = true
+		end
+	end
+
+	if not consumed and event == "term_resize" then
 		if self._autoWindow then
 			local parent = self._parentTerminal or term.current()
 			local pw, ph = parent.getSize()
@@ -1720,8 +1908,7 @@ function App:step(event, ...)
 		self.root:setSize(w, h)
 	end
 
-	local consumed = false
-	if event == "char" or event == "paste" or event == "key" or event == "key_up" then
+	if not consumed and (event == "char" or event == "paste" or event == "key" or event == "key_up") then
 		local focus = self._focusWidget
 		if focus and focus.visible ~= false then
 			consumed = focus:handleEvent(event, ...)
@@ -1756,6 +1943,7 @@ end
 ---@since 0.1.0
 function App:stop()
 	self.running = false
+	self:_clearAnimations(true)
 end
 
 pixelui.widgets = {
@@ -1778,5 +1966,6 @@ pixelui.Frame = Frame
 pixelui.Button = Button
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
+pixelui.easings = easings
 
 return pixelui

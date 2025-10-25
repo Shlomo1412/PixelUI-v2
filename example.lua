@@ -1,0 +1,355 @@
+---@diagnostic disable "undefined-field"
+local colors = assert(rawget(_G, "colors"), "colors API unavailable")
+local pixelui = require("pixelui")
+
+---@type PixelUI.App
+local app = pixelui.create({
+    background = colors.black,
+    rootBorder = {
+        color = colors.gray,
+        sides = { "top" }
+    }
+})
+
+---@type PixelUI.Frame
+local root = app:getRoot()
+
+---@type PixelUI.Frame
+local wizard = app:createFrame({
+    x = 4,
+    y = 3,
+    width = 34,
+    height = 15,
+    bg = colors.gray,
+    fg = colors.white,
+    border = { color = colors.lightGray }
+})
+root:addChild(wizard)
+
+local steps = {}
+local currentStep = 1
+local navHeight = 3
+local navGap = 1
+local innerMargin = 2
+
+local function clamp(value, minValue, maxValue)
+    if value < minValue then
+        return minValue
+    end
+    if value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
+local function round(value)
+    if value >= 0 then
+        return math.floor(value + 0.5)
+    end
+    return math.ceil(value - 0.5)
+end
+
+local isAnimating = false
+
+local function applyStepVisibility(activeIndex)
+    for i = 1, #steps do
+        local frame = steps[i].frame
+        if i == activeIndex then
+            frame.visible = true
+        else
+            frame.visible = false
+        end
+        frame:setPosition(innerMargin, innerMargin)
+    end
+end
+
+local function addStep(frame, onShow)
+    frame.visible = false
+    steps[#steps + 1] = {
+        frame = frame,
+        onShow = onShow
+    }
+end
+
+local function centerWidget(widget, parent, w, h)
+    local px = math.floor((parent.width - w) / 2) + 1
+    local py = math.floor((parent.height - h) / 2) + 1
+    widget:setPosition(px, py)
+end
+
+-- Step 1: Button showcase
+local buttonStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(buttonStep)
+
+local stepButton = app:createButton({
+    width = 12,
+    height = 3,
+    label = "Press",
+    bg = colors.orange,
+    fg = colors.black,
+    border = { color = colors.white }
+})
+local defaultButtonSize = { width = stepButton.width, height = stepButton.height }
+centerWidget(stepButton, buttonStep, stepButton.width, stepButton.height)
+buttonStep:addChild(stepButton)
+addStep(buttonStep)
+
+-- Step 2: TextBox showcase
+local textStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(textStep)
+
+local stepBox = app:createTextBox({
+    width = 18,
+    height = 3,
+    placeholder = "Type",
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.white }
+})
+local defaultTextBoxSize = { width = stepBox.width, height = stepBox.height }
+centerWidget(stepBox, textStep, stepBox.width, stepBox.height)
+textStep:addChild(stepBox)
+addStep(textStep, function()
+    app:setFocus(stepBox)
+end)
+
+-- Step 3: ComboBox showcase
+local comboStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(comboStep)
+
+local stepCombo = app:createComboBox({
+    width = 20,
+    height = 3,
+    items = { "Small", "Medium", "Large", "Extra Large" },
+    bg = colors.black,
+    fg = colors.white,
+    dropdownBg = colors.black,
+    dropdownFg = colors.white,
+    highlightBg = colors.lightGray,
+    highlightFg = colors.black,
+    border = { color = colors.white }
+})
+local defaultComboSize = { width = stepCombo.width, height = stepCombo.height }
+centerWidget(stepCombo, comboStep, stepCombo.width, stepCombo.height)
+comboStep:addChild(stepCombo)
+addStep(comboStep)
+
+local function showStep(index, direction)
+    if index < 1 or index > #steps then
+        return
+    end
+
+    if direction == nil then
+        direction = (index > currentStep) and 1 or -1
+    end
+
+    if direction == 0 or #steps <= 1 then
+        currentStep = index
+        applyStepVisibility(index)
+        local step = steps[index]
+        if step and step.onShow then
+            step.onShow()
+        else
+            app:setFocus(nil)
+        end
+        return
+    end
+
+    if index == currentStep or isAnimating then
+        return
+    end
+
+    local prevIndex = currentStep
+    local prevStep = steps[prevIndex]
+    local nextStep = steps[index]
+    if not prevStep or not nextStep then
+        return
+    end
+
+    direction = direction >= 0 and 1 or -1
+    local stepWidth = nextStep.frame.width
+    local distance = math.max(1, stepWidth + innerMargin)
+
+    prevStep.frame.visible = true
+    prevStep.frame:setPosition(innerMargin, innerMargin)
+    nextStep.frame.visible = true
+    nextStep.frame:setPosition(innerMargin + direction * distance, innerMargin)
+
+    app:setFocus(nil)
+    isAnimating = true
+    local targetOnShow = nextStep.onShow
+
+    app:animate({
+        duration = 0.3,
+        easing = pixelui.easings.easeOutCubic,
+        update = function(value)
+            local prevX = innerMargin + round(-distance * direction * value)
+            local nextX = innerMargin + round(direction * distance * (1 - value))
+            prevStep.frame:setPosition(prevX, innerMargin)
+            nextStep.frame:setPosition(nextX, innerMargin)
+        end,
+        onComplete = function()
+            currentStep = index
+            applyStepVisibility(index)
+            isAnimating = false
+            if targetOnShow then
+                targetOnShow()
+            else
+                app:setFocus(nil)
+            end
+        end,
+        onCancel = function()
+            applyStepVisibility(currentStep)
+            isAnimating = false
+        end
+    })
+end
+
+---@type PixelUI.Button
+local prevButton = app:createButton({
+    x = wizard.x,
+    y = wizard.y + wizard.height + 1,
+    width = 10,
+    height = 3,
+    label = "Prev",
+    bg = colors.lightGray,
+    fg = colors.black,
+    border = { color = colors.white }
+})
+root:addChild(prevButton)
+
+---@type PixelUI.Button
+local nextButton = app:createButton({
+    x = wizard.x + wizard.width - 10,
+    y = wizard.y + wizard.height + 1,
+    width = 10,
+    height = 3,
+    label = "Next",
+    bg = colors.lightGray,
+    fg = colors.black,
+    border = { color = colors.white }
+})
+root:addChild(nextButton)
+
+local function layout()
+    local rootWidth = root.width
+    local rootHeight = root.height
+    local actualNavHeight = math.max(navHeight, prevButton.height, nextButton.height)
+
+    local maxWizardWidth = math.max(6, rootWidth - 2)
+    local desiredWizardWidth = math.floor(rootWidth * 0.75)
+    local wizardWidth = clamp(desiredWizardWidth, 12, maxWizardWidth)
+
+    local availableHeight = math.max(5, rootHeight - actualNavHeight - navGap - 1)
+    local desiredWizardHeight = math.floor(rootHeight * 0.6)
+    local wizardHeight = clamp(desiredWizardHeight, 7, availableHeight)
+
+    wizard:setSize(wizardWidth, wizardHeight)
+    local maxWizardX = math.max(1, rootWidth - wizardWidth + 1)
+    local wizardX = clamp(math.floor((rootWidth - wizardWidth) / 2) + 1, 1, maxWizardX)
+    local maxWizardY = math.max(1, rootHeight - actualNavHeight - navGap - wizardHeight + 1)
+    local wizardY = clamp(math.floor((rootHeight - (wizardHeight + actualNavHeight + navGap)) / 2) + 1, 1, maxWizardY)
+    wizard:setPosition(wizardX, wizardY)
+
+    local stepWidth = math.max(6, wizardWidth - innerMargin * 2)
+    local stepHeight = math.max(5, wizardHeight - innerMargin * 2)
+    for i = 1, #steps do
+        local frame = steps[i].frame
+        frame:setSize(stepWidth, stepHeight)
+    end
+
+    if not isAnimating then
+        applyStepVisibility(currentStep)
+        local active = steps[currentStep]
+        if active then
+            if active.onShow then
+                active.onShow()
+            else
+                app:setFocus(nil)
+            end
+        end
+    end
+
+    local buttonWidth = math.max(4, math.min(defaultButtonSize.width, stepWidth))
+    local buttonHeight = math.min(defaultButtonSize.height, stepHeight)
+    stepButton:setSize(buttonWidth, buttonHeight)
+    centerWidget(stepButton, buttonStep, buttonWidth, buttonHeight)
+
+    local textWidthLimit = math.max(4, stepWidth - 2)
+    local textWidth = math.max(4, math.min(defaultTextBoxSize.width, textWidthLimit))
+    local textHeight = math.min(defaultTextBoxSize.height, stepHeight)
+    stepBox:setSize(textWidth, textHeight)
+    centerWidget(stepBox, textStep, textWidth, textHeight)
+
+    local comboWidthLimit = math.max(6, stepWidth - 2)
+    local comboWidth = math.max(6, math.min(defaultComboSize.width, comboWidthLimit))
+    local comboHeight = math.min(defaultComboSize.height, stepHeight)
+    stepCombo:setSize(comboWidth, comboHeight)
+    centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
+
+    local navY = wizardY + wizardHeight + navGap
+    local maxNavY = math.max(1, rootHeight - actualNavHeight + 1)
+    navY = clamp(navY, 1, maxNavY)
+
+    local prevXMax = math.max(1, rootWidth - prevButton.width + 1)
+    prevButton:setPosition(clamp(wizardX, 1, prevXMax), navY)
+
+    local nextX = wizardX + wizardWidth - nextButton.width
+    local nextXMax = math.max(1, rootWidth - nextButton.width + 1)
+    nextButton:setPosition(clamp(nextX, 1, nextXMax), navY)
+end
+
+local originalRootHandleEvent = root.handleEvent
+function root:handleEvent(event, ...)
+    if event == "term_resize" then
+        layout()
+    end
+    return originalRootHandleEvent(self, event, ...)
+end
+
+prevButton:setOnClick(function()
+    if isAnimating then
+        return
+    end
+    local target = currentStep - 1
+    if target < 1 then
+        target = #steps
+    end
+    showStep(target, -1)
+end)
+
+nextButton:setOnClick(function()
+    if isAnimating then
+        return
+    end
+    local target = currentStep + 1
+    if target > #steps then
+        target = 1
+    end
+    showStep(target, 1)
+end)
+
+layout()
+showStep(1, 0)
+app:run()
