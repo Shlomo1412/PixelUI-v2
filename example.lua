@@ -280,7 +280,7 @@ progressDeterminate = app:createProgressBar({
     x = 2,
     y = 3,
     width = 24,
-    height = 2,
+    height = 3,
     min = 0,
     max = 100,
     value = 0,
@@ -296,9 +296,9 @@ progressStep:addChild(progressDeterminate)
 
 progressIndeterminate = app:createProgressBar({
     x = 2,
-    y = 6,
+    y = 7,
     width = 24,
-    height = 2,
+    height = 3,
     label = "Searching...",
     indeterminate = false,
     bg = colors.gray,
