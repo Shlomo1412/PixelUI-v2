@@ -21,8 +21,7 @@ local wizard = app:createFrame({
     width = 34,
     height = 15,
     bg = colors.gray,
-    fg = colors.white,
-    border = { color = colors.lightGray }
+    fg = colors.white
 })
 root:addChild(wizard)
 
@@ -63,12 +62,15 @@ local function applyStepVisibility(activeIndex)
     end
 end
 
-local function addStep(frame, onShow)
+local function addStep(frame, onShow, onHide)
     frame.visible = false
-    steps[#steps + 1] = {
+    local index = #steps + 1
+    steps[index] = {
         frame = frame,
-        onShow = onShow
+        onShow = onShow,
+        onHide = onHide
     }
+    return index
 end
 
 local function centerWidget(widget, parent, w, h)
@@ -158,6 +160,11 @@ addStep(comboStep)
 local radioButtons = {}
 local radioDefaultWidths = {}
 local selectedRadio
+local progressDeterminate
+local progressIndeterminate
+local progressDefaults = {}
+local progressAnimationHandle
+local progressStepIndex
 
 -- Step 4: RadioButton showcase
 local radioStep = app:createFrame({
@@ -212,6 +219,103 @@ addStep(radioStep, function()
     end
 end)
 
+-- Step 5: ProgressBar showcase
+local progressStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(progressStep)
+
+progressDeterminate = app:createProgressBar({
+    x = 2,
+    y = 3,
+    width = 24,
+    height = 3,
+    min = 0,
+    max = 100,
+    value = 0,
+    label = "Downloading",
+    showPercent = true,
+    bg = colors.gray,
+    fg = colors.white,
+    trackColor = colors.black,
+    fillColor = colors.green,
+    border = { color = colors.white }
+})
+progressStep:addChild(progressDeterminate)
+
+progressIndeterminate = app:createProgressBar({
+    x = 2,
+    y = 7,
+    width = 24,
+    height = 3,
+    label = "Searching...",
+    indeterminate = false,
+    bg = colors.gray,
+    fg = colors.white,
+    trackColor = colors.black,
+    fillColor = colors.orange,
+    border = { color = colors.white }
+})
+progressStep:addChild(progressIndeterminate)
+
+progressDefaults = {
+    determinate = { width = progressDeterminate.width, height = progressDeterminate.height },
+    indeterminate = { width = progressIndeterminate.width, height = progressIndeterminate.height }
+}
+
+local function stopProgressAnimation()
+    if progressAnimationHandle then
+        progressAnimationHandle:cancel()
+        progressAnimationHandle = nil
+    end
+end
+
+local function startProgressAnimation()
+    stopProgressAnimation()
+    local minValue, maxValue = progressDeterminate:getRange()
+    progressDeterminate:setValue(minValue)
+    progressAnimationHandle = app:animate({
+        duration = 2.5,
+        easing = pixelui.easings.easeInOutQuad,
+        update = function(_, raw)
+            local value = minValue + (maxValue - minValue) * raw
+            progressDeterminate:setValue(value)
+        end,
+        onComplete = function()
+            progressAnimationHandle = nil
+            if currentStep == progressStepIndex then
+                startProgressAnimation()
+            end
+        end,
+        onCancel = function()
+            progressAnimationHandle = nil
+        end
+    })
+end
+
+progressStepIndex = addStep(progressStep, function()
+    startProgressAnimation()
+    if progressIndeterminate then
+        progressIndeterminate:setIndeterminate(false)
+        progressIndeterminate:setIndeterminate(true)
+    end
+    app:setFocus(nil)
+end, function()
+    stopProgressAnimation()
+    if progressDeterminate then
+        local minValue = select(1, progressDeterminate:getRange())
+        progressDeterminate:setValue(minValue)
+    end
+    if progressIndeterminate then
+        progressIndeterminate:setIndeterminate(false)
+    end
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -222,6 +326,13 @@ local function showStep(index, direction)
     end
 
     if direction == 0 or #steps <= 1 then
+        local previousIndex = currentStep
+        if previousIndex ~= index then
+            local previous = steps[previousIndex]
+            if previous and previous.onHide then
+                previous.onHide()
+            end
+        end
         currentStep = index
         applyStepVisibility(index)
         local step = steps[index]
@@ -242,6 +353,10 @@ local function showStep(index, direction)
     local nextStep = steps[index]
     if not prevStep or not nextStep then
         return
+    end
+
+    if prevStep.onHide then
+        prevStep.onHide()
     end
 
     direction = direction >= 0 and 1 or -1
@@ -383,6 +498,34 @@ local function layout()
                 radioY = math.min(innerMargin + stepHeight - 1, radioY + 1 + gap)
             end
         end
+    end
+
+    if progressDeterminate and progressIndeterminate then
+        local defaults = progressDefaults or {}
+        local detDefaults = defaults.determinate or { width = progressDeterminate.width, height = progressDeterminate.height }
+        local indDefaults = defaults.indeterminate or { width = progressIndeterminate.width, height = progressIndeterminate.height }
+        local barWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local detWidth = math.max(6, math.min(detDefaults.width or barWidthLimit, barWidthLimit))
+        local indWidth = math.max(6, math.min(indDefaults.width or barWidthLimit, barWidthLimit))
+        local detHeight = math.max(1, math.min(detDefaults.height or stepHeight, stepHeight))
+        local indHeight = math.max(1, math.min(indDefaults.height or stepHeight, stepHeight))
+        local verticalSpace = math.max(0, stepHeight - detHeight - indHeight)
+        local gap = math.max(1, math.floor(verticalSpace / 3))
+        local topY = innerMargin + gap
+        if topY + detHeight - 1 > innerMargin + stepHeight - 1 then
+            topY = innerMargin
+        end
+        progressDeterminate:setSize(detWidth, detHeight)
+        progressDeterminate:setPosition(innerMargin, topY)
+
+        local secondGap = math.max(1, math.floor(verticalSpace / 2))
+        local secondY = topY + detHeight + secondGap
+        local maxYOffset = innerMargin + stepHeight - indHeight
+        if secondY > maxYOffset then
+            secondY = maxYOffset
+        end
+        progressIndeterminate:setSize(indWidth, indHeight)
+        progressIndeterminate:setPosition(innerMargin, secondY)
     end
 
     local navY = wizardY + wizardHeight + navGap

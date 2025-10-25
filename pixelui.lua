@@ -81,6 +81,17 @@ local shrekbox = require("shrekbox")
 ---@field clickEffect boolean
 ---@field private _pressed boolean
 
+---@class PixelUI.ProgressBar : PixelUI.Widget
+---@field value number
+---@field min number
+---@field max number
+---@field indeterminate boolean
+---@field label string?
+---@field showPercent boolean
+---@field trackColor PixelUI.Color
+---@field fillColor PixelUI.Color
+---@field textColor PixelUI.Color
+
 ---@class PixelUI.RadioButton : PixelUI.Widget
 ---@field label string
 ---@field value any
@@ -121,7 +132,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -162,6 +173,10 @@ setmetatable(Frame, { __index = Widget })
 local Button = {}
 Button.__index = Button
 setmetatable(Button, { __index = Widget })
+
+local ProgressBar = {}
+ProgressBar.__index = ProgressBar
+setmetatable(ProgressBar, { __index = Widget })
 
 local RadioButton = {}
 RadioButton.__index = RadioButton
@@ -1067,6 +1082,270 @@ function RadioButton:handleEvent(event, ...)
 	return false
 end
 
+function ProgressBar:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = false
+	baseConfig.height = baseConfig.height or 1
+	baseConfig.width = baseConfig.width or 12
+	local instance = setmetatable({}, ProgressBar)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = false
+	instance.min = type(config.min) == "number" and config.min or 0
+	instance.max = type(config.max) == "number" and config.max or 1
+	if instance.max <= instance.min then
+		instance.max = instance.min + 1
+	end
+	local value = config.value
+	if type(value) ~= "number" then
+		value = instance.min
+	end
+	instance.value = instance:_clampValue(value)
+	instance.trackColor = (config.trackColor) or colors.gray
+	instance.fillColor = (config.fillColor) or colors.lightBlue
+	instance.textColor = (config.textColor) or instance.fg or colors.white
+	instance.label = config.label or nil
+	instance.showPercent = not not config.showPercent
+	instance.indeterminate = not not config.indeterminate
+	instance.indeterminateSpeed = math.max(0.1, config.indeterminateSpeed or 1.2)
+	instance._indeterminateProgress = 0
+	instance._animationHandle = nil
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	if instance.indeterminate then
+		instance:_startIndeterminateAnimation()
+	end
+	return instance
+end
+
+function ProgressBar:_clampValue(value)
+	if type(value) ~= "number" then
+		value = self.min
+	end
+	if value < self.min then
+		return self.min
+	end
+	if value > self.max then
+		return self.max
+	end
+	return value
+end
+
+function ProgressBar:_stopIndeterminateAnimation()
+	if self._animationHandle then
+		self._animationHandle:cancel()
+		self._animationHandle = nil
+	end
+	self._indeterminateProgress = 0
+end
+
+function ProgressBar:_startIndeterminateAnimation()
+	if not self.app or self._animationHandle then
+		return
+	end
+	local duration = self.indeterminateSpeed or 1.2
+	self._animationHandle = self.app:animate({
+		duration = duration,
+		easing = easings.linear,
+		update = function(_, rawProgress)
+			self._indeterminateProgress = rawProgress or 0
+		end,
+		onComplete = function()
+			self._animationHandle = nil
+			if self.indeterminate then
+				self:_startIndeterminateAnimation()
+			else
+				self._indeterminateProgress = 0
+			end
+		end,
+		onCancel = function()
+			self._animationHandle = nil
+		end
+	})
+end
+
+function ProgressBar:setRange(minValue, maxValue)
+	expect(1, minValue, "number")
+	expect(2, maxValue, "number")
+	if maxValue <= minValue then
+		error("ProgressBar max must be greater than min", 2)
+	end
+	self.min = minValue
+	self.max = maxValue
+	self.value = self:_clampValue(self.value)
+end
+
+function ProgressBar:getRange()
+	return self.min, self.max
+end
+
+function ProgressBar:setValue(value)
+	if self.indeterminate then
+		return
+	end
+	expect(1, value, "number")
+	value = self:_clampValue(value)
+	if value ~= self.value then
+		self.value = value
+	end
+end
+
+function ProgressBar:getValue()
+	return self.value
+end
+
+function ProgressBar:getPercent()
+	local range = self.max - self.min
+	if range <= 0 then
+		return 0
+	end
+	return (self.value - self.min) / range
+end
+
+function ProgressBar:setIndeterminate(indeterminate)
+	indeterminate = not not indeterminate
+	if self.indeterminate == indeterminate then
+		return
+	end
+	self.indeterminate = indeterminate
+	if indeterminate then
+		self:_startIndeterminateAnimation()
+	else
+		self:_stopIndeterminateAnimation()
+	end
+end
+
+function ProgressBar:isIndeterminate()
+	return self.indeterminate
+end
+
+function ProgressBar:setLabel(text)
+	if text ~= nil then
+		expect(1, text, "string")
+	end
+	self.label = text
+end
+
+function ProgressBar:setShowPercent(show)
+	self.showPercent = not not show
+end
+
+function ProgressBar:setColors(trackColor, fillColor, textColor)
+	if trackColor ~= nil then
+		expect(1, trackColor, "number")
+		self.trackColor = trackColor
+	end
+	if fillColor ~= nil then
+		expect(2, fillColor, "number")
+		self.fillColor = fillColor
+	end
+	if textColor ~= nil then
+		expect(3, textColor, "number")
+		self.textColor = textColor
+	end
+end
+
+function ProgressBar:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local trackColor = self.trackColor or (self.bg or colors.gray)
+	local fillColor = self.fillColor or colors.lightBlue
+	local textColor = self.textColor or (self.fg or colors.white)
+
+	fill_rect(textLayer, ax, ay, width, height, trackColor, trackColor)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, trackColor)
+	end
+
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+
+	fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, trackColor, trackColor)
+
+	local fillWidth = 0
+	local segmentStart = 0
+	local segmentWidth = 0
+
+	if self.indeterminate then
+		segmentWidth = math.max(1, math.floor(innerWidth / 3))
+		if segmentWidth > innerWidth then
+			segmentWidth = innerWidth
+		end
+		local offsetRange = innerWidth - segmentWidth
+		local progress = self._indeterminateProgress or 0
+		if progress < 0 then progress = 0 end
+		if progress > 1 then progress = 1 end
+		segmentStart = math.floor(offsetRange * progress + 0.5)
+		fill_rect(textLayer, innerX + segmentStart, innerY, segmentWidth, innerHeight, fillColor, fillColor)
+	else
+		local ratio = self:getPercent()
+		if ratio < 0 then ratio = 0 end
+		if ratio > 1 then ratio = 1 end
+		fillWidth = math.floor(innerWidth * ratio + 0.5)
+		if fillWidth > 0 then
+			fill_rect(textLayer, innerX, innerY, fillWidth, innerHeight, fillColor, fillColor)
+		end
+	end
+
+	local text = self.label or ""
+	if self.showPercent and not self.indeterminate then
+		local percent = math.floor(self:getPercent() * 100 + 0.5)
+		local percentText = tostring(percent) .. "%"
+		if text ~= "" then
+			text = text .. " " .. percentText
+		else
+			text = percentText
+		end
+	end
+
+	if text ~= "" and innerHeight > 0 then
+		if #text > innerWidth then
+			text = text:sub(1, innerWidth)
+		end
+		local textY = innerY + math.floor((innerHeight - 1) / 2)
+		local startX = innerX + math.floor((innerWidth - #text) / 2)
+		if startX < innerX then
+			startX = innerX
+		end
+		for i = 1, #text do
+			local ch = text:sub(i, i)
+			local column = (startX - innerX) + (i - 1)
+			local bgColor = trackColor
+			if self.indeterminate then
+				if column >= segmentStart and column < segmentStart + segmentWidth then
+					bgColor = fillColor
+				end
+			else
+				if column < fillWidth then
+					bgColor = fillColor
+				end
+			end
+			textLayer.text(startX + i - 1, textY, ch, textColor, bgColor)
+		end
+	end
+end
+
+function ProgressBar:handleEvent(_event, ...)
+	return false
+end
+
 function ComboBox:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -1898,6 +2177,13 @@ function App:createRadioButton(config)
 	return RadioButton:new(self, config)
 end
 
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.ProgressBar
+function App:createProgressBar(config)
+	return ProgressBar:new(self, config)
+end
+
 function App:_ensureAnimationTimer()
 	if not self._animationTimer then
 		self._animationTimer = osLib.startTimer(self._animationInterval)
@@ -2302,15 +2588,19 @@ pixelui.widgets = {
 	end,
 	RadioButton = function(app, config)
 		return RadioButton:new(app, config)
+	end,
+	ProgressBar = function(app, config)
+		return ProgressBar:new(app, config)
 	end
 }
 
 pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Button = Button
-pixelui.RadioButton = RadioButton
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
+pixelui.RadioButton = RadioButton
+pixelui.ProgressBar = ProgressBar
 pixelui.easings = easings
 
 return pixelui
