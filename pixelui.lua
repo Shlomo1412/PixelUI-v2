@@ -60,6 +60,8 @@ local shrekbox = require("shrekbox")
 ---@field _autoWindow boolean
 ---@field _parentTerminal table?
 ---@field _focusWidget PixelUI.Widget?
+---@field _popupWidgets PixelUI.Widget[]
+---@field _popupLookup table<PixelUI.Widget, boolean>
 
 ---@class PixelUI.Frame : PixelUI.Widget
 ---@field private _children PixelUI.Widget[]
@@ -74,6 +76,16 @@ local shrekbox = require("shrekbox")
 ---@field clickEffect boolean
 ---@field private _pressed boolean
 
+---@class PixelUI.ComboBox : PixelUI.Widget
+---@field items string[]
+---@field selectedIndex integer
+---@field dropdownBg PixelUI.Color
+---@field dropdownFg PixelUI.Color
+---@field highlightBg PixelUI.Color
+---@field highlightFg PixelUI.Color
+---@field placeholder string?
+---@field onChange fun(self:PixelUI.ComboBox, item:string?, index:integer)?
+
 ---@class PixelUI.TextBox : PixelUI.Widget
 ---@field text string
 ---@field placeholder string
@@ -85,7 +97,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox }
 
 local pixelui = {
 	version = "0.1.0"
@@ -102,10 +114,25 @@ local Button = {}
 Button.__index = Button
 setmetatable(Button, { __index = Widget })
 
+local ComboBox = {}
+ComboBox.__index = ComboBox
+setmetatable(ComboBox, { __index = Widget })
+
 local App = {}
 App.__index = App
 
 local borderSides = { "top", "right", "bottom", "left" }
+
+local function clone_table(src)
+	if not src then
+		return nil
+	end
+	local copy = {}
+	for k, v in pairs(src) do
+		copy[k] = v
+	end
+	return copy
+end
 
 local function assert_positive_integer(name, value)
 	expect(nil, name, "string")
@@ -357,9 +384,6 @@ function Widget:_init_base(app, config)
 	assert_positive_integer("height", self.height)
 end
 
----@since 0.1.0
----@param width integer
----@param height integer
 function Widget:setSize(width, height)
 	assert_positive_integer("width", width)
 	assert_positive_integer("height", height)
@@ -367,8 +391,6 @@ function Widget:setSize(width, height)
 	self.height = height
 end
 
----@since 0.1.0
----@param x integer
 ---@param y integer
 function Widget:setPosition(x, y)
 	expect(1, x, "number")
@@ -588,6 +610,7 @@ function Frame:draw(textLayer, pixelLayer)
 end
 
 ---@since 0.1.0
+---@diagnostic disable-next-line: undefined-doc-param
 ---@param event string
 function Frame:handleEvent(event, ...)
 	if not self.visible then
@@ -701,6 +724,7 @@ function Button:draw(textLayer, pixelLayer)
 end
 
 ---@since 0.1.0
+---@diagnostic disable-next-line: undefined-doc-param
 ---@param event string
 function Button:handleEvent(event, ...)
 	if not self.visible then
@@ -758,6 +782,407 @@ function Button:handleEvent(event, ...)
 				self.onClick(self, 1, x, y)
 			end
 			return true
+		end
+	end
+
+	return false
+end
+
+function ComboBox:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = baseConfig.height or 3
+	baseConfig.width = baseConfig.width or 16
+	local instance = setmetatable({}, ComboBox)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.items = {}
+	if config and type(config.items) == "table" then
+		for i = 1, #config.items do
+			local value = config.items[i]
+			if value ~= nil then
+				instance.items[#instance.items + 1] = tostring(value)
+			end
+		end
+	end
+	instance.dropdownBg = (config and config.dropdownBg) or colors.black
+	instance.dropdownFg = (config and config.dropdownFg) or colors.white
+	instance.highlightBg = (config and config.highlightBg) or colors.lightBlue
+	instance.highlightFg = (config and config.highlightFg) or colors.black
+	instance.placeholder = (config and config.placeholder) or "Select..."
+	instance.onChange = config and config.onChange or nil
+	if config and type(config.selectedIndex) == "number" then
+		instance.selectedIndex = math.floor(config.selectedIndex)
+	elseif #instance.items > 0 then
+		instance.selectedIndex = 1
+	else
+		instance.selectedIndex = 0
+	end
+	instance:_normalizeSelection()
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance._open = false
+	instance._hoverIndex = nil
+	return instance
+end
+
+function ComboBox:_normalizeSelection()
+	if #self.items == 0 then
+		self.selectedIndex = 0
+		return
+	end
+	if self.selectedIndex < 1 then
+		self.selectedIndex = 1
+	elseif self.selectedIndex > #self.items then
+		self.selectedIndex = #self.items
+	end
+end
+
+function ComboBox:setItems(items)
+	expect(1, items, "table")
+	local list = {}
+	for i = 1, #items do
+		local value = items[i]
+		if value ~= nil then
+			list[#list + 1] = tostring(value)
+		end
+	end
+	local previousItem = self:getSelectedItem()
+	local previousIndex = self.selectedIndex
+	self.items = list
+	if #list == 0 then
+		self.selectedIndex = 0
+		if previousIndex ~= 0 or previousItem ~= nil then
+			self:_notifyChange()
+		end
+		self:_setOpen(false)
+		return
+	end
+	self:_normalizeSelection()
+	local currentItem = self:getSelectedItem()
+	if previousIndex ~= self.selectedIndex or previousItem ~= currentItem then
+		self:_notifyChange()
+	end
+	if self._open then
+		self._hoverIndex = self.selectedIndex
+	end
+end
+
+function ComboBox:getSelectedItem()
+	if self.selectedIndex >= 1 and self.selectedIndex <= #self.items then
+		return self.items[self.selectedIndex]
+	end
+	return nil
+end
+
+function ComboBox:setSelectedIndex(index, suppressEvent)
+	if index == nil then
+		return
+	end
+	expect(1, index, "number")
+	if #self.items == 0 then
+		self.selectedIndex = 0
+		return
+	end
+	index = math.floor(index)
+	if index < 1 then
+		index = 1
+	elseif index > #self.items then
+		index = #self.items
+	end
+	if self.selectedIndex ~= index then
+		self.selectedIndex = index
+		if not suppressEvent then
+			self:_notifyChange()
+		end
+	end
+	if self._open then
+		self._hoverIndex = self.selectedIndex
+	end
+end
+
+function ComboBox:setOnChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onChange = handler
+end
+
+function ComboBox:_notifyChange()
+	if self.onChange then
+		self.onChange(self, self:getSelectedItem(), self.selectedIndex)
+	end
+end
+
+function ComboBox:_setOpen(open)
+	open = not not open
+	if open and #self.items == 0 then
+		open = false
+	end
+	if self._open == open then
+		return
+	end
+	self._open = open
+	if open then
+		if self.app then
+			self.app:_registerPopup(self)
+		end
+		if self.selectedIndex >= 1 and self.selectedIndex <= #self.items then
+			self._hoverIndex = self.selectedIndex
+		elseif #self.items > 0 then
+			self._hoverIndex = 1
+		else
+			self._hoverIndex = nil
+		end
+	else
+		if self.app then
+			self.app:_unregisterPopup(self)
+		end
+		self._hoverIndex = nil
+	end
+end
+
+function ComboBox:onFocusChanged(focused)
+	if not focused then
+		self:_setOpen(false)
+	end
+end
+
+function ComboBox:_isPointInDropdown(x, y)
+	if not self._open or #self.items == 0 then
+		return false
+	end
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local startY = ay + height
+	return x >= ax and x < ax + width and y >= startY and y < startY + #self.items
+end
+
+function ComboBox:_indexFromPoint(x, y)
+	if not self:_isPointInDropdown(x, y) then
+		return nil
+	end
+	local _, ay, _, height = self:getAbsoluteRect()
+	local index = y - (ay + height) + 1
+	if index < 1 or index > #self.items then
+		return nil
+	end
+	return index
+end
+
+function ComboBox:_handlePress(x, y)
+	local ax, ay, width, height = self:getAbsoluteRect()
+	if width <= 0 or height <= 0 then
+		return false
+	end
+
+	if self:containsPoint(x, y) then
+		self.app:setFocus(self)
+		if self._open then
+			self:_setOpen(false)
+		else
+			self:_setOpen(true)
+		end
+		return true
+	end
+
+	if self:_isPointInDropdown(x, y) then
+		local index = self:_indexFromPoint(x, y)
+		if index then
+			self:setSelectedIndex(index)
+		end
+		self.app:setFocus(self)
+		self:_setOpen(false)
+		return true
+	end
+
+	if self._open then
+		self:_setOpen(false)
+	end
+	return false
+end
+
+function ComboBox:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+
+	local innerX = ax + leftPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerY = ay + topPad
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+
+	local arrowWidth = innerWidth > 0 and 1 or 0
+	local contentWidth = math.max(0, innerWidth - arrowWidth)
+	local textY
+	if innerHeight > 0 then
+		textY = innerY + math.floor((innerHeight - 1) / 2)
+	else
+		textY = ay
+	end
+
+	local display = self:getSelectedItem()
+	if not display or display == "" then
+		display = self.placeholder or ""
+	end
+
+	if contentWidth > 0 then
+		if #display > contentWidth then
+			display = display:sub(1, contentWidth)
+		end
+		local padding = math.max(0, contentWidth - #display)
+		local padded = display .. string.rep(" ", padding)
+		textLayer.text(innerX, textY, padded, fg, bg)
+	end
+
+	if arrowWidth > 0 then
+		local arrow = self._open and string.char(30) or string.char(31)
+		local arrowX = innerX + innerWidth - 1
+		textLayer.text(arrowX, textY, arrow, fg, bg)
+	end
+end
+
+function ComboBox:_drawDropdown(textLayer, pixelLayer)
+	if not self._open or #self.items == 0 or self.visible == false then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local dropdownY = ay + height
+	local dropHeight = #self.items
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local itemX = ax + leftPad
+	local itemWidth = math.max(0, width - leftPad - rightPad)
+	local highlightIndex = self._hoverIndex or (self.selectedIndex > 0 and self.selectedIndex or nil)
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local dropdownHeight = dropHeight + bottomPad
+
+	fill_rect(textLayer, ax, dropdownY, width, dropdownHeight, self.dropdownBg, self.dropdownBg)
+	clear_border_characters(textLayer, ax, dropdownY, width, dropdownHeight)
+
+	for index = 1, dropHeight do
+		local itemY = dropdownY + index - 1
+		local item = self.items[index] or ""
+		local isHighlighted = highlightIndex ~= nil and highlightIndex == index
+		local itemBg = isHighlighted and (self.highlightBg or self.dropdownBg) or self.dropdownBg
+		local itemFg = isHighlighted and (self.highlightFg or self.dropdownFg) or self.dropdownFg
+		if itemWidth > 0 then
+			local label = item
+			if #label > itemWidth then
+				label = label:sub(1, itemWidth)
+			end
+			local padding = math.max(0, itemWidth - #label)
+			local padded = label .. string.rep(" ", padding)
+			textLayer.text(itemX, itemY, padded, itemFg, itemBg)
+		end
+	end
+
+	if self.border then
+		local dropBorder = clone_table(self.border)
+		if dropBorder then
+			dropBorder.top = false
+			draw_border(pixelLayer, ax, dropdownY, width, dropdownHeight, dropBorder, self.dropdownBg)
+		end
+	end
+end
+
+function ComboBox:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		return self:_handlePress(x, y)
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		return self:_handlePress(x, y)
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) or self:_isPointInDropdown(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:setSelectedIndex(self.selectedIndex + 1)
+			elseif direction < 0 then
+				self:setSelectedIndex(self.selectedIndex - 1)
+			end
+			return true
+		end
+	elseif event == "mouse_move" then
+		local x, y = ...
+		if self._open then
+			self._hoverIndex = self:_indexFromPoint(x, y)
+		end
+	elseif event == "mouse_drag" then
+		local _, x, y = ...
+		if self._open then
+			self._hoverIndex = self:_indexFromPoint(x, y)
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.down then
+			self:setSelectedIndex(self.selectedIndex + 1)
+			return true
+		elseif keyCode == keys.up then
+			self:setSelectedIndex(self.selectedIndex - 1)
+			return true
+		elseif keyCode == keys.home then
+			self:setSelectedIndex(1)
+			return true
+		elseif keyCode == keys["end"] then
+			self:setSelectedIndex(#self.items)
+			return true
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			if self._open then
+				self:_setOpen(false)
+			else
+				self:_setOpen(true)
+			end
+			return true
+		elseif keyCode == keys.escape then
+			if self._open then
+				self:_setOpen(false)
+				return true
+			end
+		end
+	elseif event == "char" then
+		if not self:isFocused() or #self.items == 0 then
+			return false
+		end
+		local ch = ...
+		if ch and #ch > 0 then
+			local lower = ch:sub(1, 1):lower()
+			local start = self.selectedIndex >= 1 and self.selectedIndex or 0
+			for offset = 1, #self.items do
+				local index = ((start + offset - 1) % #self.items) + 1
+				local item = self.items[index]
+				if item and item:sub(1, 1):lower() == lower then
+					self:setSelectedIndex(index)
+					return true
+				end
+			end
 		end
 	end
 
@@ -1109,7 +1534,9 @@ function pixelui.create(options)
 		running = false,
 		_autoWindow = autoWindow,
 		_parentTerminal = parentTerm,
-		_focusWidget = nil
+		_focusWidget = nil,
+		_popupWidgets = {},
+		_popupLookup = {}
 	}, App)
 
 	app.root = Frame:new(app, {
@@ -1174,6 +1601,64 @@ function App:createTextBox(config)
 end
 
 ---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.ComboBox
+function App:createComboBox(config)
+	return ComboBox:new(self, config)
+end
+
+function App:_registerPopup(widget)
+	if not widget then
+		return
+	end
+	local lookup = self._popupLookup
+	if not lookup[widget] then
+		lookup[widget] = true
+		table.insert(self._popupWidgets, widget)
+	end
+end
+
+function App:_unregisterPopup(widget)
+	if not widget then
+		return
+	end
+	local lookup = self._popupLookup
+	if not lookup[widget] then
+		return
+	end
+	lookup[widget] = nil
+	local list = self._popupWidgets
+	for index = #list, 1, -1 do
+		if list[index] == widget then
+			table.remove(list, index)
+			break
+		end
+	end
+end
+
+function App:_drawPopups()
+	local list = self._popupWidgets
+	if not list or #list == 0 then
+		return
+	end
+	local textLayer = self.layer
+	local pixelLayer = self.pixelLayer
+	local index = 1
+	while index <= #list do
+		local widget = list[index]
+		if widget and widget._open and widget.visible ~= false then
+			widget:_drawDropdown(textLayer, pixelLayer)
+			index = index + 1
+		else
+			if widget then
+				self._popupLookup[widget] = nil
+			end
+			table.remove(list, index)
+		end
+	end
+end
+
+---@since 0.1.0
 ---@param widget PixelUI.Widget?
 function App:setFocus(widget)
 	if widget ~= nil then
@@ -1212,6 +1697,7 @@ function App:render()
 	self.pixelLayer.clear()
 	self.layer.clear()
 	self.root:draw(self.layer, self.pixelLayer)
+	self:_drawPopups()
 	self.box.render()
 end
 
@@ -1281,6 +1767,9 @@ pixelui.widgets = {
 	end,
 	TextBox = function(app, config)
 		return TextBox:new(app, config)
+	end,
+	ComboBox = function(app, config)
+		return ComboBox:new(app, config)
 	end
 }
 
@@ -1288,5 +1777,6 @@ pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Button = Button
 pixelui.TextBox = TextBox
+pixelui.ComboBox = ComboBox
 
 return pixelui
