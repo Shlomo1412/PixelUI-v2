@@ -92,6 +92,14 @@ local shrekbox = require("shrekbox")
 ---@field fillColor PixelUI.Color
 ---@field textColor PixelUI.Color
 
+---@class PixelUI.List : PixelUI.Widget
+---@field items string[]
+---@field selectedIndex integer
+---@field highlightBg PixelUI.Color
+---@field highlightFg PixelUI.Color
+---@field placeholder string?
+---@field onSelect fun(self:PixelUI.List, item:string?, index:integer)?
+
 ---@class PixelUI.RadioButton : PixelUI.Widget
 ---@field label string
 ---@field value any
@@ -132,7 +140,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -177,6 +185,10 @@ setmetatable(Button, { __index = Widget })
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 setmetatable(ProgressBar, { __index = Widget })
+
+local List = {}
+List.__index = List
+setmetatable(List, { __index = Widget })
 
 local RadioButton = {}
 RadioButton.__index = RadioButton
@@ -1346,6 +1358,457 @@ function ProgressBar:handleEvent(_event, ...)
 	return false
 end
 
+function List:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = baseConfig.height or 5
+	baseConfig.width = baseConfig.width or 16
+	local instance = setmetatable({}, List)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.items = {}
+	if config and type(config.items) == "table" then
+		for i = 1, #config.items do
+			local value = config.items[i]
+			if value ~= nil then
+				instance.items[#instance.items + 1] = tostring(value)
+			end
+		end
+	end
+	if type(config.selectedIndex) == "number" then
+		instance.selectedIndex = math.floor(config.selectedIndex)
+	elseif #instance.items > 0 then
+		instance.selectedIndex = 1
+	else
+		instance.selectedIndex = 0
+	end
+	instance.highlightBg = (config and config.highlightBg) or colors.lightGray
+	instance.highlightFg = (config and config.highlightFg) or colors.black
+	instance.placeholder = (config and config.placeholder) or nil
+	instance.onSelect = config and config.onSelect or nil
+	instance.scrollOffset = 1
+	instance.typeSearchTimeout = (config and config.typeSearchTimeout) or 0.75
+	instance._typeSearch = { buffer = "", lastTime = 0 }
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance:_normalizeSelection(true)
+	return instance
+end
+
+function List:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	return leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight
+end
+
+function List:_getInnerHeight()
+	local _, _, _, _, _, innerHeight = self:_getInnerMetrics()
+	if innerHeight < 1 then
+		innerHeight = 1
+	end
+	return innerHeight
+end
+
+function List:_clampScroll()
+	local innerHeight = self:_getInnerHeight()
+	local maxOffset = math.max(1, #self.items - innerHeight + 1)
+	if self.scrollOffset < 1 then
+		self.scrollOffset = 1
+	elseif self.scrollOffset > maxOffset then
+		self.scrollOffset = maxOffset
+	end
+end
+
+function List:_ensureSelectionVisible()
+	if self.selectedIndex < 1 or self.selectedIndex > #self.items then
+		self:_clampScroll()
+		return
+	end
+	local innerHeight = self:_getInnerHeight()
+	if self.selectedIndex < self.scrollOffset then
+		self.scrollOffset = self.selectedIndex
+	elseif self.selectedIndex > self.scrollOffset + innerHeight - 1 then
+		self.scrollOffset = self.selectedIndex - innerHeight + 1
+	end
+	self:_clampScroll()
+end
+
+function List:_normalizeSelection(silent)
+	local count = #self.items
+	if count == 0 then
+		self.selectedIndex = 0
+		self.scrollOffset = 1
+		return
+	end
+	if self.selectedIndex < 1 then
+		self.selectedIndex = 1
+	elseif self.selectedIndex > count then
+		self.selectedIndex = count
+	end
+	self:_ensureSelectionVisible()
+	if not silent then
+		self:_notifySelect()
+	end
+end
+
+function List:getItems()
+	local copy = {}
+	for i = 1, #self.items do
+		copy[i] = self.items[i]
+	end
+	return copy
+end
+
+function List:setItems(items)
+	expect(1, items, "table")
+	local list = {}
+	for i = 1, #items do
+		local value = items[i]
+		if value ~= nil then
+			list[#list + 1] = tostring(value)
+		end
+	end
+	local previousItem = self:getSelectedItem()
+	local previousIndex = self.selectedIndex
+	self.items = list
+	if #list == 0 then
+		self.selectedIndex = 0
+		self.scrollOffset = 1
+		if (previousIndex ~= 0 or previousItem ~= nil) and self.onSelect then
+			self.onSelect(self, nil, 0)
+		end
+		return
+	end
+	self:_normalizeSelection(true)
+	local currentItem = self:getSelectedItem()
+	if (previousIndex ~= self.selectedIndex) or (previousItem ~= currentItem) then
+		self:_notifySelect()
+	end
+end
+
+function List:getSelectedItem()
+	if self.selectedIndex >= 1 and self.selectedIndex <= #self.items then
+		return self.items[self.selectedIndex]
+	end
+	return nil
+end
+
+function List:setSelectedIndex(index, suppressEvent)
+	if #self.items == 0 then
+		self.selectedIndex = 0
+		self.scrollOffset = 1
+		return
+	end
+	expect(1, index, "number")
+	index = math.floor(index)
+	if index < 1 then
+		index = 1
+	elseif index > #self.items then
+		index = #self.items
+	end
+	if self.selectedIndex ~= index then
+		self.selectedIndex = index
+		self:_ensureSelectionVisible()
+		if not suppressEvent then
+			self:_notifySelect()
+		end
+	else
+		self:_ensureSelectionVisible()
+	end
+end
+
+function List:getSelectedIndex()
+	return self.selectedIndex
+end
+
+function List:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function List:setPlaceholder(placeholder)
+	if placeholder ~= nil then
+		expect(1, placeholder, "string")
+	end
+	self.placeholder = placeholder
+end
+
+function List:setHighlightColors(bg, fg)
+	if bg ~= nil then
+		expect(1, bg, "number")
+		self.highlightBg = bg
+	end
+	if fg ~= nil then
+		expect(2, fg, "number")
+		self.highlightFg = fg
+	end
+end
+
+function List:_notifySelect()
+	if self.onSelect then
+		self.onSelect(self, self:getSelectedItem(), self.selectedIndex)
+	end
+end
+
+function List:onFocusChanged(focused)
+	if not focused and self._typeSearch then
+		self._typeSearch.buffer = ""
+		self._typeSearch.lastTime = 0
+	end
+end
+
+function List:_itemIndexFromPoint(x, y)
+	if not self:containsPoint(x, y) then
+		return nil
+	end
+	local ax, ay = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return nil
+	end
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	if x < innerX or x >= innerX + innerWidth then
+		return nil
+	end
+	if y < innerY or y >= innerY + innerHeight then
+		return nil
+	end
+	local row = y - innerY
+	local index = self.scrollOffset + row
+	if index < 1 or index > #self.items then
+		return nil
+	end
+	return index
+end
+
+function List:_moveSelection(delta)
+	if #self.items == 0 then
+		return
+	end
+	local index = self.selectedIndex
+	if index < 1 then
+		index = 1
+	end
+	index = index + delta
+	if index < 1 then
+		index = 1
+	elseif index > #self.items then
+		index = #self.items
+	end
+	self:setSelectedIndex(index)
+end
+
+function List:_scrollBy(delta)
+	if delta == 0 then
+		return
+	end
+	self.scrollOffset = self.scrollOffset + delta
+	self:_clampScroll()
+end
+
+function List:_handleTypeSearch(ch)
+	if not ch or ch == "" then
+		return
+	end
+	local entry = self._typeSearch
+	if not entry then
+		entry = { buffer = "", lastTime = 0 }
+		self._typeSearch = entry
+	end
+	local now = osLib.clock()
+	local timeout = self.typeSearchTimeout or 0.75
+	if now - (entry.lastTime or 0) > timeout then
+		entry.buffer = ""
+	end
+	entry.buffer = entry.buffer .. ch:lower()
+	entry.lastTime = now
+	self:_searchForPrefix(entry.buffer)
+end
+
+function List:_searchForPrefix(prefix)
+	if not prefix or prefix == "" then
+		return
+	end
+	local count = #self.items
+	if count == 0 then
+		return
+	end
+	local start = self.selectedIndex >= 1 and self.selectedIndex or 0
+	for offset = 1, count do
+		local index = ((start + offset - 1) % count) + 1
+		local item = self.items[index]
+		if item and item:lower():sub(1, #prefix) == prefix then
+			self:setSelectedIndex(index)
+			return
+		end
+	end
+end
+
+function List:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+
+	local count = #self.items
+	local baseBg = bg
+	local highlightBg = self.highlightBg or colors.lightGray
+	local highlightFg = self.highlightFg or colors.black
+
+	if count == 0 then
+		for row = 0, innerHeight - 1 do
+			textLayer.text(innerX, innerY + row, string.rep(" ", innerWidth), fg, baseBg)
+		end
+		local placeholder = self.placeholder
+		if type(placeholder) == "string" and #placeholder > 0 then
+			local display = placeholder
+			if #display > innerWidth then
+				display = display:sub(1, innerWidth)
+			end
+			local startX = innerX + math.floor((innerWidth - #display) / 2)
+			if startX < innerX then
+				startX = innerX
+			end
+			textLayer.text(startX, innerY, display, colors.lightGray, baseBg)
+		end
+		return
+	end
+
+	for row = 0, innerHeight - 1 do
+		local lineY = innerY + row
+		local index = self.scrollOffset + row
+		if index > count then
+			textLayer.text(innerX, lineY, string.rep(" ", innerWidth), fg, baseBg)
+		else
+			local item = self.items[index] or ""
+			if #item > innerWidth then
+				item = item:sub(1, innerWidth)
+			end
+			local padded = item
+			if #padded < innerWidth then
+				padded = padded .. string.rep(" ", innerWidth - #padded)
+			end
+			local drawBg = baseBg
+			local drawFg = fg
+			if index == self.selectedIndex then
+				drawBg = highlightBg
+				drawFg = highlightFg
+			end
+			textLayer.text(innerX, lineY, padded, drawFg, drawBg)
+		end
+	end
+end
+
+function List:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_itemIndexFromPoint(x, y)
+			if index then
+				self:setSelectedIndex(index)
+			end
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_itemIndexFromPoint(x, y)
+			if index then
+				self:setSelectedIndex(index)
+			end
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:_scrollBy(1)
+			elseif direction < 0 then
+				self:_scrollBy(-1)
+			end
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.up then
+			self:_moveSelection(-1)
+			return true
+		elseif keyCode == keys.down then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.pageUp then
+			self:_moveSelection(-self:_getInnerHeight())
+			return true
+		elseif keyCode == keys.pageDown then
+			self:_moveSelection(self:_getInnerHeight())
+			return true
+		elseif keyCode == keys.home then
+			if #self.items > 0 then
+				self:setSelectedIndex(1)
+			end
+			return true
+		elseif keyCode == keys["end"] then
+			if #self.items > 0 then
+				self:setSelectedIndex(#self.items)
+			end
+			return true
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			self:_notifySelect()
+			return true
+		end
+	elseif event == "char" then
+		local ch = ...
+		if self:isFocused() and ch and #ch > 0 then
+			self:_handleTypeSearch(ch:sub(1, 1))
+			return true
+		end
+	elseif event == "paste" then
+		local text = ...
+		if self:isFocused() and text and #text > 0 then
+			self:_handleTypeSearch(text:sub(1, 1))
+			return true
+		end
+	end
+
+	return false
+end
+
 function ComboBox:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -2172,6 +2635,13 @@ end
 
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
+---@return PixelUI.List
+function App:createList(config)
+	return List:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.RadioButton
 function App:createRadioButton(config)
 	return RadioButton:new(self, config)
@@ -2586,6 +3056,9 @@ pixelui.widgets = {
 	ComboBox = function(app, config)
 		return ComboBox:new(app, config)
 	end,
+	List = function(app, config)
+		return List:new(app, config)
+	end,
 	RadioButton = function(app, config)
 		return RadioButton:new(app, config)
 	end,
@@ -2599,6 +3072,7 @@ pixelui.Frame = Frame
 pixelui.Button = Button
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
+pixelui.List = List
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.easings = easings

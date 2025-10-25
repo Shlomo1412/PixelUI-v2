@@ -21,7 +21,8 @@ local wizard = app:createFrame({
     width = 34,
     height = 15,
     bg = colors.gray,
-    fg = colors.white
+    fg = colors.white,
+    border = { color = colors.lightGray }
 })
 root:addChild(wizard)
 
@@ -29,7 +30,7 @@ local steps = {}
 local currentStep = 1
 local navHeight = 3
 local navGap = 1
-local innerMargin = 2
+local innerMargin = 1
 
 local function clamp(value, minValue, maxValue)
     if value < minValue then
@@ -78,6 +79,17 @@ local function centerWidget(widget, parent, w, h)
     local py = math.floor((parent.height - h) / 2) + 1
     widget:setPosition(px, py)
 end
+
+local radioButtons = {}
+local radioDefaultWidths = {}
+local selectedRadio
+local listWidget
+local listDefaults = {}
+local progressDeterminate
+local progressIndeterminate
+local progressDefaults = {}
+local progressAnimationHandle
+local progressStepIndex
 
 -- Step 1: Button showcase
 local buttonStep = app:createFrame({
@@ -157,16 +169,50 @@ centerWidget(stepCombo, comboStep, stepCombo.width, stepCombo.height)
 comboStep:addChild(stepCombo)
 addStep(comboStep)
 
-local radioButtons = {}
-local radioDefaultWidths = {}
-local selectedRadio
-local progressDeterminate
-local progressIndeterminate
-local progressDefaults = {}
-local progressAnimationHandle
-local progressStepIndex
+-- Step 4: List showcase
+local listStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(listStep)
 
--- Step 4: RadioButton showcase
+listWidget = app:createList({
+    x = 2,
+    y = 2,
+    width = 24,
+    height = 7,
+    items = {
+        "Buttons",
+        "Form Inputs",
+        "Selectors",
+        "Lists",
+        "Animations",
+        "Data Views"
+    },
+    bg = colors.gray,
+    fg = colors.white,
+    highlightBg = colors.lightGray,
+    highlightFg = colors.black,
+    border = { color = colors.lightGray }
+})
+listStep:addChild(listWidget)
+listDefaults.width = listWidget.width
+listDefaults.height = listWidget.height
+addStep(listStep, function()
+    if listWidget then
+        app:setFocus(listWidget)
+    end
+end, function()
+    if listWidget and listWidget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 5: RadioButton showcase
 local radioStep = app:createFrame({
     x = 2,
     y = 2,
@@ -219,7 +265,7 @@ addStep(radioStep, function()
     end
 end)
 
--- Step 5: ProgressBar showcase
+-- Step 6: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -234,7 +280,7 @@ progressDeterminate = app:createProgressBar({
     x = 2,
     y = 3,
     width = 24,
-    height = 3,
+    height = 2,
     min = 0,
     max = 100,
     value = 0,
@@ -242,24 +288,24 @@ progressDeterminate = app:createProgressBar({
     showPercent = true,
     bg = colors.gray,
     fg = colors.white,
-    trackColor = colors.black,
+    trackColor = colors.gray,
     fillColor = colors.green,
-    border = { color = colors.white }
+    border = { color = colors.lightGray }
 })
 progressStep:addChild(progressDeterminate)
 
 progressIndeterminate = app:createProgressBar({
     x = 2,
-    y = 7,
+    y = 6,
     width = 24,
-    height = 3,
+    height = 2,
     label = "Searching...",
     indeterminate = false,
     bg = colors.gray,
     fg = colors.white,
-    trackColor = colors.black,
+    trackColor = colors.gray,
     fillColor = colors.orange,
-    border = { color = colors.white }
+    border = { color = colors.lightGray }
 })
 progressStep:addChild(progressIndeterminate)
 
@@ -479,6 +525,17 @@ local function layout()
     local comboHeight = math.min(defaultComboSize.height, stepHeight)
     stepCombo:setSize(comboWidth, comboHeight)
     centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
+
+    if listWidget then
+        local listWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local listHeightLimit = math.max(3, stepHeight - innerMargin * 2)
+        local baseWidth = listDefaults.width or listWidget.width
+        local baseHeight = listDefaults.height or listWidget.height
+        local listWidth = math.max(6, math.min(baseWidth, listWidthLimit))
+        local listHeight = math.max(3, math.min(baseHeight, listHeightLimit))
+        listWidget:setSize(listWidth, listHeight)
+        centerWidget(listWidget, listStep, listWidth, listHeight)
+    end
 
     if #radioButtons > 0 then
         local maxRadioWidth = math.max(4, stepWidth - innerMargin)
