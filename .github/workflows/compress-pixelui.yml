@@ -1,36 +1,48 @@
-name: Compress PixelUI Lua
+name: Compress Lua File
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+    paths:
+      - 'pixelui.lua'
+
+permissions:
+  contents: write # Required to push the commit
 
 jobs:
-  compress-pixelui:
+  compress-and-commit:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # This is necessary to push changes back to the repository
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Install Lua minifier
-      run: npm install -g luamin
+      - name-A: Install luamin
+        run: npm install -g luamin
 
-    - name: Compress pixelui.lua
-      run: |
-        mkdir -p compressed
-        luamin pixelui.lua > compressed/pixelui.min.lua
+      - name: Compress pixelui.lua
+        run: |
+          mkdir -p compressed
+          luamin -f pixelui.lua > compressed/pixelui.lua
 
-    - name: Commit compressed file
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add compressed/pixelui.min.lua
-        git diff --cached --quiet || git commit -m "Auto-compress pixelui.lua"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit compressed file
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add compressed/pixelui.lua
+          # Check if there are changes to commit
+          if ! git diff --staged --quiet; then
+            git commit -m "feat: Compress pixelui.lua"
+            git push
+          else
+            echo "No changes to commit."
+          fi
