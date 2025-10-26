@@ -111,11 +111,67 @@ local toggleState = {
     statusLabel = nil,
     statusDefaults = {}
 }
+local tableState = {
+    widget = nil,
+    defaults = {},
+    detailLabel = nil,
+    detailDefaults = {},
+    refreshButton = nil,
+    refreshDefaults = {}
+}
+local editorState = {
+    widget = nil,
+    defaults = {},
+    statusLabel = nil,
+    statusDefaults = {},
+    instructions = nil,
+    instructionsDefaults = {}
+}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
 local progressAnimationHandle
 local progressStepIndex
+
+local randomSeeded = false
+local function seedRandom()
+    if randomSeeded then
+        return
+    end
+    math.randomseed(os.clock() * 1000)
+    for _ = 1, 3 do
+        math.random()
+    end
+    randomSeeded = true
+end
+
+local tableRegions = { "NA", "EU", "APAC", "LATAM" }
+local tableStatuses = { "Healthy", "Warning", "Critical", "Offline" }
+
+local function generateTableData()
+    seedRandom()
+    local rows = {}
+    for i = 1, 8 do
+        rows[#rows + 1] = {
+            name = string.format("Svc %02d", math.random(1, 99)),
+            region = tableRegions[math.random(#tableRegions)],
+            status = tableStatuses[math.random(#tableStatuses)],
+            latency = math.random(24, 240)
+        }
+    end
+    return rows
+end
+
+local function updateTableDetails(row)
+    if not tableState.detailLabel then
+        return
+    end
+    if not row then
+        tableState.detailLabel:setText("Select a service to view metrics.")
+        return
+    end
+    tableState.detailLabel:setText(string.format("%s (%s) is %s - %dms latency", row.name, row.region, row.status, row.latency))
+end
 
 -- Step 1: Button showcase
 local buttonStep = app:createFrame({
@@ -771,7 +827,223 @@ end, function()
     end
 end)
 
--- Step 12: ProgressBar showcase
+-- Step 12: Table showcase
+local tableStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(tableStep)
+
+tableState.widget = app:createTable({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 6,
+    columns = {
+        { id = "name", title = "Service", key = "name", width = 8 },
+        { id = "region", title = "Region", key = "region", width = 5 },
+        { id = "status", title = "Status", key = "status", width = 8 },
+        {
+            id = "latency",
+            title = "Latency",
+            key = "latency",
+            width = 5,
+            align = "right",
+            format = function(value)
+                if value == nil then
+                    return "-"
+                end
+                return tostring(value) .. "ms"
+            end
+        }
+    },
+    data = generateTableData(),
+    headerBg = colors.lightGray,
+    headerFg = colors.black,
+    highlightBg = colors.orange,
+    highlightFg = colors.black,
+    zebra = true,
+    zebraBg = colors.lightGray,
+    rowBg = colors.gray,
+    rowFg = colors.white,
+    placeholder = "No services tracked"
+})
+tableStep:addChild(tableState.widget)
+tableState.defaults = { width = tableState.widget.width, height = tableState.widget.height }
+
+tableState.detailLabel = app:createLabel({
+    x = 2,
+    y = 9,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Select a service to view metrics.",
+    bg = colors.gray,
+    fg = colors.white
+})
+tableStep:addChild(tableState.detailLabel)
+tableState.detailDefaults = { width = tableState.detailLabel.width, height = tableState.detailLabel.height }
+
+tableState.refreshButton = app:createButton({
+    x = 2,
+    y = 11,
+    width = 14,
+    height = 3,
+    label = "Refresh Data",
+    bg = colors.lightGray,
+    fg = colors.black,
+    border = { color = colors.white }
+})
+tableStep:addChild(tableState.refreshButton)
+tableState.refreshDefaults = { width = tableState.refreshButton.width, height = tableState.refreshButton.height }
+
+tableState.widget:setOnSelect(function(_, row)
+    updateTableDetails(row)
+end)
+tableState.widget:setOnSort(function()
+    updateTableDetails(tableState.widget:getSelectedRow())
+end)
+updateTableDetails(tableState.widget:getSelectedRow())
+
+tableState.refreshButton:setOnClick(function()
+    local dataset = generateTableData()
+    tableState.widget:setData(dataset)
+    if #dataset > 0 then
+        tableState.widget:setSelectedIndex(1, true)
+        updateTableDetails(tableState.widget:getSelectedRow())
+    else
+        updateTableDetails(nil)
+    end
+end)
+
+addStep(tableStep, function()
+    if tableState.widget then
+        app:setFocus(tableState.widget)
+        updateTableDetails(tableState.widget:getSelectedRow())
+    end
+end, function()
+    if tableState.widget and tableState.widget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 13: Text Editor showcase
+local editorStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(editorStep)
+
+local editorSample = [[local services = {
+    "Auth",
+    "Billing",
+    "Notifications"
+}
+
+local function logStatus(name)
+    print("Watching " .. name)
+end
+
+for index = 1, #services do
+    logStatus(services[index])
+end]]
+
+editorState.widget = app:createTextBox({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 6,
+    multiline = true,
+    syntax = "lua",
+    autocomplete = {
+        "pixelui.create",
+        "app:createTable",
+        "app:createTextBox",
+        "generateTableData()",
+        "updateTableDetails(row)",
+        "logStatus(name)"
+    },
+    autocompleteAuto = true,
+    placeholder = "Type Lua code here...",
+    text = editorSample,
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.white },
+    selectionBg = colors.lightBlue,
+    selectionFg = colors.black
+})
+editorStep:addChild(editorState.widget)
+editorState.defaults = { width = editorState.widget.width, height = editorState.widget.height }
+
+editorState.statusLabel = app:createLabel({
+    x = 2,
+    y = 9,
+    width = 26,
+    height = 1,
+    text = "",
+    align = "left",
+    bg = colors.gray,
+    fg = colors.white
+})
+editorStep:addChild(editorState.statusLabel)
+editorState.statusDefaults = { width = editorState.statusLabel.width, height = editorState.statusLabel.height }
+
+editorState.instructions = app:createLabel({
+    x = 2,
+    y = 10,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Shortcuts: Ctrl+F find, Ctrl+H replace, Ctrl+Space autocomplete, Shift+Arrows selects.",
+    bg = colors.gray,
+    fg = colors.white
+})
+editorStep:addChild(editorState.instructions)
+editorState.instructionsDefaults = { width = editorState.instructions.width, height = editorState.instructions.height }
+
+local function updateEditorStatus()
+    if not editorState.widget or not editorState.statusLabel then
+        return
+    end
+    local line, col = editorState.widget:getCursorPosition()
+    local totalLines = editorState.widget:getLineCount()
+    local selectionLength = editorState.widget:getSelectionLength()
+    local status = string.format("Line %d of %d, Col %d", line, totalLines, col)
+    if selectionLength > 0 then
+        status = status .. string.format("  Sel %d", selectionLength)
+    end
+    editorState.statusLabel:setText(status)
+end
+
+editorState.widget:setOnCursorMove(function()
+    updateEditorStatus()
+end)
+editorState.widget:setOnChange(function()
+    updateEditorStatus()
+end)
+
+addStep(editorStep, function()
+    if editorState.widget then
+        app:setFocus(editorState.widget)
+        updateEditorStatus()
+    end
+end, function()
+    if editorState.widget and editorState.widget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 14: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1246,6 +1518,107 @@ local function layout()
                 statusY = math.max(innerMargin, innerMargin + stepHeight - statusHeight)
             end
             toggleState.statusLabel:setPosition(statusX, statusY)
+        end
+    end
+
+    if tableState.widget then
+        local defaults = tableState.defaults or {}
+        local tableWidthLimit = math.max(8, stepWidth - innerMargin * 2)
+        local tableHeightLimit = math.max(4, stepHeight - innerMargin * 3)
+        local baseWidth = defaults.width or tableState.widget.width
+        local baseHeight = defaults.height or tableState.widget.height
+        local tableWidth = math.max(8, math.min(baseWidth, tableWidthLimit))
+        local tableHeight = math.max(4, math.min(baseHeight, tableHeightLimit))
+        tableState.widget:setSize(tableWidth, tableHeight)
+        local tableX = math.floor((tableStep.width - tableWidth) / 2) + 1
+        local tableY = innerMargin + 1
+        local maxTableY = innerMargin + stepHeight - tableHeight - 3
+        if maxTableY < innerMargin then
+            maxTableY = innerMargin
+        end
+        if tableY > maxTableY then
+            tableY = maxTableY
+        end
+        tableState.widget:setPosition(tableX, tableY)
+
+        local detailBottomGuard = innerMargin + stepHeight - 1
+        local detailY = tableY + tableHeight + 1
+        if tableState.detailLabel then
+            local detailDefaults = tableState.detailDefaults or {}
+            local detailWidth = math.max(6, math.min(detailDefaults.width or tableState.detailLabel.width, tableWidthLimit))
+            local maxDetailHeight = math.max(2, detailBottomGuard - detailY - (tableState.refreshButton and 2 or 0))
+            local detailHeight = math.max(2, math.min(detailDefaults.height or tableState.detailLabel.height, maxDetailHeight))
+            tableState.detailLabel:setSize(detailWidth, detailHeight)
+            local detailX = math.floor((tableStep.width - detailWidth) / 2) + 1
+            if detailY + detailHeight - 1 > detailBottomGuard then
+                detailY = math.max(innerMargin, detailBottomGuard - detailHeight + 1)
+            end
+            tableState.detailLabel:setPosition(detailX, detailY)
+            detailBottomGuard = detailY + detailHeight
+        end
+
+        if tableState.refreshButton then
+            local refreshDefaults = tableState.refreshDefaults or {}
+            local buttonWidth = math.max(8, math.min(refreshDefaults.width or tableState.refreshButton.width, tableWidthLimit))
+            local buttonHeight = math.max(1, refreshDefaults.height or tableState.refreshButton.height)
+            local buttonX = math.floor((tableStep.width - buttonWidth) / 2) + 1
+            local buttonY = detailBottomGuard + 1
+            if buttonY + buttonHeight - 1 > innerMargin + stepHeight - 1 then
+                buttonY = math.max(innerMargin, innerMargin + stepHeight - buttonHeight)
+            end
+            tableState.refreshButton:setSize(buttonWidth, buttonHeight)
+            tableState.refreshButton:setPosition(buttonX, buttonY)
+        end
+    end
+
+    if editorState.widget then
+        local defaults = editorState.defaults or {}
+        local editorWidthLimit = math.max(10, stepWidth - innerMargin * 2)
+        local editorHeightLimit = math.max(4, stepHeight - innerMargin * 3)
+        local baseWidth = defaults.width or editorState.widget.width
+        local baseHeight = defaults.height or editorState.widget.height
+        local editorWidth = math.max(10, math.min(baseWidth, editorWidthLimit))
+        local editorHeight = math.max(4, math.min(baseHeight, editorHeightLimit))
+        editorState.widget:setSize(editorWidth, editorHeight)
+        local editorX = math.floor((editorStep.width - editorWidth) / 2) + 1
+        local editorY = innerMargin + 1
+        local editorMaxY = innerMargin + stepHeight - editorHeight - 2
+        if editorMaxY < innerMargin then
+            editorMaxY = innerMargin
+        end
+        if editorY > editorMaxY then
+            editorY = editorMaxY
+        end
+        editorState.widget:setPosition(editorX, editorY)
+
+        local nextY = editorY + editorHeight + 1
+        local bottomLimit = innerMargin + stepHeight - 1
+
+        if editorState.statusLabel then
+            local statusDefaults = editorState.statusDefaults or {}
+            local statusWidth = math.max(6, math.min(statusDefaults.width or editorState.statusLabel.width, editorWidthLimit))
+            local statusHeight = math.max(1, statusDefaults.height or editorState.statusLabel.height)
+            editorState.statusLabel:setSize(statusWidth, statusHeight)
+            local statusX = math.floor((editorStep.width - statusWidth) / 2) + 1
+            local statusY = nextY
+            if statusY + statusHeight - 1 > bottomLimit then
+                statusY = math.max(innerMargin, bottomLimit - statusHeight + 1)
+            end
+            editorState.statusLabel:setPosition(statusX, statusY)
+            nextY = statusY + statusHeight + 1
+        end
+
+        if editorState.instructions then
+            local instructionsDefaults = editorState.instructionsDefaults or {}
+            local instructionsWidth = math.max(6, math.min(instructionsDefaults.width or editorState.instructions.width, editorWidthLimit))
+            local instructionsHeight = math.max(2, math.min(instructionsDefaults.height or editorState.instructions.height, math.max(2, bottomLimit - nextY + 1)))
+            editorState.instructions:setSize(instructionsWidth, instructionsHeight)
+            local instructionsX = math.floor((editorStep.width - instructionsWidth) / 2) + 1
+            local instructionsY = nextY
+            if instructionsY + instructionsHeight - 1 > bottomLimit then
+                instructionsY = math.max(innerMargin, bottomLimit - instructionsHeight + 1)
+            end
+            editorState.instructions:setPosition(instructionsX, instructionsY)
         end
     end
 

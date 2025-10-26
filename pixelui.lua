@@ -4,7 +4,6 @@ local osLib = assert(rawget(_G, "os"), "os API unavailable")
 local pullEvent = assert(osLib.pullEvent, "os.pullEvent unavailable")
 local windowAPI = assert(rawget(_G, "window"), "window API unavailable")
 local keys = assert(rawget(_G, "keys"), "keys API unavailable")
-
 local expect = require("cc.expect").expect
 local shrekbox = require("shrekbox")
 
@@ -197,6 +196,32 @@ local shrekbox = require("shrekbox")
 ---@field placeholder string
 ---@field onChange fun(self:PixelUI.TextBox, value:string)?
 ---@field maxLength integer?
+---@field multiline boolean
+---@field autocomplete string[]?
+---@field syntax table?
+
+---@class PixelUI.TableColumn
+---@field id string
+---@field title string
+---@field key string?
+---@field accessor fun(row:any):any
+---@field width integer?
+---@field align "left"|"center"|"right"?
+---@field sortable boolean?
+---@field format fun(value:any, row:any, column:PixelUI.TableColumn):string?
+---@field comparator fun(a:any, b:any, aRow:any, bRow:any, column:PixelUI.TableColumn):number?
+
+---@class PixelUI.Table : PixelUI.Widget
+---@field columns PixelUI.TableColumn[]
+---@field data table[]
+---@field sortColumn string?
+---@field sortDirection "asc"|"desc"
+---@field allowRowSelection boolean
+---@field highlightBg PixelUI.Color
+---@field highlightFg PixelUI.Color
+---@field placeholder string
+---@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)?
+---@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")?
 
 ---@class PixelUI.AnimationOptions
 ---@field duration number?
@@ -213,7 +238,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, Toggle: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Toggle, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView, Chart: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Chart }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, Toggle: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Toggle, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, Table: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Table, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView, Chart: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Chart }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -278,6 +303,10 @@ setmetatable(Slider, { __index = Widget })
 local List = {}
 List.__index = List
 setmetatable(List, { __index = Widget })
+
+local Table = {}
+Table.__index = Table
+setmetatable(Table, { __index = Widget })
 
 local TreeView = {}
 TreeView.__index = TreeView
@@ -2907,6 +2936,815 @@ function Slider:handleEvent(event, ...)
 	return false
 end
 
+function Table:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.width = math.max(8, math.floor(baseConfig.width or 24))
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 7))
+	local instance = setmetatable({}, Table)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.headerBg = config.headerBg or instance.bg or colors.gray
+	instance.headerFg = config.headerFg or instance.fg or colors.white
+	instance.rowBg = config.rowBg or instance.bg or colors.black
+	instance.rowFg = config.rowFg or instance.fg or colors.white
+	instance.highlightBg = config.highlightBg or colors.lightBlue
+	instance.highlightFg = config.highlightFg or colors.black
+	instance.zebra = not not config.zebra
+	instance.zebraBg = config.zebraBg or colors.gray
+	instance.placeholder = config.placeholder or "No rows"
+	instance.allowRowSelection = config.selectable ~= false
+	instance.sortColumn = config.sortColumn
+	instance.sortDirection = (config.sortDirection == "desc") and "desc" or "asc"
+	instance.onSelect = config.onSelect or nil
+	instance.onSort = config.onSort or nil
+	instance.columns = {}
+	instance.data = {}
+	instance._rows = {}
+	instance._columnMetrics = {}
+	instance._totalColumnWidth = 0
+	instance.scrollOffset = 1
+	instance.selectedIndex = 0
+	instance.typeSearchTimeout = config.typeSearchTimeout or 0.75
+	instance._typeSearch = { buffer = "", lastTime = 0 }
+	instance.columns = instance:_normalizeColumns(config.columns or {})
+	instance:_recomputeColumnMetrics()
+	instance:setData(config.data or {})
+	if config.selectedIndex then
+		instance:setSelectedIndex(config.selectedIndex, true)
+	end
+	if instance.sortColumn then
+		instance:setSort(instance.sortColumn, instance.sortDirection, true)
+	end
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance:_ensureSelectionVisible()
+	return instance
+end
+
+function Table:_normalizeColumns(columns)
+	local normalized = {}
+	if type(columns) == "table" then
+		for i = 1, #columns do
+			local col = columns[i]
+			if type(col) ~= "table" then
+				error("Table column configuration must be a table", 3)
+			end
+			local id = col.id or col.key or col.title
+			if type(id) ~= "string" or id == "" then
+				error("Table column is missing an id", 3)
+			end
+			local entry = {
+				id = id,
+				title = col.title or id,
+				key = col.key or id,
+				accessor = col.accessor,
+				format = col.format,
+				comparator = col.comparator,
+				color = col.color,
+				align = col.align or "left",
+				sortable = col.sortable ~= false,
+				width = math.max(3, math.floor(col.width or 10))
+			}
+			normalized[#normalized + 1] = entry
+		end
+	end
+	return normalized
+end
+
+function Table:_recomputeColumnMetrics()
+	self._columnMetrics = {}
+	local total = 0
+	for index = 1, #self.columns do
+		local col = self.columns[index]
+		col.width = math.max(3, math.floor(col.width or 10))
+		self._columnMetrics[index] = {
+			offset = total,
+			width = col.width
+		}
+		total = total + col.width
+	end
+	self._totalColumnWidth = total
+end
+
+function Table:_ensureColumnsForData()
+	if #self.columns > 0 then
+		return
+	end
+	local first = self.data[1]
+	if type(first) == "table" then
+		local inferred = {}
+		for key, value in pairs(first) do
+			if type(key) == "string" then
+				inferred[#inferred + 1] = {
+					id = key,
+					title = key,
+					key = key,
+					align = "left",
+					sortable = true,
+					width = math.max(3, math.min(20, tostring(value or ""):len() + 2))
+				}
+			end
+		end
+		table.sort(inferred, function(a, b)
+			return a.id < b.id
+		end)
+		if #inferred == 0 then
+			inferred[1] = {
+				id = "value",
+				title = "Value",
+				key = "value",
+				align = "left",
+				sortable = true,
+				accessor = function(row)
+					if type(row) == "table" then
+						local parts = {}
+						local index = 0
+						for key, value in pairs(row) do
+							index = index + 1
+							if index > 4 then
+								parts[#parts + 1] = "..."
+								break
+							end
+							parts[#parts + 1] = tostring(key) .. "=" .. tostring(value)
+						end
+						table.sort(parts, function(a, b)
+							return a < b
+						end)
+						return "{" .. table.concat(parts, ", ") .. "}"
+					end
+					return tostring(row)
+				end,
+				width = math.max(6, self.width - 2)
+			}
+		end
+		self.columns = inferred
+	else
+		self.columns = {
+			{
+				id = "value",
+				title = "Value",
+				align = "left",
+				sortable = true,
+				accessor = function(row)
+					return row
+				end,
+				width = math.max(6, self.width - 2)
+			}
+		}
+	end
+	self:_recomputeColumnMetrics()
+end
+
+function Table:setColumns(columns)
+	if columns ~= nil then
+		expect(1, columns, "table")
+	end
+	self.columns = self:_normalizeColumns(columns or {})
+	self:_recomputeColumnMetrics()
+	self:_ensureColumnsForData()
+	self:_refreshRows()
+end
+
+function Table:getColumns()
+	local copy = {}
+	for i = 1, #self.columns do
+		copy[i] = clone_table(self.columns[i])
+	end
+	return copy
+end
+
+function Table:setData(data)
+	expect(1, data, "table")
+	local rows = {}
+	for i = 1, #data do
+		rows[i] = data[i]
+	end
+	self.data = rows
+	self:_ensureColumnsForData()
+	self:_refreshRows()
+end
+
+function Table:getData()
+	local copy = {}
+	for i = 1, #self.data do
+		copy[i] = self.data[i]
+	end
+	return copy
+end
+
+function Table:_refreshRows()
+	self._rows = {}
+	for index = 1, #self.data do
+		self._rows[index] = index
+	end
+	if self.sortColumn then
+		self:_applySort(self.sortColumn, self.sortDirection or "asc", true)
+	end
+	if self.allowRowSelection then
+		if #self._rows == 0 then
+			self.selectedIndex = 0
+		elseif self.selectedIndex < 1 or self.selectedIndex > #self._rows then
+			self.selectedIndex = 1
+		end
+	else
+		self.selectedIndex = 0
+	end
+	self:_clampScroll()
+	self:_ensureSelectionVisible()
+end
+
+function Table:_getColumnById(columnId)
+	if not columnId then
+		return nil
+	end
+	for i = 1, #self.columns do
+		if self.columns[i].id == columnId then
+			return self.columns[i]
+		end
+	end
+	return nil
+end
+
+function Table:_applySort(columnId, direction, suppressEvent)
+	local column = self:_getColumnById(columnId)
+	if not column or column.sortable == false then
+		return
+	end
+	self.sortColumn = column.id
+	self.sortDirection = direction == "desc" and "desc" or "asc"
+	local descending = self.sortDirection == "desc"
+	local comparator = column.comparator
+	table.sort(self._rows, function(aIndex, bIndex)
+		local aRow = self.data[aIndex]
+		local bRow = self.data[bIndex]
+		local aValue = Table._resolveColumnValue(column, aRow)
+		local bValue = Table._resolveColumnValue(column, bRow)
+		local cmp = 0
+		if comparator then
+			local ok, result = pcall(comparator, aValue, bValue, aRow, bRow, column)
+			if ok and type(result) == "number" then
+				cmp = result
+			end
+		end
+		if cmp == 0 then
+			if type(aValue) == "number" and type(bValue) == "number" then
+				if aValue < bValue then
+					cmp = -1
+				elseif aValue > bValue then
+					cmp = 1
+				else
+					cmp = 0
+				end
+			else
+				local aStr = tostring(aValue or ""):lower()
+				local bStr = tostring(bValue or ""):lower()
+				if aStr < bStr then
+					cmp = -1
+				elseif aStr > bStr then
+					cmp = 1
+				else
+					cmp = 0
+				end
+			end
+		end
+		if cmp == 0 then
+			return aIndex < bIndex
+		end
+		if descending then
+			return cmp > 0
+		end
+		return cmp < 0
+	end)
+	if not suppressEvent and self.onSort then
+		self.onSort(self, self.sortColumn, self.sortDirection)
+	end
+	self:_ensureSelectionVisible()
+end
+
+function Table:setSort(columnId, direction, suppressEvent)
+	if columnId == nil then
+		self.sortColumn = nil
+		self.sortDirection = "asc"
+		self:_refreshRows()
+		return
+	end
+	self:_applySort(columnId, direction or self.sortDirection, suppressEvent)
+end
+
+function Table:getSort()
+	return self.sortColumn, self.sortDirection
+end
+
+function Table:setOnSort(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSort = handler
+end
+
+function Table:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function Table:getSelectedIndex()
+	return self.selectedIndex
+end
+
+function Table:getSelectedRow()
+	if self.selectedIndex >= 1 and self.selectedIndex <= #self._rows then
+		return self.data[self._rows[self.selectedIndex]]
+	end
+	return nil
+end
+
+function Table:setSelectedIndex(index, suppressEvent)
+	if not self.allowRowSelection then
+		self.selectedIndex = 0
+		return
+	end
+	if #self._rows == 0 then
+		self.selectedIndex = 0
+		self.scrollOffset = 1
+		return
+	end
+	expect(1, index, "number")
+	index = math.floor(index)
+	if index < 1 then
+		index = 1
+	elseif index > #self._rows then
+		index = #self._rows
+	end
+	local changed = index ~= self.selectedIndex
+	self.selectedIndex = index
+	self:_ensureSelectionVisible()
+	if changed and not suppressEvent then
+		self:_notifySelect()
+	end
+end
+
+function Table:_notifySelect()
+	if self.onSelect then
+		self.onSelect(self, self:getSelectedRow(), self.selectedIndex)
+	end
+end
+
+function Table:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local ax, ay = self:getAbsoluteRect()
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	return innerX, innerY, innerWidth, innerHeight
+end
+
+function Table:_getRowsVisible()
+	local _, _, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return 0
+	end
+	local rows = innerHeight - 1
+	if rows < 0 then
+		rows = 0
+	end
+	return rows
+end
+
+function Table:_clampScroll()
+	local rowsVisible = self:_getRowsVisible()
+	if #self._rows == 0 or rowsVisible <= 0 then
+		self.scrollOffset = 1
+		return
+	end
+	local maxOffset = math.max(1, #self._rows - rowsVisible + 1)
+	if self.scrollOffset < 1 then
+		self.scrollOffset = 1
+	elseif self.scrollOffset > maxOffset then
+		self.scrollOffset = maxOffset
+	end
+end
+
+function Table:_ensureSelectionVisible()
+	self:_clampScroll()
+	if not self.allowRowSelection or self.selectedIndex < 1 or self.selectedIndex > #self._rows then
+		return
+	end
+	local rowsVisible = self:_getRowsVisible()
+	if rowsVisible <= 0 then
+		return
+	end
+	if self.selectedIndex < self.scrollOffset then
+		self.scrollOffset = self.selectedIndex
+	elseif self.selectedIndex > self.scrollOffset + rowsVisible - 1 then
+		self.scrollOffset = self.selectedIndex - rowsVisible + 1
+	end
+	self:_clampScroll()
+end
+
+function Table:_rowFromPoint(x, y)
+	if not self:containsPoint(x, y) then
+		return nil
+	end
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return nil
+	end
+	if y <= innerY then
+		return nil
+	end
+	local rowsVisible = self:_getRowsVisible()
+	if rowsVisible <= 0 then
+		return nil
+	end
+	local relativeRow = y - innerY - 1
+	if relativeRow < 0 or relativeRow >= rowsVisible then
+		return nil
+	end
+	local index = self.scrollOffset + relativeRow
+	if index < 1 or index > #self._rows then
+		return nil
+	end
+	return index
+end
+
+function Table:_columnFromPoint(x, y)
+	if not self:containsPoint(x, y) then
+		return nil
+	end
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return nil
+	end
+	if y ~= innerY then
+		return nil
+	end
+	local remaining = innerWidth
+	local cursor = innerX
+	for i = 1, #self.columns do
+		local width = math.max(1, math.min(self.columns[i].width, remaining))
+		if i == #self.columns then
+			width = innerX + innerWidth - cursor
+		end
+		if width <= 0 then
+			break
+		end
+		if x >= cursor and x < cursor + width then
+			return self.columns[i], i
+		end
+		cursor = cursor + width
+		remaining = innerWidth - (cursor - innerX)
+		if remaining <= 0 then
+			break
+		end
+	end
+	return nil
+end
+
+function Table._resolveColumnValue(column, row)
+	if column.accessor then
+		local ok, value = pcall(column.accessor, row, column)
+		if ok then
+			return value
+		end
+	end
+	if type(row) == "table" then
+		local key = column.key or column.id
+		return row[key]
+	end
+	return row
+end
+
+function Table:_formatCell(column, row, value)
+	if column.format then
+		local ok, formatted = pcall(column.format, value, row, column)
+		if ok and formatted ~= nil then
+			value = formatted
+		end
+	end
+	if value == nil then
+		value = ""
+	end
+	return tostring(value)
+end
+
+function Table:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		if self.border then
+			draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+		end
+		return
+	end
+	local headerBg = self.headerBg or bg
+	local headerFg = self.headerFg or fg
+	local cursorX = innerX
+	local remaining = innerWidth
+	for index = 1, #self.columns do
+		local column = self.columns[index]
+		local colWidth = math.max(1, math.min(column.width, remaining))
+		if index == #self.columns then
+			colWidth = innerX + innerWidth - cursorX
+		end
+		if colWidth <= 0 then
+			break
+		end
+		local title = column.title or column.id
+		local indicator = ""
+		if self.sortColumn == column.id then
+			indicator = self.sortDirection == "desc" and "v" or "^"
+		end
+		if indicator ~= "" and colWidth >= 2 then
+			if #title >= colWidth then
+				title = title:sub(1, colWidth - 1)
+			end
+			title = title .. indicator
+		elseif colWidth > #title then
+			title = title .. string.rep(" ", colWidth - #title)
+		else
+			title = title:sub(1, colWidth)
+		end
+		textLayer.text(cursorX, innerY, title, headerFg, headerBg)
+		cursorX = cursorX + colWidth
+		remaining = innerWidth - (cursorX - innerX)
+		if remaining <= 0 then
+			break
+		end
+	end
+	local rowsVisible = self:_getRowsVisible()
+	if rowsVisible <= 0 then
+		if self.border then
+			draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+		end
+		return
+	end
+	if #self._rows == 0 then
+		for i = 1, rowsVisible do
+			textLayer.text(innerX, innerY + i, string.rep(" ", innerWidth), fg, self.rowBg)
+		end
+		if self.placeholder and self.placeholder ~= "" then
+			local message = self.placeholder
+			if #message > innerWidth then
+				message = message:sub(1, innerWidth)
+			end
+			local messageY = innerY + math.min(rowsVisible, math.floor(rowsVisible / 2) + 1)
+			local messageX = innerX + math.floor((innerWidth - #message) / 2)
+			if messageX < innerX then
+				messageX = innerX
+			end
+			textLayer.text(messageX, messageY, message, colors.lightGray, self.rowBg)
+		end
+	else
+		for rowOffset = 0, rowsVisible - 1 do
+			local dataIndex = self.scrollOffset + rowOffset
+			local drawY = innerY + 1 + rowOffset
+			if dataIndex > #self._rows then
+				textLayer.text(innerX, drawY, string.rep(" ", innerWidth), fg, self.rowBg)
+			else
+				local absoluteIndex = self._rows[dataIndex]
+				local row = self.data[absoluteIndex]
+				local isSelected = self.allowRowSelection and dataIndex == self.selectedIndex
+				local rowBg = self.rowBg
+				local rowFg = self.rowFg
+				if isSelected then
+					rowBg = self.highlightBg
+					rowFg = self.highlightFg
+				elseif self.zebra and (dataIndex % 2 == 0) then
+					rowBg = self.zebraBg
+				end
+				local drawX = innerX
+				local remainingWidth = innerWidth
+				for colIndex = 1, #self.columns do
+					local column = self.columns[colIndex]
+					local colWidth = math.max(1, math.min(column.width, remainingWidth))
+					if colIndex == #self.columns then
+						colWidth = innerX + innerWidth - drawX
+					end
+					if colWidth <= 0 then
+						break
+					end
+					local value = Table._resolveColumnValue(column, row)
+					value = self:_formatCell(column, row, value)
+					if #value > colWidth then
+						value = value:sub(1, colWidth)
+					end
+					if column.align == "right" then
+						if #value < colWidth then
+							value = string.rep(" ", colWidth - #value) .. value
+						end
+					elseif column.align == "center" then
+						local pad = colWidth - #value
+						local left = math.floor(pad / 2)
+						local right = pad - left
+						value = string.rep(" ", left) .. value .. string.rep(" ", right)
+					else
+						if #value < colWidth then
+							value = value .. string.rep(" ", colWidth - #value)
+						end
+					end
+					local cellFg = rowFg
+					if column.color then
+						if type(column.color) == "number" then
+							cellFg = column.color
+						elseif type(column.color) == "function" then
+							local ok, customColor = pcall(column.color, value, row, column, isSelected)
+							if ok and type(customColor) == "number" then
+								cellFg = customColor
+							end
+						end
+					end
+					textLayer.text(drawX, drawY, value, cellFg, rowBg)
+					drawX = drawX + colWidth
+					remainingWidth = innerWidth - (drawX - innerX)
+					if remainingWidth <= 0 then
+						break
+					end
+				end
+			end
+		end
+	end
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+end
+
+function Table:_handleTypeSearch(ch)
+	if not ch or ch == "" then
+		return
+	end
+	local entry = self._typeSearch
+	if not entry then
+		entry = { buffer = "", lastTime = 0 }
+		self._typeSearch = entry
+	end
+	local now = osLib.clock()
+	local timeout = self.typeSearchTimeout or 0.75
+	if now - (entry.lastTime or 0) > timeout then
+		entry.buffer = ""
+	end
+	entry.buffer = (entry.buffer or "") .. ch:lower()
+	entry.lastTime = now
+	self:_searchForPrefix(entry.buffer)
+end
+
+function Table:_searchForPrefix(prefix)
+	if not prefix or prefix == "" then
+		return
+	end
+	if #self._rows == 0 then
+		return
+	end
+	local start = self.selectedIndex >= 1 and self.selectedIndex or 0
+	for offset = 1, #self._rows do
+		local index = ((start + offset - 1) % #self._rows) + 1
+		local row = self.data[self._rows[index]]
+		local firstColumn = self.columns[1]
+		local value = Table._resolveColumnValue(firstColumn, row)
+		local text = tostring(value or ""):lower()
+		if text:sub(1, #prefix) == prefix then
+			self:setSelectedIndex(index)
+			return
+		end
+	end
+end
+
+function Table:onFocusChanged(focused)
+	if not focused and self._typeSearch then
+		self._typeSearch.buffer = ""
+		self._typeSearch.lastTime = 0
+	end
+end
+
+function Table:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+	if event == "mouse_click" then
+		local button, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local column = self:_columnFromPoint(x, y)
+			if column then
+				local direction = self.sortDirection
+				if self.sortColumn == column.id then
+					direction = direction == "asc" and "desc" or "asc"
+				else
+					direction = "asc"
+				end
+				if column.sortable ~= false then
+					self:setSort(column.id, direction)
+				end
+				return true
+			end
+			local index = self:_rowFromPoint(x, y)
+			if index then
+				self:setSelectedIndex(index)
+				return true
+			end
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.scrollOffset = self.scrollOffset + direction
+			self:_clampScroll()
+			return true
+		end
+	elseif event == "char" then
+		if self:isFocused() and self.allowRowSelection then
+			local ch = ...
+			self:_handleTypeSearch(ch)
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.up then
+			if self.allowRowSelection and #self._rows > 0 then
+				self:setSelectedIndex(math.max(1, (self.selectedIndex > 0) and (self.selectedIndex - 1) or 1))
+			end
+			return true
+		elseif keyCode == keys.down then
+			if self.allowRowSelection and #self._rows > 0 then
+				self:setSelectedIndex(math.min(#self._rows, (self.selectedIndex > 0 and self.selectedIndex or 0) + 1))
+			end
+			return true
+		elseif keyCode == keys.home then
+			if self.allowRowSelection and #self._rows > 0 then
+				self:setSelectedIndex(1)
+			else
+				self.scrollOffset = 1
+			end
+			return true
+		elseif keyCode == keys["end"] then
+			if self.allowRowSelection and #self._rows > 0 then
+				self:setSelectedIndex(#self._rows)
+			else
+				self.scrollOffset = math.max(1, #self._rows - self:_getRowsVisible() + 1)
+				self:_clampScroll()
+			end
+			return true
+		elseif keyCode == keys.pageUp then
+			local step = math.max(1, self:_getRowsVisible() - 1)
+			self.scrollOffset = self.scrollOffset - step
+			self:_clampScroll()
+			if self.allowRowSelection and self.selectedIndex > 0 then
+				self:setSelectedIndex(math.max(1, self.selectedIndex - step), true)
+				self:_notifySelect()
+			end
+			return true
+		elseif keyCode == keys.pageDown then
+			local step = math.max(1, self:_getRowsVisible() - 1)
+			self.scrollOffset = self.scrollOffset + step
+			self:_clampScroll()
+			if self.allowRowSelection and self.selectedIndex > 0 then
+				self:setSelectedIndex(math.min(#self._rows, self.selectedIndex + step), true)
+				self:_notifySelect()
+			end
+			return true
+		elseif keyCode == keys.enter then
+			if self.allowRowSelection then
+				self:_notifySelect()
+			end
+			return true
+		elseif keyCode == keys.space then
+			if self.allowRowSelection then
+				self:_notifySelect()
+			end
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_rowFromPoint(x, y)
+			if index then
+				self:setSelectedIndex(index)
+			end
+			return true
+		end
+	end
+	return false
+end
+
 function TreeView:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -5042,33 +5880,242 @@ local TextBox = {}
 TextBox.__index = TextBox
 setmetatable(TextBox, { __index = Widget })
 
-function TextBox:new(app, config)
-	local baseConfig = {}
-	if config then
-		for k, v in pairs(config) do
-			baseConfig[k] = v
+local LUA_KEYWORDS = {
+	["and"] = true,
+	["break"] = true,
+	["do"] = true,
+	["else"] = true,
+	["elseif"] = true,
+	["end"] = true,
+	["false"] = true,
+	["for"] = true,
+	["function"] = true,
+	["goto"] = true,
+	["if"] = true,
+	["in"] = true,
+	["local"] = true,
+	["nil"] = true,
+	["not"] = true,
+	["or"] = true,
+	["repeat"] = true,
+	["return"] = true,
+	["then"] = true,
+	["true"] = true,
+	["until"] = true,
+	["while"] = true
+}
+
+local LUA_BUILTINS = {
+	print = true,
+	ipairs = true,
+	pairs = true,
+	next = true,
+	math = true,
+	table = true,
+	string = true,
+	coroutine = true,
+	os = true,
+	tonumber = true,
+	tostring = true,
+	type = true,
+	pcall = true,
+	xpcall = true,
+	select = true
+}
+
+local function split_lines(text)
+	if text == nil or text == "" then
+		return { "" }
+	end
+	local result = {}
+	local startIndex = 1
+	local length = #text
+	while startIndex <= length do
+		local newline = text:find("\n", startIndex, true)
+		if not newline then
+			result[#result + 1] = text:sub(startIndex)
+			break
+		end
+		result[#result + 1] = text:sub(startIndex, newline - 1)
+		startIndex = newline + 1
+		if startIndex > length then
+			result[#result + 1] = ""
+			break
 		end
 	end
+	if #result == 0 then
+		result[1] = ""
+	end
+	return result
+end
+
+local function join_lines(lines)
+	return table.concat(lines, "\n")
+end
+
+local function clampi(value, minValue, maxValue)
+	if value < minValue then
+		return minValue
+	end
+	if value > maxValue then
+		return maxValue
+	end
+	return value
+end
+
+local function compare_positions(aLine, aCol, bLine, bCol)
+	if aLine < bLine then
+		return -1
+	end
+	if aLine > bLine then
+		return 1
+	end
+	if aCol < bCol then
+		return -1
+	end
+	if aCol > bCol then
+		return 1
+	end
+	return 0
+end
+
+local function position_in_range(line, col, startLine, startCol, endLine, endCol)
+	if compare_positions(line, col, startLine, startCol) < 0 then
+		return false
+	end
+	if compare_positions(line, col, endLine, endCol) >= 0 then
+		return false
+	end
+	return true
+end
+
+local function normalize_syntax_config(config)
+	if config == nil then
+		return nil
+	end
+	if config == true then
+		config = "lua"
+	end
+	if type(config) == "string" then
+		if config == "lua" then
+			return {
+				language = "lua",
+				keywords = LUA_KEYWORDS,
+				builtins = LUA_BUILTINS,
+				keywordColor = colors.orange,
+				commentColor = colors.lightGray,
+				stringColor = colors.yellow,
+				numberColor = colors.cyan,
+				builtinColor = colors.lightBlue
+			}
+		end
+		return nil
+	end
+	if type(config) == "table" then
+		local preset = {}
+		for k, v in pairs(config) do
+			preset[k] = v
+		end
+		if preset.language == "lua" then
+			preset.keywords = preset.keywords or LUA_KEYWORDS
+			preset.builtins = preset.builtins or LUA_BUILTINS
+			if preset.keywordColor == nil then
+				preset.keywordColor = colors.orange
+			end
+			if preset.commentColor == nil then
+				preset.commentColor = colors.lightGray
+			end
+			if preset.stringColor == nil then
+				preset.stringColor = colors.yellow
+			end
+			if preset.numberColor == nil then
+				preset.numberColor = colors.cyan
+			end
+			if preset.builtinColor == nil then
+				preset.builtinColor = colors.lightBlue
+			end
+		end
+		return preset
+	end
+	return nil
+end
+
+function TextBox:new(app, config)
+	config = config or {}
+	local baseConfig = {}
+	for k, v in pairs(config) do
+		baseConfig[k] = v
+	end
 	baseConfig.focusable = true
-	baseConfig.height = baseConfig.height or 1
+	baseConfig.width = math.max(4, math.floor(baseConfig.width or 16))
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or (config.multiline ~= false and 5 or 1)))
 	local instance = setmetatable({}, TextBox)
 	instance:_init_base(app, baseConfig)
 	instance.focusable = true
-	instance.text = (config and config.text) or ""
-	instance.placeholder = (config and config.placeholder) or ""
-	instance.onChange = config and config.onChange or nil
-	instance.maxLength = config and config.maxLength or nil
-	if instance.maxLength and #instance.text > instance.maxLength then
-		instance.text = instance.text:sub(1, instance.maxLength)
-	end
-	local cursorPos = (config and config.cursorPos) or (#instance.text + 1)
-	instance._cursorPos = math.min(math.max(1, cursorPos), #instance.text + 1)
-	instance._viewOffset = 1
+	instance.placeholder = config.placeholder or ""
+	instance.onChange = config.onChange or nil
+	instance.onCursorMove = config.onCursorMove or nil
+	instance.maxLength = config.maxLength or nil
+	instance.multiline = config.multiline ~= false
+	instance.tabWidth = math.max(1, math.floor(config.tabWidth or 4))
+	instance.selectionBg = config.selectionBg or colors.lightGray
+	instance.selectionFg = config.selectionFg or colors.black
+	instance.overlayBg = config.overlayBg or colors.gray
+	instance.overlayFg = config.overlayFg or colors.white
+	instance.overlayActiveBg = config.overlayActiveBg or colors.orange
+	instance.overlayActiveFg = config.overlayActiveFg or colors.black
+	instance.autocomplete = config.autocomplete
+	instance.autocompleteAuto = not not config.autocompleteAuto
+	instance.autocompleteMaxItems = math.max(1, math.floor(config.autocompleteMaxItems or 5))
+	instance.autocompleteBg = config.autocompleteBg or colors.gray
+	instance.autocompleteFg = config.autocompleteFg or colors.white
+	instance.syntax = normalize_syntax_config(config.syntax)
+	instance._lines = { "" }
+	instance.text = ""
+	instance._cursorLine = 1
+	instance._cursorCol = 1
+	instance._preferredCol = 1
+	instance._selectionAnchor = nil
+	instance._scrollX = 0
+	instance._scrollY = 0
+	instance._shiftDown = false
+	instance._ctrlDown = false
+	instance._dragging = false
+	instance._dragButton = nil
+	instance._dragAnchor = nil
+	instance._find = {
+		visible = false,
+		activeField = "find",
+		findText = "",
+		replaceText = "",
+		matchCase = false,
+		matches = {},
+		index = 0
+	}
+	instance._autocompleteState = {
+		visible = false,
+		items = {},
+		selectedIndex = 1,
+		anchorLine = 1,
+		anchorCol = 1,
+		prefix = ""
+	}
 	if not instance.border then
 		instance.border = normalize_border(true)
 	end
+	instance:_setTextInternal(config.text or "", true, true)
+	if config.cursorPos then
+		instance:_moveCursorToIndex(config.cursorPos)
+	end
 	instance:_ensureCursorVisible()
 	return instance
+end
+
+function TextBox:setOnCursorMove(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onCursorMove = handler
 end
 
 function TextBox:onFocusChanged(_focused)
@@ -5085,38 +6132,123 @@ function TextBox:_applyMaxLength(text)
 	return text:sub(1, self.maxLength)
 end
 
-function TextBox:_setCursor(position)
-	local len = #self.text
-	position = math.max(1, math.min(position, len + 1))
-	self._cursorPos = position
-	self:_ensureCursorVisible()
+function TextBox:_syncTextFromLines()
+	self.text = join_lines(self._lines)
 end
 
-function TextBox:_moveCursor(delta)
-	self:_setCursor(self._cursorPos + delta)
+function TextBox:_setTextInternal(text, resetCursor, suppressEvent)
+	text = tostring(text or "")
+	text = self:_applyMaxLength(text)
+	self._lines = split_lines(text)
+	self:_syncTextFromLines()
+	if resetCursor then
+		self._cursorLine = #self._lines
+		self._cursorCol = (#self._lines[#self._lines] or 0) + 1
+	else
+		self._cursorLine = clampi(self._cursorLine, 1, #self._lines)
+		local currentLine = self._lines[self._cursorLine] or ""
+		self._cursorCol = clampi(self._cursorCol, 1, #currentLine + 1)
+	end
+	self._preferredCol = self._cursorCol
+	self._selectionAnchor = nil
+	self:_ensureCursorVisible()
+	if not suppressEvent then
+		self:_notifyChange()
+		self:_notifyCursorChange()
+	end
+end
+
+function TextBox:_indexToPosition(index)
+	index = clampi(index or 1, 1, #self.text + 1)
+	local remaining = index - 1
+	for line = 1, #self._lines do
+		local lineText = self._lines[line]
+		local lineLength = #lineText
+		if remaining <= lineLength then
+			return line, remaining + 1
+		end
+		remaining = remaining - (lineLength + 1)
+	end
+	local lastLine = #self._lines
+	local lastLength = #self._lines[lastLine]
+	return lastLine, lastLength + 1
+end
+
+function TextBox:_moveCursorToIndex(index)
+	local line, col = self:_indexToPosition(index)
+	self:_setCursorPosition(line, col)
+end
+
+function TextBox:getCursorPosition()
+	return self._cursorLine, self._cursorCol
+end
+
+function TextBox:getLineCount()
+	return #self._lines
+end
+
+function TextBox:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local ax, ay = self:getAbsoluteRect()
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	return innerX, innerY, innerWidth, innerHeight, leftPad, topPad, bottomPad
+end
+
+function TextBox:_getOverlayHeight(innerHeight)
+	if not self._find.visible then
+		return 0
+	end
+	return math.min(2, innerHeight)
+end
+
+function TextBox:_getContentSize()
+	local _, _, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return math.max(1, self.width), math.max(1, self.height)
+	end
+	local overlayHeight = self:_getOverlayHeight(innerHeight)
+	local contentHeight = math.max(1, innerHeight - overlayHeight)
+	return math.max(1, innerWidth), contentHeight
 end
 
 function TextBox:_ensureCursorVisible()
-	local width = self.width
-	local visibleWidth = width > 2 and (width - 2) or width
-	if visibleWidth < 1 then visibleWidth = 1 end
-	local len = #self.text
-	local view = self._viewOffset
-	local cursor = self._cursorPos
-	if cursor < view then
-		view = cursor
-	elseif cursor > view + visibleWidth - 1 then
-		view = cursor - visibleWidth + 1
+	local contentWidth, contentHeight = self:_getContentSize()
+	local firstVisibleLine = self._scrollY + 1
+	local lastVisibleLine = self._scrollY + contentHeight
+	if self._cursorLine < firstVisibleLine then
+		self._scrollY = self._cursorLine - 1
+	elseif self._cursorLine > lastVisibleLine then
+		self._scrollY = self._cursorLine - contentHeight
 	end
-	if len < visibleWidth then
-		view = 1
+	if self._scrollY < 0 then
+		self._scrollY = 0
 	end
-	if view < 1 then view = 1 end
-	local maxStart = math.max(1, len - visibleWidth + 1)
-	if view > maxStart then
-		view = maxStart
+	local maxScrollY = math.max(0, #self._lines - contentHeight)
+	if self._scrollY > maxScrollY then
+		self._scrollY = maxScrollY
 	end
-	self._viewOffset = view
+	local firstVisibleCol = self._scrollX + 1
+	local lastVisibleCol = self._scrollX + contentWidth
+	if self._cursorCol < firstVisibleCol then
+		self._scrollX = self._cursorCol - 1
+	elseif self._cursorCol > lastVisibleCol then
+		self._scrollX = self._cursorCol - contentWidth
+	end
+	if self._scrollX < 0 then
+		self._scrollX = 0
+	end
+	local currentLine = self._lines[self._cursorLine] or ""
+	local maxScrollX = math.max(0, #currentLine + 1 - contentWidth)
+	if self._scrollX > maxScrollX then
+		self._scrollX = maxScrollX
+	end
 end
 
 function TextBox:_notifyChange()
@@ -5125,66 +6257,937 @@ function TextBox:_notifyChange()
 	end
 end
 
-function TextBox:_insertText(insert)
-	if not insert or insert == "" then
+function TextBox:_notifyCursorChange()
+	if self.onCursorMove then
+		self.onCursorMove(self, self._cursorLine, self._cursorCol, self:getSelectionLength())
+	end
+end
+
+function TextBox:_hasSelection()
+	if not self._selectionAnchor then
 		return false
 	end
+	if self._selectionAnchor.line ~= self._cursorLine then
+		return true
+	end
+	return self._selectionAnchor.col ~= self._cursorCol
+end
+
+function TextBox:getSelectionLength()
+	if not self:_hasSelection() then
+		return 0
+	end
+	local startLine, startCol, endLine, endCol = self:_getSelectionRange()
+	local text = self:_collectRange(startLine, startCol, endLine, endCol)
+	return #text
+end
+
+function TextBox:getSelectionText()
+	if not self:_hasSelection() then
+		return ""
+	end
+	local startLine, startCol, endLine, endCol = self:_getSelectionRange()
+	return self:_collectRange(startLine, startCol, endLine, endCol)
+end
+
+function TextBox:_getSelectionRange()
+	if not self:_hasSelection() then
+		return nil
+	end
+	local anchor = self._selectionAnchor
+	local anchorLine, anchorCol = anchor.line, anchor.col
+	local cursorLine, cursorCol = self._cursorLine, self._cursorCol
+	if compare_positions(anchorLine, anchorCol, cursorLine, cursorCol) <= 0 then
+		return anchorLine, anchorCol, cursorLine, cursorCol
+	else
+		return cursorLine, cursorCol, anchorLine, anchorCol
+	end
+end
+
+function TextBox:_collectRange(startLine, startCol, endLine, endCol)
+	if startLine == endLine then
+		return (self._lines[startLine] or ""):sub(startCol, endCol - 1)
+	end
+	local parts = {}
+	parts[#parts + 1] = (self._lines[startLine] or ""):sub(startCol)
+	for line = startLine + 1, endLine - 1 do
+		parts[#parts + 1] = self._lines[line] or ""
+	end
+	parts[#parts + 1] = (self._lines[endLine] or ""):sub(1, endCol - 1)
+	return table.concat(parts, "\n")
+end
+
+function TextBox:_clearSelection()
+	self._selectionAnchor = nil
+end
+
+function TextBox:_removeRange(startLine, startCol, endLine, endCol)
+	if startLine == endLine then
+		local lineText = self._lines[startLine]
+		self._lines[startLine] = lineText:sub(1, startCol - 1) .. lineText:sub(endCol)
+	else
+		local firstPart = self._lines[startLine]:sub(1, startCol - 1)
+		local lastPart = self._lines[endLine]:sub(endCol)
+		for line = endLine, startLine + 1, -1 do
+			table.remove(self._lines, line)
+		end
+		self._lines[startLine] = firstPart .. lastPart
+	end
+	if #self._lines == 0 then
+		self._lines[1] = ""
+	end
+end
+
+function TextBox:_insertAt(line, col, text)
+	if text == nil or text == "" then
+		return line, col
+	end
+	local insertLines = split_lines(text)
+	local current = self._lines[line]
+	local before = current:sub(1, col - 1)
+	local after = current:sub(col)
+	self._lines[line] = before .. insertLines[1]
+	local lastLineIndex = line
+	for i = 2, #insertLines do
+		lastLineIndex = lastLineIndex + 1
+		table.insert(self._lines, lastLineIndex, insertLines[i])
+	end
+	self._lines[lastLineIndex] = self._lines[lastLineIndex] .. after
+	local finalCol = (#self._lines[lastLineIndex] - #after) + 1
+	return lastLineIndex, finalCol
+end
+
+function TextBox:_deleteSelection(suppressEvent)
+	local startLine, startCol, endLine, endCol = self:_getSelectionRange()
+	if not startLine then
+		return 0
+	end
+	local removedText = self:_collectRange(startLine, startCol, endLine, endCol)
+	self:_removeRange(startLine, startCol, endLine, endCol)
+	self._cursorLine = startLine
+	self._cursorCol = startCol
+	self._preferredCol = self._cursorCol
+	self:_clearSelection()
+	self:_syncTextFromLines()
+	self:_ensureCursorVisible()
+	if not suppressEvent then
+		self:_notifyChange()
+	end
+	self:_notifyCursorChange()
+	return #removedText
+end
+
+function TextBox:_replaceSelection(text, suppressEvent)
+	local removed = 0
+	if self:_hasSelection() then
+		removed = self:_deleteSelection(true)
+	end
+	local currentLength = #self.text
 	if self.maxLength then
-		local available = self.maxLength - #self.text
-		if available <= 0 then
+		local allowed = self.maxLength - currentLength
+		if #text > allowed then
+			text = text:sub(1, allowed)
+		end
+	end
+	local insertLine, insertCol = self:_insertAt(self._cursorLine, self._cursorCol, text)
+	self._cursorLine = insertLine
+	self._cursorCol = insertCol
+	self._preferredCol = self._cursorCol
+	self:_clearSelection()
+	self:_syncTextFromLines()
+	self:_ensureCursorVisible()
+	if not suppressEvent then
+		self:_notifyChange()
+	end
+	self:_notifyCursorChange()
+	return true
+end
+
+function TextBox:_insertTextAtCursor(text)
+	if not text or text == "" then
+		return false
+	end
+	return self:_replaceSelection(text, false)
+end
+
+function TextBox:_insertCharacter(ch)
+	if not ch or ch == "" then
+		return false
+	end
+	return self:_insertTextAtCursor(ch)
+end
+
+function TextBox:_insertNewline()
+	if not self.multiline then
+		return false
+	end
+	return self:_insertTextAtCursor("\n")
+end
+
+function TextBox:_insertTab()
+	local spaces = string.rep(" ", self.tabWidth)
+	return self:_insertTextAtCursor(spaces)
+end
+
+function TextBox:_deleteBackward()
+	if self:_hasSelection() then
+		return self:_deleteSelection(false) > 0
+	end
+	if self._cursorLine == 1 and self._cursorCol == 1 then
+		return false
+	end
+	if self._cursorCol > 1 then
+		local lineText = self._lines[self._cursorLine]
+		self._lines[self._cursorLine] = lineText:sub(1, self._cursorCol - 2) .. lineText:sub(self._cursorCol)
+		self._cursorCol = self._cursorCol - 1
+	else
+		local previousLine = self._lines[self._cursorLine - 1]
+		local currentLine = self._lines[self._cursorLine]
+		local previousLength = #previousLine
+		self._lines[self._cursorLine - 1] = previousLine .. currentLine
+		table.remove(self._lines, self._cursorLine)
+		self._cursorLine = self._cursorLine - 1
+		self._cursorCol = previousLength + 1
+	end
+	self._preferredCol = self._cursorCol
+	self:_syncTextFromLines()
+	self:_ensureCursorVisible()
+	self:_notifyChange()
+	self:_notifyCursorChange()
+	return true
+end
+
+function TextBox:_deleteForward()
+	if self:_hasSelection() then
+		return self:_deleteSelection(false) > 0
+	end
+	local currentLine = self._lines[self._cursorLine]
+	if self._cursorCol <= #currentLine then
+		self._lines[self._cursorLine] = currentLine:sub(1, self._cursorCol - 1) .. currentLine:sub(self._cursorCol + 1)
+	else
+		if self._cursorLine >= #self._lines then
 			return false
 		end
-		if #insert > available then
-			insert = insert:sub(1, available)
+		local nextLine = table.remove(self._lines, self._cursorLine + 1)
+		self._lines[self._cursorLine] = currentLine .. nextLine
+	end
+	self:_syncTextFromLines()
+	self:_ensureCursorVisible()
+	self:_notifyChange()
+	self:_notifyCursorChange()
+	return true
+end
+
+function TextBox:_setCursorPosition(line, col, options)
+	options = options or {}
+	line = clampi(line, 1, #self._lines)
+	local lineText = self._lines[line] or ""
+	col = clampi(col, 1, #lineText + 1)
+	if options.extendSelection then
+		if not self._selectionAnchor then
+			self._selectionAnchor = { line = self._cursorLine, col = self._cursorCol }
+		end
+	else
+		self:_clearSelection()
+	end
+	self._cursorLine = line
+	self._cursorCol = col
+	if not options.preservePreferred then
+		self._preferredCol = col
+	end
+	if self._selectionAnchor and self._selectionAnchor.line == self._cursorLine and self._selectionAnchor.col == self._cursorCol then
+		self:_clearSelection()
+	end
+	self:_ensureCursorVisible()
+	self:_notifyCursorChange()
+	if not options.keepAutocomplete then
+		self:_hideAutocomplete()
+	end
+end
+
+function TextBox:_moveCursorLeft(extend)
+	if self:_hasSelection() and not extend then
+		local startLine, startCol = self:_getSelectionRange()
+		self:_setCursorPosition(startLine, startCol)
+		return
+	end
+	if self._cursorCol > 1 then
+		self:_setCursorPosition(self._cursorLine, self._cursorCol - 1, { extendSelection = extend })
+	elseif self._cursorLine > 1 then
+		local targetLine = self._cursorLine - 1
+		local targetCol = (#self._lines[targetLine] or 0) + 1
+		self:_setCursorPosition(targetLine, targetCol, { extendSelection = extend })
+	end
+end
+
+function TextBox:_moveCursorRight(extend)
+	if self:_hasSelection() and not extend then
+		local _, _, endLine, endCol = self:_getSelectionRange()
+		self:_setCursorPosition(endLine, endCol)
+		return
+	end
+	local lineText = self._lines[self._cursorLine]
+	if self._cursorCol <= #lineText then
+		self:_setCursorPosition(self._cursorLine, self._cursorCol + 1, { extendSelection = extend })
+	elseif self._cursorLine < #self._lines then
+		self:_setCursorPosition(self._cursorLine + 1, 1, { extendSelection = extend })
+	end
+end
+
+function TextBox:_moveCursorVertical(delta, extend)
+	local targetLine = clampi(self._cursorLine + delta, 1, #self._lines)
+	local lineText = self._lines[targetLine] or ""
+	local targetCol = clampi(self._preferredCol, 1, #lineText + 1)
+	self:_setCursorPosition(targetLine, targetCol, { extendSelection = extend, preservePreferred = true })
+end
+
+function TextBox:_moveCursorUp(extend)
+	self:_moveCursorVertical(-1, extend)
+end
+
+function TextBox:_moveCursorDown(extend)
+	self:_moveCursorVertical(1, extend)
+end
+
+function TextBox:_moveCursorLineStart(extend)
+	self:_setCursorPosition(self._cursorLine, 1, { extendSelection = extend })
+end
+
+function TextBox:_moveCursorLineEnd(extend)
+	local lineText = self._lines[self._cursorLine]
+	self:_setCursorPosition(self._cursorLine, #lineText + 1, { extendSelection = extend })
+end
+
+function TextBox:_moveCursorDocumentStart(extend)
+	self:_setCursorPosition(1, 1, { extendSelection = extend })
+end
+
+function TextBox:_moveCursorDocumentEnd(extend)
+	local lastLine = #self._lines
+	local lastLength = #self._lines[lastLine]
+	self:_setCursorPosition(lastLine, lastLength + 1, { extendSelection = extend })
+end
+
+function TextBox:_selectAll()
+	self._selectionAnchor = { line = 1, col = 1 }
+	self:_setCursorPosition(#self._lines, (#self._lines[#self._lines] or 0) + 1, { extendSelection = true, keepAutocomplete = true })
+end
+
+function TextBox:_scrollLines(delta)
+	if delta == 0 then
+		return
+	end
+	local _, contentHeight = self:_getContentSize()
+	local maxScroll = math.max(0, #self._lines - contentHeight)
+	self._scrollY = clampi(self._scrollY + delta, 0, maxScroll)
+end
+
+function TextBox:_scrollColumns(delta)
+	if delta == 0 then
+		return
+	end
+	local contentWidth = select(1, self:_getContentSize())
+	local currentLine = self._lines[self._cursorLine] or ""
+	local maxScroll = math.max(0, #currentLine - contentWidth)
+	self._scrollX = clampi(self._scrollX + delta, 0, maxScroll)
+end
+
+function TextBox:_cursorFromPoint(x, y)
+	local ax, ay = self:getAbsoluteRect()
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	local overlayHeight = self:_getOverlayHeight(innerHeight)
+	local contentHeight = math.max(1, innerHeight - overlayHeight)
+	local contentX = innerWidth > 0 and innerX or ax
+	local contentY = innerHeight > 0 and innerY or ay
+	local relX = clampi(x - contentX, 0, math.max(0, (innerWidth > 0 and innerWidth or self.width) - 1))
+	local relY = clampi(y - contentY, 0, contentHeight - 1)
+	local line = clampi(self._scrollY + relY + 1, 1, #self._lines)
+	local lineText = self._lines[line] or ""
+	local col = clampi(self._scrollX + relX + 1, 1, #lineText + 1)
+	return line, col
+end
+
+function TextBox:_computeSyntaxColors(lineText)
+	local syntax = self.syntax
+	if not syntax then
+		return nil
+	end
+	local map = {}
+	local defaultColor = syntax.defaultColor or self.fg or colors.white
+	for i = 1, #lineText do
+		map[i] = defaultColor
+	end
+	-- strings
+	local i = 1
+	while i <= #lineText do
+		local ch = lineText:sub(i, i)
+		if ch == '"' or ch == "'" then
+			local quote = ch
+			map[i] = syntax.stringColor or map[i]
+			i = i + 1
+			while i <= #lineText do
+				map[i] = syntax.stringColor or map[i]
+				local current = lineText:sub(i, i)
+				if current == quote and lineText:sub(i - 1, i - 1) ~= "\\" then
+					i = i + 1
+					break
+				end
+				i = i + 1
+			end
+		else
+			i = i + 1
 		end
 	end
-	local before = self.text:sub(1, self._cursorPos - 1)
-	local after = self.text:sub(self._cursorPos)
-	self.text = before .. insert .. after
-	self._cursorPos = self._cursorPos + #insert
-	self:_ensureCursorVisible()
-	self:_notifyChange()
-	return true
+	-- numbers
+	for startIdx, numberValue, endIdx in lineText:gmatch("()(%d+%.?%d*)()") do
+		if syntax.numberColor then
+			for pos = startIdx, endIdx - 1 do
+				if map[pos] == defaultColor then
+					map[pos] = syntax.numberColor
+				end
+			end
+		end
+	end
+	-- keywords/builtins
+	for startIdx, word, endIdx in lineText:gmatch("()([%a_][%w_]*)()") do
+		local lower = word:lower()
+		if syntax.keywords and syntax.keywords[lower] then
+			if syntax.keywordColor then
+				for pos = startIdx, endIdx - 1 do
+					if map[pos] == defaultColor then
+						map[pos] = syntax.keywordColor
+					end
+				end
+			end
+		elseif syntax.builtins and syntax.builtins[word] then
+			if syntax.builtinColor then
+				for pos = startIdx, endIdx - 1 do
+					if map[pos] == defaultColor then
+						map[pos] = syntax.builtinColor
+					end
+				end
+			end
+		end
+	end
+	-- comments
+	local commentStart = lineText:find("--", 1, true)
+	if commentStart then
+		local commentColor = syntax.commentColor or defaultColor
+		for pos = commentStart, #lineText do
+			map[pos] = commentColor
+		end
+	end
+	return map
 end
 
-function TextBox:_backspace()
-	if self._cursorPos <= 1 then
+local function append_segment(segments, text, fg, bg)
+	if text == "" then
+		return
+	end
+	local last = segments[#segments]
+	if last and last.fg == fg and last.bg == bg then
+		last.text = last.text .. text
+	else
+		segments[#segments + 1] = { text = text, fg = fg, bg = bg }
+	end
+end
+
+function TextBox:_buildLineSegments(lineIndex, contentWidth, baseFg, baseBg, selectionRange)
+	local lineText = self._lines[lineIndex] or ""
+	local colorMap = self:_computeSyntaxColors(lineText)
+	local startCol = self._scrollX + 1
+	local segments = {}
+	for offset = 0, contentWidth - 1 do
+		local col = startCol + offset
+		local ch
+		if col <= #lineText then
+			ch = lineText:sub(col, col)
+		else
+			ch = " "
+		end
+		local fg = colorMap and colorMap[col] or baseFg
+		local bg = baseBg
+		if selectionRange and position_in_range(lineIndex, col, selectionRange.startLine, selectionRange.startCol, selectionRange.endLine, selectionRange.endCol) then
+			bg = self.selectionBg
+			fg = self.selectionFg
+		end
+		append_segment(segments, ch, fg, bg)
+	end
+	return segments, lineText, colorMap
+end
+
+function TextBox:_drawSegments(textLayer, x, y, segments)
+	local cursor = x
+	for i = 1, #segments do
+		local seg = segments[i]
+		if seg.text ~= "" then
+			textLayer.text(cursor, y, seg.text, seg.fg, seg.bg)
+			cursor = cursor + #seg.text
+		end
+	end
+end
+
+function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHeight)
+	if not self._find.visible then
+		return
+	end
+	local overlayHeight = self:_getOverlayHeight(innerHeight)
+	if overlayHeight <= 0 then
+		return
+	end
+	local bg = self.overlayBg or self.bg or colors.gray
+	local fg = self.overlayFg or self.fg or colors.white
+	local activeBg = self.overlayActiveBg or colors.orange
+	local activeFg = self.overlayActiveFg or colors.black
+	local overlayY = innerY + innerHeight - overlayHeight
+	for row = 0, overlayHeight - 1 do
+		textLayer.text(innerX, overlayY + row, string.rep(" ", innerWidth), fg, bg)
+	end
+	local find = self._find
+	local matches = #find.matches
+	local indexDisplay = matches > 0 and string.format("%d/%d", math.max(1, find.index), matches) or "0/0"
+	local caseDisplay = find.matchCase and "CASE" or "case"
+	local findLabel = string.format("Find: %s  %s  %s", find.findText, indexDisplay, caseDisplay)
+	local replaceLabel = "Replace: " .. find.replaceText
+	local truncFind = findLabel
+	if #truncFind > innerWidth then
+		truncFind = truncFind:sub(1, innerWidth)
+	end
+	local truncReplace = replaceLabel
+	if #truncReplace > innerWidth then
+		truncReplace = truncReplace:sub(1, innerWidth)
+	end
+	textLayer.text(innerX, overlayY, truncFind .. string.rep(" ", math.max(0, innerWidth - #truncFind)), fg, bg)
+	textLayer.text(innerX, overlayY + math.max(overlayHeight - 1, 0), truncReplace .. string.rep(" ", math.max(0, innerWidth - #truncReplace)), fg, bg)
+	local activeX, activeY, activeText
+	if find.activeField == "find" then
+		activeX = innerX + 6
+		activeY = overlayY
+		activeText = find.findText
+	else
+		activeX = innerX + 9
+		activeY = overlayY + math.max(overlayHeight - 1, 0)
+		activeText = find.replaceText
+	end
+	local display = activeText
+	if #display > innerWidth - (activeX - innerX) then
+		display = display:sub(1, innerWidth - (activeX - innerX))
+	end
+	textLayer.text(activeX, activeY, display .. string.rep(" ", math.max(0, innerWidth - (activeX - innerX) - #display)), activeFg, activeBg)
+	if overlayHeight >= 2 then
+		local info = "F3 next | Shift+F3 prev | Tab switch | Enter apply | Esc close"
+		if #info > innerWidth then
+			info = info:sub(1, innerWidth)
+		end
+		textLayer.text(innerX, overlayY + overlayHeight - 1, info .. string.rep(" ", math.max(0, innerWidth - #info)), fg, bg)
+	end
+end
+
+function TextBox:_hideAutocomplete()
+	local ac = self._autocompleteState
+	if ac.visible then
+		ac.visible = false
+		ac.items = {}
+	end
+end
+
+function TextBox:_updateAutocomplete(trigger)
+	if not self.autocomplete then
+		return
+	end
+	local lineText = self._lines[self._cursorLine] or ""
+	local col = self._cursorCol - 1
+	local startCol = col
+	while startCol >= 1 do
+		local ch = lineText:sub(startCol, startCol)
+		if not ch:match("[%w_]") then
+			break
+		end
+		startCol = startCol - 1
+	end
+	startCol = startCol + 1
+	local prefix = lineText:sub(startCol, col)
+	if prefix == "" and trigger ~= "manual" then
+		self:_hideAutocomplete()
+		return
+	end
+	local suggestions = {}
+	if type(self.autocomplete) == "function" then
+		local ok, result = pcall(self.autocomplete, self, prefix)
+		if ok and type(result) == "table" then
+			suggestions = result
+		end
+	elseif type(self.autocomplete) == "table" then
+		suggestions = self.autocomplete
+	end
+	local items = {}
+	for i = 1, #suggestions do
+		local entry = suggestions[i]
+		if type(entry) == "string" then
+			if prefix == "" or entry:lower():find("^" .. prefix:lower(), 1, true) then
+				items[#items + 1] = { label = entry, insert = entry }
+			end
+		elseif type(entry) == "table" and entry.label then
+			local label = entry.label
+			if prefix == "" or label:lower():find("^" .. prefix:lower(), 1, true) then
+				items[#items + 1] = { label = label, insert = entry.insert or label }
+			end
+		end
+	end
+	if #items == 0 then
+		self:_hideAutocomplete()
+		return
+	end
+	local ac = self._autocompleteState
+	ac.visible = true
+	ac.items = {}
+	for i = 1, math.min(self.autocompleteMaxItems, #items) do
+		ac.items[i] = items[i]
+	end
+	ac.selectedIndex = 1
+	ac.anchorLine = self._cursorLine
+	ac.anchorCol = startCol
+	ac.prefix = prefix
+end
+
+function TextBox:_acceptAutocomplete()
+	local ac = self._autocompleteState
+	if not ac.visible or #ac.items == 0 then
 		return false
 	end
-	local before = self.text:sub(1, self._cursorPos - 2)
-	local after = self.text:sub(self._cursorPos)
-	self.text = before .. after
-	self._cursorPos = self._cursorPos - 1
-	self:_ensureCursorVisible()
-	self:_notifyChange()
-	return true
-end
-
-function TextBox:_delete()
-	if self._cursorPos > #self.text then
+	local item = ac.items[ac.selectedIndex]
+	if not item then
 		return false
 	end
-	local before = self.text:sub(1, self._cursorPos - 1)
-	local after = self.text:sub(self._cursorPos + 1)
-	self.text = before .. after
-	self:_ensureCursorVisible()
-	self:_notifyChange()
+	local endLine, endCol = self._cursorLine, self._cursorCol
+	self._selectionAnchor = { line = ac.anchorLine, col = ac.anchorCol }
+	self._cursorLine = endLine
+	self._cursorCol = endCol
+	self:_replaceSelection(item.insert or item.label or "", false)
+	self:_hideAutocomplete()
 	return true
 end
 
-function TextBox:_cursorFromPoint(x)
-	local ax, _, width = self:getAbsoluteRect()
-	local contentX = ax + (width > 2 and 1 or 0)
-	local contentWidth = width > 2 and (width - 2) or width
-	local offset = math.floor(x - contentX)
-	if offset < 0 then offset = 0 end
-	if offset > contentWidth then offset = contentWidth end
-	return self._viewOffset + offset
+function TextBox:_moveAutocompleteSelection(delta)
+	local ac = self._autocompleteState
+	if not ac.visible then
+		return
+	end
+	local count = #ac.items
+	if count == 0 then
+		return
+	end
+	ac.selectedIndex = ((ac.selectedIndex - 1 + delta) % count) + 1
 end
 
----@since 0.1.0
----@param textLayer Layer
----@param pixelLayer Layer
+function TextBox:_toggleFindOverlay(mode)
+	local find = self._find
+	find.visible = true
+	if mode then
+		find.activeField = mode
+	end
+	if self:_hasSelection() and mode == "find" then
+		find.findText = self:getSelectionText()
+	end
+	self:_updateFindMatches(true)
+end
+
+function TextBox:_closeFindOverlay()
+	local find = self._find
+	if find.visible then
+		find.visible = false
+		find.matches = {}
+		find.index = 0
+	end
+end
+
+function TextBox:_toggleFindField()
+	local find = self._find
+	if not find.visible then
+		return
+	end
+	if find.activeField == "find" then
+		find.activeField = "replace"
+	else
+		find.activeField = "find"
+	end
+end
+
+function TextBox:_editFindFieldText(text)
+	local find = self._find
+	if not find.visible then
+		return
+	end
+	text = tostring(text or "")
+	text = text:gsub("[\r\n]", " ")
+	if find.activeField == "find" then
+		find.findText = find.findText .. text
+		self:_updateFindMatches(true)
+	elseif find.activeField == "replace" then
+		find.replaceText = find.replaceText .. text
+	end
+end
+
+function TextBox:_handleOverlayBackspace()
+	local find = self._find
+	if not find.visible then
+		return false
+	end
+	if find.activeField == "find" then
+		if #find.findText == 0 then
+			return false
+		end
+		find.findText = find.findText:sub(1, -2)
+		self:_updateFindMatches(true)
+	else
+		if #find.replaceText == 0 then
+			return false
+		end
+		find.replaceText = find.replaceText:sub(1, -2)
+	end
+	return true
+end
+
+function TextBox:_updateFindMatches(resetIndex)
+	local find = self._find
+	find.matches = {}
+	find.index = resetIndex and 0 or find.index
+	if not find.visible or find.findText == "" then
+		return
+	end
+	local search = find.findText
+	local matchCase = find.matchCase
+	for line = 1, #self._lines do
+		local lineText = self._lines[line]
+		local haystack = matchCase and lineText or lineText:lower()
+		local needle = matchCase and search or search:lower()
+		local startPos = 1
+		while true do
+			local s, e = haystack:find(needle, startPos, true)
+			if not s then
+				break
+			end
+			find.matches[#find.matches + 1] = {
+				line = line,
+				col = s,
+				length = e - s + 1
+			}
+			startPos = s + 1
+		end
+	end
+end
+
+function TextBox:_selectMatch(match)
+	if not match then
+		return
+	end
+	self._selectionAnchor = { line = match.line, col = match.col }
+	self:_setCursorPosition(match.line, match.col + match.length, { extendSelection = true, keepAutocomplete = true })
+	self:_ensureCursorVisible()
+	self:_notifyCursorChange()
+end
+
+function TextBox:_gotoMatch(step)
+	local find = self._find
+	if not find.visible then
+		return false
+	end
+	self:_updateFindMatches(false)
+	if #find.matches == 0 then
+		return false
+	end
+	if find.index < 1 then
+		local best = 1
+		for i = 1, #find.matches do
+			local match = find.matches[i]
+			if compare_positions(match.line, match.col, self._cursorLine, self._cursorCol) >= 0 then
+				best = i
+				break
+			end
+		end
+		find.index = best
+	else
+		find.index = ((find.index - 1 + step) % #find.matches) + 1
+	end
+	self:_selectMatch(find.matches[find.index])
+	return true
+end
+
+function TextBox:_gotoNextMatch()
+	return self:_gotoMatch(1)
+end
+
+function TextBox:_gotoPreviousMatch()
+	return self:_gotoMatch(-1)
+end
+
+function TextBox:_replaceCurrentMatch()
+	local find = self._find
+	if not find.visible or #find.matches == 0 then
+		return false
+	end
+	if find.index < 1 or find.index > #find.matches then
+		find.index = 1
+	end
+	local match = find.matches[find.index]
+	self._selectionAnchor = { line = match.line, col = match.col }
+	self:_setCursorPosition(match.line, match.col + match.length, { extendSelection = true, keepAutocomplete = true })
+	self:_replaceSelection(find.replaceText or "", false)
+	self:_updateFindMatches(true)
+	return true
+end
+
+function TextBox:_replaceAll()
+	local find = self._find
+	if not find.visible or find.findText == "" then
+		return false
+	end
+	self:_updateFindMatches(true)
+	if #find.matches == 0 then
+		return false
+	end
+	for i = #find.matches, 1, -1 do
+		local match = find.matches[i]
+		local line = match.line
+		local col = match.col
+		local lineText = self._lines[line]
+		self._lines[line] = lineText:sub(1, col - 1) .. (find.replaceText or "") .. lineText:sub(col + match.length)
+	end
+	self:_syncTextFromLines()
+	self:_ensureCursorVisible()
+	self:_notifyChange()
+	self:_notifyCursorChange()
+	self:_updateFindMatches(true)
+	return true
+end
+
+function TextBox:_handleKey(keyCode, isHeld)
+	if self._find.visible then
+		if keyCode == keys.tab then
+			self:_toggleFindField()
+			return true
+		elseif keyCode == keys.backspace then
+			return self:_handleOverlayBackspace()
+		elseif keyCode == keys.enter then
+			if self._find.activeField == "find" then
+				self:_gotoNextMatch()
+			else
+				self:_replaceCurrentMatch()
+			end
+			return true
+		elseif keyCode == keys.delete then
+			local find = self._find
+			if find.activeField == "find" then
+				find.findText = ""
+				self:_updateFindMatches(true)
+			else
+				find.replaceText = ""
+			end
+			return true
+		end
+	end
+	if self._ctrlDown then
+		if keyCode == keys.a then
+			self:_selectAll()
+			return true
+		elseif keyCode == keys.f then
+			self:_toggleFindOverlay("find")
+			return true
+		elseif keyCode == keys.h then
+			self:_toggleFindOverlay("replace")
+			return true
+		elseif keyCode == keys.g or keyCode == keys.f3 then
+			if self._shiftDown then
+				self:_gotoPreviousMatch()
+			else
+				self:_gotoNextMatch()
+			end
+			return true
+		elseif keyCode == keys.space then
+			self:_updateAutocomplete("manual")
+			return true
+		elseif keyCode == keys.r and self._shiftDown then
+			self:_replaceAll()
+			return true
+		elseif keyCode == keys.f and self._shiftDown then
+			local find = self._find
+			find.matchCase = not find.matchCase
+			self:_updateFindMatches(true)
+			return true
+		end
+	end
+	if self._autocompleteState.visible then
+		if keyCode == keys.enter or keyCode == keys.tab then
+			return self:_acceptAutocomplete()
+		elseif keyCode == keys.up then
+			self:_moveAutocompleteSelection(-1)
+			return true
+		elseif keyCode == keys.down then
+			self:_moveAutocompleteSelection(1)
+			return true
+		elseif keyCode == keys.escape then
+			self:_hideAutocomplete()
+			return true
+		end
+	end
+	if keyCode == keys.left then
+		self:_moveCursorLeft(self._shiftDown)
+		return true
+	elseif keyCode == keys.right then
+		self:_moveCursorRight(self._shiftDown)
+		return true
+	elseif keyCode == keys.up then
+		self:_moveCursorUp(self._shiftDown)
+		return true
+	elseif keyCode == keys.down then
+		self:_moveCursorDown(self._shiftDown)
+		return true
+	elseif keyCode == keys.home then
+		if self._ctrlDown then
+			self:_moveCursorDocumentStart(self._shiftDown)
+		else
+			self:_moveCursorLineStart(self._shiftDown)
+		end
+		return true
+	elseif keyCode == keys["end"] then
+		if self._ctrlDown then
+			self:_moveCursorDocumentEnd(self._shiftDown)
+		else
+			self:_moveCursorLineEnd(self._shiftDown)
+		end
+		return true
+	elseif keyCode == keys.backspace then
+		return self:_deleteBackward()
+	elseif keyCode == keys.delete then
+		return self:_deleteForward()
+	elseif keyCode == keys.enter then
+		return self:_insertNewline()
+	elseif keyCode == keys.tab then
+		return self:_insertTab()
+	elseif keyCode == keys.pageUp then
+		self:_scrollLines(-math.max(1, select(2, self:_getContentSize()) - 1))
+		return true
+	elseif keyCode == keys.pageDown then
+		self:_scrollLines(math.max(1, select(2, self:_getContentSize()) - 1))
+		return true
+	elseif keyCode == keys.escape then
+		if self._find.visible then
+			self:_closeFindOverlay()
+			return true
+		end
+		if self:_hasSelection() then
+			self:_clearSelection()
+			self:_notifyCursorChange()
+			return true
+		end
+		if self._autocompleteState.visible then
+			self:_hideAutocomplete()
+			return true
+		end
+	end
+	return false
+end
+
 function TextBox:draw(textLayer, pixelLayer)
 	if not self.visible then
 		return
@@ -5192,150 +7195,218 @@ function TextBox:draw(textLayer, pixelLayer)
 	local ax, ay, width, height = self:getAbsoluteRect()
 	local bg = self.bg or colors.black
 	local fg = self.fg or colors.white
-
-	local innerX, innerY = ax + 1, ay + 1
-	local innerWidth = math.max(0, width - 2)
-	local innerHeight = math.max(0, height - 2)
-
-	if innerWidth > 0 and innerHeight > 0 then
-		fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, bg, bg)
-	else
-		fill_rect(textLayer, ax, ay, width, height, bg, bg)
-	end
-
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
 	clear_border_characters(textLayer, ax, ay, width, height)
-
-	local contentWidth = innerWidth > 0 and innerWidth or width
-	local contentX = innerWidth > 0 and innerX or ax
-	local contentY
-	if innerHeight > 0 then
-		contentY = innerY + math.floor((innerHeight - 1) / 2)
-	else
-		contentY = ay
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		innerX = ax
+		innerY = ay
+		innerWidth = width
+		innerHeight = height
 	end
-
-	local startIdx = self._viewOffset
-	local endIdx = startIdx + contentWidth - 1
-	local slice = self.text:sub(startIdx, endIdx)
-	if #slice < contentWidth then
-		slice = slice .. string.rep(" ", contentWidth - #slice)
+	local overlayHeight = self:_getOverlayHeight(innerHeight)
+	local contentHeight = math.max(1, innerHeight - overlayHeight)
+	local selectionRange
+	if self:_hasSelection() then
+		local startLine, startCol, endLine, endCol = self:_getSelectionRange()
+		selectionRange = {
+			startLine = startLine,
+			startCol = startCol,
+			endLine = endLine,
+			endCol = endCol
+		}
 	end
-
-	local renderText = slice
-	local renderFg = fg
-	local placeholderActive = (not self:isFocused()) and self.text == "" and type(self.placeholder) == "string" and #self.placeholder > 0
-	if placeholderActive then
-		renderText = self.placeholder
-		if #renderText > contentWidth then
-			renderText = renderText:sub(1, contentWidth)
-		end
-		if #renderText < contentWidth then
-			renderText = renderText .. string.rep(" ", contentWidth - #renderText)
-		end
-		renderFg = colors.lightGray
-	end
-
-	if contentWidth > 0 then
-		textLayer.text(contentX, contentY, renderText, renderFg, bg)
-	end
-
-	if self:isFocused() then
-		local cursorCol = self._cursorPos - self._viewOffset + 1
-		if cursorCol >= 1 and cursorCol <= contentWidth then
-			local cursorChar = slice:sub(cursorCol, cursorCol)
-			if cursorChar == "" then
-				cursorChar = " "
+	local baseBg = bg
+	for row = 0, contentHeight - 1 do
+		local lineIndex = self._scrollY + row + 1
+		local drawY = innerY + row
+		if lineIndex > #self._lines then
+			textLayer.text(innerX, drawY, string.rep(" ", innerWidth), fg, baseBg)
+		else
+			local segments, lineText, colorMap = self:_buildLineSegments(lineIndex, innerWidth, fg, baseBg, selectionRange)
+			self:_drawSegments(textLayer, innerX, drawY, segments)
+			if self:isFocused() and lineIndex == self._cursorLine then
+				local cursorCol = self._cursorCol - self._scrollX - 1
+				if cursorCol >= 0 and cursorCol < innerWidth then
+					local ch
+					if self._cursorCol <= #lineText then
+						ch = lineText:sub(self._cursorCol, self._cursorCol)
+					else
+						ch = " "
+					end
+					local cursorFg = baseBg
+					local cursorBg = fg
+					textLayer.text(innerX + cursorCol, drawY, ch, cursorFg, cursorBg)
+				end
 			end
-			textLayer.text(contentX + cursorCol - 1, contentY, cursorChar, bg, fg)
 		end
 	end
-
+	if self.text == "" and not self:isFocused() and self.placeholder ~= "" then
+		local placeholder = self.placeholder
+		if #placeholder > innerWidth then
+			placeholder = placeholder:sub(1, innerWidth)
+		end
+		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, innerWidth - #placeholder)), colors.lightGray, baseBg)
+	end
+	self:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHeight)
+	if self._autocompleteState.visible and #self._autocompleteState.items > 0 then
+		local ac = self._autocompleteState
+		local lineOffset = ac.anchorLine - (self._scrollY + 1)
+		local popupY = innerY + lineOffset + 1
+		local popupX = innerX + (ac.anchorCol - (self._scrollX + 1))
+		local popupWidth = 0
+		for i = 1, #ac.items do
+			popupWidth = math.max(popupWidth, #ac.items[i].label)
+		end
+		popupWidth = math.min(innerWidth, math.max(6, popupWidth + 2))
+		local popupHeight = math.min(#ac.items, self.autocompleteMaxItems)
+		if popupX + popupWidth > innerX + innerWidth then
+			popupX = innerX + innerWidth - popupWidth
+		end
+		if popupX < innerX then
+			popupX = innerX
+		end
+		if popupY + popupHeight > innerY + contentHeight then
+			popupY = popupY - popupHeight
+		end
+		local bgPopup = self.autocompleteBg or colors.gray
+		local fgPopup = self.autocompleteFg or colors.white
+		local selBg = self.selectionBg or colors.lightGray
+		local selFg = self.selectionFg or colors.black
+		for i = 1, popupHeight do
+			local item = ac.items[i]
+			local label = item.label
+			if #label > popupWidth - 2 then
+				label = label:sub(1, popupWidth - 2)
+			end
+			local padding = popupWidth - 2 - #label
+			local text = " " .. label .. string.rep(" ", padding + 1)
+			local rowBg = (i == ac.selectedIndex) and selBg or bgPopup
+			local rowFg = (i == ac.selectedIndex) and selFg or fgPopup
+			textLayer.text(popupX, popupY + i - 1, text, rowFg, rowBg)
+		end
+	end
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
 end
 
----@since 0.1.0
----@param event string
 function TextBox:handleEvent(event, ...)
 	if not self.visible then
 		return false
 	end
-
 	if event == "mouse_click" then
-		local _, x, y = ...
+		local button, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
-			self:_setCursor(self:_cursorFromPoint(x))
+			local line, col = self:_cursorFromPoint(x, y)
+			if button == 1 then
+				self:_setCursorPosition(line, col)
+				self._dragging = true
+				self._dragButton = button
+				self._dragAnchor = { line = line, col = col }
+			elseif button == 2 then
+				self:_setCursorPosition(line, col)
+			end
+			return true
+		end
+	elseif event == "mouse_drag" then
+		local button, x, y = ...
+		if self._dragging and button == self._dragButton then
+			local line, col = self:_cursorFromPoint(x, y)
+			if not self._selectionAnchor and self._dragAnchor then
+				self._selectionAnchor = { line = self._dragAnchor.line, col = self._dragAnchor.col }
+			end
+			self:_setCursorPosition(line, col, { extendSelection = true, keepAutocomplete = true })
+			return true
+		end
+	elseif event == "mouse_up" then
+		local button = ...
+		if self._dragging and button == self._dragButton then
+			self._dragging = false
+			self._dragButton = nil
+			self._dragAnchor = nil
 			return true
 		end
 	elseif event == "monitor_touch" then
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
-			self:_setCursor(self:_cursorFromPoint(x))
+			local line, col = self:_cursorFromPoint(x, y)
+			self:_setCursorPosition(line, col)
 			return true
 		end
-	elseif event == "mouse_drag" then
-		local _, x, y = ...
-		if self:isFocused() and self:containsPoint(x, y) then
-			self:_setCursor(self:_cursorFromPoint(x))
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self:_scrollLines(direction)
 			return true
 		end
 	elseif event == "char" then
 		local ch = ...
 		if self:isFocused() then
-			return self:_insertText(ch)
+			if self._find.visible then
+				self:_editFindFieldText(ch)
+				return true
+			end
+			local inserted = self:_insertCharacter(ch)
+			if inserted and self.autocompleteAuto then
+				self:_updateAutocomplete("auto")
+			end
+			return inserted
 		end
 	elseif event == "paste" then
 		local text = ...
 		if self:isFocused() then
-			return self:_insertText(text)
+			if self._find.visible then
+				self:_editFindFieldText(text)
+				return true
+			end
+			local inserted = self:_insertTextAtCursor(text)
+			if inserted and self.autocompleteAuto then
+				self:_updateAutocomplete("auto")
+			end
+			return inserted
 		end
 	elseif event == "key" then
-		local keyCode = ...
+		local keyCode, isHeld = ...
+		if keyCode == keys.leftShift or keyCode == keys.rightShift then
+			self._shiftDown = true
+			return true
+		elseif keyCode == keys.leftCtrl or keyCode == keys.rightCtrl then
+			self._ctrlDown = true
+			return true
+		end
 		if self:isFocused() then
-			if keyCode == keys.left then
-				self:_moveCursor(-1)
-				return true
-			elseif keyCode == keys.right then
-				self:_moveCursor(1)
-				return true
-			elseif keyCode == keys.home then
-				self:_setCursor(1)
-				return true
-			elseif keyCode == keys["end"] then
-				self:_setCursor(#self.text + 1)
-				return true
-			elseif keyCode == keys.backspace then
-				return self:_backspace()
-			elseif keyCode == keys.delete then
-				return self:_delete()
+			return self:_handleKey(keyCode, isHeld)
+		end
+	elseif event == "key_up" then
+		local keyCode = ...
+		if keyCode == keys.leftShift or keyCode == keys.rightShift then
+			self._shiftDown = false
+			if not self:_hasSelection() then
+				self:_clearSelection()
 			end
+			return true
+		elseif keyCode == keys.leftCtrl or keyCode == keys.rightCtrl then
+			self._ctrlDown = false
+			return true
+		elseif keyCode == keys.f3 then
+			return true
 		end
 	end
-
 	return false
 end
 
----@since 0.1.0
----@param text string
-function TextBox:setText(text)
+function TextBox:setText(text, suppressEvent)
 	expect(1, text, "string")
-	self.text = self:_applyMaxLength(text)
-	self._cursorPos = math.min(self._cursorPos, #self.text + 1)
-	self:_ensureCursorVisible()
-	self:_notifyChange()
+	self:_setTextInternal(text, true, suppressEvent)
 end
 
----@since 0.1.0
----@return string
 function TextBox:getText()
 	return self.text
 end
 
----@since 0.1.0
----@param handler fun(self:PixelUI.TextBox, value:string)?
 function TextBox:setOnChange(handler)
 	if handler ~= nil then
 		expect(1, handler, "function")
@@ -5487,6 +7558,13 @@ end
 ---@return PixelUI.List
 function App:createList(config)
 	return List:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Table
+function App:createTable(config)
+	return Table:new(self, config)
 end
 
 ---@since 0.1.0
@@ -5938,6 +8016,9 @@ pixelui.widgets = {
 	List = function(app, config)
 		return List:new(app, config)
 	end,
+	Table = function(app, config)
+		return Table:new(app, config)
+	end,
 	TreeView = function(app, config)
 		return TreeView:new(app, config)
 	end,
@@ -5964,6 +8045,7 @@ pixelui.Toggle = Toggle
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
 pixelui.List = List
+pixelui.Table = Table
 pixelui.TreeView = TreeView
 pixelui.Chart = Chart
 pixelui.RadioButton = RadioButton
