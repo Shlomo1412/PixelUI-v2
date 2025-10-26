@@ -91,6 +91,14 @@ local labelDefaults = {}
 local sliderSingle
 local sliderRange
 local sliderDefaults = {}
+local checkboxWidgets = {}
+local checkboxDefaults = {}
+local checkboxStatus
+local checkboxStatusDefaults = {}
+local treeView
+local treeDefaults = {}
+local treeInfoLabel
+local treeInfoDefaults = {}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
@@ -383,7 +391,234 @@ end, function()
     end
 end)
 
--- Step 8: ProgressBar showcase
+-- Step 8: CheckBox showcase
+local checkboxStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(checkboxStep)
+
+local checkboxOptions = {
+    { label = "Enable animations", checked = true },
+    { label = "Show tooltips", checked = false, allowIndeterminate = true, indeterminate = true },
+    { label = "Sync to cloud", checked = true }
+}
+
+for index = 1, #checkboxOptions do
+    local option = checkboxOptions[index]
+    local checkbox = app:createCheckBox({
+        x = 2,
+        y = 1 + (index - 1) * 2,
+        width = 26,
+        label = option.label,
+        checked = option.checked,
+        allowIndeterminate = option.allowIndeterminate,
+        indeterminate = option.indeterminate,
+        bg = colors.gray,
+        fg = colors.white,
+        focusBg = colors.lightGray,
+        focusFg = colors.black
+    })
+    checkboxStep:addChild(checkbox)
+    checkboxWidgets[index] = checkbox
+    checkboxDefaults[index] = checkbox.width
+end
+
+checkboxStatus = app:createLabel({
+    x = 2,
+    y = 7,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    verticalAlign = "top",
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+checkboxStep:addChild(checkboxStatus)
+checkboxStatusDefaults = { width = checkboxStatus.width, height = checkboxStatus.height }
+
+local function updateCheckboxSummary()
+    if not checkboxStatus then
+        return
+    end
+    local enabled = {}
+    local pending = {}
+    for i = 1, #checkboxWidgets do
+        local widget = checkboxWidgets[i]
+        if widget then
+            if widget:isIndeterminate() then
+                pending[#pending + 1] = widget.label or ("Option " .. i)
+            elseif widget:isChecked() then
+                enabled[#enabled + 1] = widget.label or ("Option " .. i)
+            end
+        end
+    end
+    local parts = {}
+    if #enabled > 0 then
+        parts[#parts + 1] = "On: " .. table.concat(enabled, ", ")
+    end
+    if #pending > 0 then
+        parts[#parts + 1] = "Pending: " .. table.concat(pending, ", ")
+    end
+    if #parts == 0 then
+        checkboxStatus:setText("All features disabled.")
+    else
+        checkboxStatus:setText(table.concat(parts, "  "))
+    end
+end
+
+for index = 1, #checkboxWidgets do
+    local widget = checkboxWidgets[index]
+    if widget then
+        widget:setOnChange(function()
+            updateCheckboxSummary()
+        end)
+    end
+end
+updateCheckboxSummary()
+
+addStep(checkboxStep, function()
+    if checkboxWidgets[1] then
+        app:setFocus(checkboxWidgets[1])
+    end
+end, function()
+    local focus = app:getFocus()
+    if focus then
+        for i = 1, #checkboxWidgets do
+            if checkboxWidgets[i] == focus then
+                app:setFocus(nil)
+                break
+            end
+        end
+    end
+end)
+
+-- Step 9: TreeView showcase
+local treeStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(treeStep)
+
+local treeNodes = {
+    {
+        label = "UI Components",
+        expanded = true,
+        children = {
+            { label = "Buttons" },
+            { label = "Inputs", children = {
+                { label = "TextBox" },
+                { label = "ComboBox" },
+                { label = "CheckBox" }
+            } },
+            { label = "Selectors", children = {
+                { label = "List" },
+                { label = "TreeView" },
+                { label = "Progress" }
+            } }
+        }
+    },
+    {
+        label = "Layout",
+        expanded = false,
+        children = {
+            { label = "Frames" },
+            { label = "Spacing" },
+            { label = "Animation" }
+        }
+    },
+    {
+        label = "Data",
+        expanded = false,
+        children = {
+            { label = "Bindings" },
+            { label = "Validation" }
+        }
+    }
+}
+
+treeView = app:createTreeView({
+    x = 2,
+    y = 2,
+    width = 24,
+    height = 6,
+    nodes = treeNodes,
+    bg = colors.gray,
+    fg = colors.white,
+    highlightBg = colors.lightGray,
+    highlightFg = colors.black,
+    placeholder = "No items"
+})
+treeStep:addChild(treeView)
+treeDefaults = { width = treeView.width, height = treeView.height }
+
+treeInfoLabel = app:createLabel({
+    x = 2,
+    y = 8,
+    width = 26,
+    height = 2,
+    wrap = true,
+    text = "Select an item to see details.",
+    bg = colors.gray,
+    fg = colors.white
+})
+treeStep:addChild(treeInfoLabel)
+treeInfoDefaults = { width = treeInfoLabel.width, height = treeInfoLabel.height }
+
+local function treePath(node)
+    if not node then
+        return nil
+    end
+    local parts = {}
+    local current = node
+    while current do
+        parts[#parts + 1] = current.label or "?"
+        current = current.parent
+    end
+    for i = 1, math.floor(#parts / 2) do
+        parts[i], parts[#parts - i + 1] = parts[#parts - i + 1], parts[i]
+    end
+    return table.concat(parts, " / ")
+end
+
+local function updateTreeInfo(node)
+    if not treeInfoLabel then
+        return
+    end
+    if not node then
+        treeInfoLabel:setText("Select an item to see details.")
+        return
+    end
+    local path = treePath(node)
+    treeInfoLabel:setText("Selected: " .. (path or "(unknown)"))
+end
+
+treeView:setOnSelect(function(_, node)
+    updateTreeInfo(node)
+end)
+updateTreeInfo(treeView:getSelectedNode())
+
+addStep(treeStep, function()
+    if treeView then
+        app:setFocus(treeView)
+    end
+end, function()
+    if treeView and treeView:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 10: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -727,6 +962,75 @@ local function layout()
             rangeY = math.max(innerMargin, innerMargin + stepHeight - rangeHeight)
         end
         sliderRange:setPosition(rangeX, rangeY)
+    end
+
+    if #checkboxWidgets > 0 then
+        local checkboxWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local baseY = innerMargin
+        for index = 1, #checkboxWidgets do
+            local checkbox = checkboxWidgets[index]
+            if checkbox then
+                local presetWidth = checkboxDefaults[index] or checkbox.width
+                local width = math.max(6, math.min(presetWidth, checkboxWidthLimit))
+                checkbox:setSize(width, 1)
+                local x = math.floor((checkboxStep.width - width) / 2) + 1
+                local y = math.min(innerMargin + stepHeight - 1, baseY + (index - 1) * 2)
+                checkbox:setPosition(x, y)
+            end
+        end
+        if checkboxStatus then
+            local defaults = checkboxStatusDefaults or {}
+            local statusWidth = math.max(6, math.min(defaults.width or checkboxStatus.width, checkboxWidthLimit))
+            local maxStatusHeight = math.max(2, stepHeight - (baseY + (#checkboxWidgets - 1) * 2) - 1)
+            local statusHeight = math.max(2, math.min(defaults.height or checkboxStatus.height, maxStatusHeight))
+            checkboxStatus:setSize(statusWidth, statusHeight)
+            local x = math.floor((checkboxStep.width - statusWidth) / 2) + 1
+            local y = math.min(innerMargin + stepHeight - statusHeight, baseY + (#checkboxWidgets - 1) * 2 + 2)
+            checkboxStatus:setPosition(x, y)
+        end
+    end
+
+    if treeView then
+        local treeWidthLimit = math.max(8, stepWidth - innerMargin * 2)
+        local defaults = treeDefaults or {}
+        local defaultWidth = defaults.width or treeView.width
+        local defaultHeight = defaults.height or treeView.height
+        local treeWidth = math.max(8, math.min(defaultWidth, treeWidthLimit))
+
+        local infoHeight = 0
+        local infoWidth = 0
+        if treeInfoLabel then
+            local infoDefaults = treeInfoDefaults or {}
+            infoWidth = math.max(6, math.min(infoDefaults.width or treeInfoLabel.width, treeWidthLimit))
+            local maxInfoHeight = math.max(2, stepHeight - 4)
+            infoHeight = math.max(2, math.min(infoDefaults.height or treeInfoLabel.height, maxInfoHeight))
+        end
+
+        local availableHeight = math.max(1, stepHeight - infoHeight - 1)
+        local treeHeight = math.min(defaultHeight, availableHeight)
+        if availableHeight >= 3 then
+            treeHeight = math.max(3, treeHeight)
+        end
+        treeHeight = math.max(1, math.min(treeHeight, availableHeight))
+
+        treeView:setSize(treeWidth, treeHeight)
+        local treeX = math.floor((treeStep.width - treeWidth) / 2) + 1
+        local treeY = innerMargin
+        treeView:setPosition(treeX, treeY)
+
+        if treeInfoLabel then
+            treeInfoLabel:setSize(infoWidth, infoHeight)
+            local infoX = math.floor((treeStep.width - infoWidth) / 2) + 1
+            local infoY = treeY + treeHeight + 1
+            local maxInfoY = innerMargin + stepHeight - infoHeight
+            if infoY > maxInfoY then
+                infoY = maxInfoY
+            end
+            if infoY < innerMargin then
+                infoY = innerMargin
+            end
+            treeInfoLabel:setPosition(infoX, infoY)
+        end
     end
 
     if progressDeterminate and progressIndeterminate then

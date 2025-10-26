@@ -87,6 +87,15 @@ local shrekbox = require("shrekbox")
 ---@field align "left"|"center"|"right"
 ---@field verticalAlign "top"|"middle"|"bottom"
 
+---@class PixelUI.CheckBox : PixelUI.Widget
+---@field label string
+---@field checked boolean
+---@field indeterminate boolean
+---@field allowIndeterminate boolean
+---@field focusBg PixelUI.Color?
+---@field focusFg PixelUI.Color?
+---@field onChange fun(self:PixelUI.CheckBox, checked:boolean, indeterminate:boolean)?
+
 ---@class PixelUI.ProgressBar : PixelUI.Widget
 ---@field value number
 ---@field min number
@@ -109,6 +118,20 @@ local shrekbox = require("shrekbox")
 ---@field showValue boolean
 ---@field onChange fun(self:PixelUI.Slider, ...:number)?
 ---@field formatValue fun(self:PixelUI.Slider, ...:number):string?
+
+---@class PixelUI.TreeNode
+---@field label string
+---@field data any
+---@field children PixelUI.TreeNode[]
+---@field expanded boolean
+
+---@class PixelUI.TreeView : PixelUI.Widget
+---@field indentWidth integer
+---@field highlightBg PixelUI.Color
+---@field highlightFg PixelUI.Color
+---@field placeholder string?
+---@field onSelect fun(self:PixelUI.TreeView, node:PixelUI.TreeNode?, index:integer)?
+---@field onToggle fun(self:PixelUI.TreeView, node:PixelUI.TreeNode, expanded:boolean)?
 
 ---@class PixelUI.List : PixelUI.Widget
 ---@field items string[]
@@ -158,7 +181,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -204,6 +227,10 @@ local Label = {}
 Label.__index = Label
 setmetatable(Label, { __index = Widget })
 
+local CheckBox = {}
+CheckBox.__index = CheckBox
+setmetatable(CheckBox, { __index = Widget })
+
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 setmetatable(ProgressBar, { __index = Widget })
@@ -215,6 +242,10 @@ setmetatable(Slider, { __index = Widget })
 local List = {}
 List.__index = List
 setmetatable(List, { __index = Widget })
+
+local TreeView = {}
+TreeView.__index = TreeView
+setmetatable(TreeView, { __index = Widget })
 
 local RadioButton = {}
 RadioButton.__index = RadioButton
@@ -1171,6 +1202,223 @@ function Label:draw(textLayer, pixelLayer)
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
+end
+
+function CheckBox:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	local label = "Option"
+	if config and config.label ~= nil then
+		label = tostring(config.label)
+	end
+	baseConfig.focusable = true
+	baseConfig.height = baseConfig.height or 1
+	baseConfig.width = baseConfig.width or math.max(4, #label + 4)
+	local instance = setmetatable({}, CheckBox)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.label = label
+	instance.allowIndeterminate = not not (config and config.allowIndeterminate)
+	instance.indeterminate = not not (config and config.indeterminate)
+	if not instance.allowIndeterminate then
+		instance.indeterminate = false
+	end
+	instance.checked = not instance.indeterminate and not not (config and config.checked)
+	instance.onChange = config and config.onChange or nil
+	instance.focusBg = config and config.focusBg or colors.lightGray
+	instance.focusFg = config and config.focusFg or colors.black
+	return instance
+end
+
+function CheckBox:_notifyChange()
+	if self.onChange then
+		self.onChange(self, self.checked, self.indeterminate)
+	end
+end
+
+function CheckBox:_setState(checked, indeterminate, suppressEvent)
+	checked = not not checked
+	indeterminate = not not indeterminate
+	if indeterminate then
+		checked = false
+	end
+	if not self.allowIndeterminate then
+		indeterminate = false
+	end
+	local changed = (self.checked ~= checked) or (self.indeterminate ~= indeterminate)
+	if not changed then
+		return false
+	end
+	self.checked = checked
+	self.indeterminate = indeterminate
+	if not suppressEvent then
+		self:_notifyChange()
+	end
+	return true
+end
+
+function CheckBox:setLabel(text)
+	expect(1, text, "string")
+	self.label = text
+end
+
+function CheckBox:setOnChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onChange = handler
+end
+
+function CheckBox:setAllowIndeterminate(allow)
+	allow = not not allow
+	if self.allowIndeterminate == allow then
+		return
+	end
+	self.allowIndeterminate = allow
+	if not allow and self.indeterminate then
+		self:_setState(self.checked, false, true)
+		self:_notifyChange()
+	end
+end
+
+function CheckBox:setChecked(checked)
+	expect(1, checked, "boolean")
+	self:_setState(checked, false, false)
+end
+
+function CheckBox:isChecked()
+	return self.checked
+end
+
+function CheckBox:setIndeterminate(indeterminate)
+	if not self.allowIndeterminate then
+		if indeterminate then
+			error("Indeterminate state is disabled for this CheckBox", 2)
+		end
+		return
+	end
+	expect(1, indeterminate, "boolean")
+	self:_setState(self.checked, indeterminate, false)
+end
+
+function CheckBox:isIndeterminate()
+	return self.indeterminate
+end
+
+function CheckBox:toggle()
+	self:_activate()
+end
+
+function CheckBox:_activate()
+	if self.allowIndeterminate then
+		if self.indeterminate then
+			self:_setState(false, false, false)
+		elseif self.checked then
+			self:_setState(false, true, false)
+		else
+			self:_setState(true, false, false)
+		end
+	else
+		if self.indeterminate then
+			self:_setState(true, false, false)
+		else
+			self:_setState(not self.checked, false, false)
+		end
+	end
+end
+
+function CheckBox:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local baseBg = self.bg or colors.black
+	local baseFg = self.fg or colors.white
+	local drawBg = baseBg
+	local drawFg = baseFg
+
+	if self:isFocused() then
+		drawBg = self.focusBg or drawBg
+		drawFg = self.focusFg or drawFg
+	end
+
+	fill_rect(textLayer, ax, ay, width, height, drawBg, drawBg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, drawBg)
+	end
+
+	if width <= 0 or height <= 0 then
+		return
+	end
+
+	local indicatorChar = " "
+	if self.indeterminate then
+		indicatorChar = "-"
+	elseif self.checked then
+		indicatorChar = "x"
+	end
+
+	local indicator = "[" .. indicatorChar .. "]"
+	local buffer = {}
+	buffer[#buffer + 1] = indicator
+	local used = #indicator
+	if width > used then
+		buffer[#buffer + 1] = " "
+		used = used + 1
+	end
+	if width > used then
+		local label = self.label or ""
+		local remaining = width - used
+		if #label > remaining then
+			label = label:sub(1, remaining)
+		end
+		buffer[#buffer + 1] = label
+		used = used + #label
+	end
+	local content = table.concat(buffer)
+	if #content < width then
+		content = content .. string.rep(" ", width - #content)
+	elseif #content > width then
+		content = content:sub(1, width)
+	end
+
+	local textY = ay + math.floor((height - 1) / 2)
+	textLayer.text(ax, textY, content, drawFg, drawBg)
+end
+
+function CheckBox:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self:_activate()
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self:_activate()
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.space or keyCode == keys.enter then
+			self:_activate()
+			return true
+		end
+	end
+
+	return false
 end
 
 function RadioButton:new(app, config)
@@ -2331,6 +2579,656 @@ function Slider:handleEvent(event, ...)
 	elseif event == "key_up" then
 		if self._activeHandle then
 			self:_endInteraction()
+		end
+	end
+
+	return false
+end
+
+function TreeView:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 7))
+	baseConfig.width = math.max(6, math.floor(baseConfig.width or 20))
+	local instance = setmetatable({}, TreeView)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.highlightBg = (config and config.highlightBg) or colors.lightGray
+	instance.highlightFg = (config and config.highlightFg) or colors.black
+	instance.placeholder = (config and config.placeholder) or nil
+	instance.indentWidth = math.max(1, math.floor((config and config.indentWidth) or 2))
+	local symbols = (config and config.toggleSymbols) or {}
+	instance.toggleSymbols = {
+		expanded = tostring(symbols.expanded or "-"),
+		collapsed = tostring(symbols.collapsed or "+"),
+		leaf = tostring(symbols.leaf or " ")
+	}
+	instance.onSelect = config and config.onSelect or nil
+	instance.onToggle = config and config.onToggle or nil
+	instance.nodes = {}
+	instance._flatNodes = {}
+	instance.scrollOffset = 1
+	instance.selectedNode = nil
+	instance._selectedIndex = 0
+	instance.typeSearchTimeout = (config and config.typeSearchTimeout) or 0.75
+	instance._typeSearch = { buffer = "", lastTime = 0 }
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance:setNodes((config and config.nodes) or {})
+	return instance
+end
+
+function TreeView:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function TreeView:setOnToggle(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onToggle = handler
+end
+
+function TreeView:_copyNodes(source, parent)
+	local list = {}
+	if type(source) ~= "table" then
+		return list
+	end
+	for i = 1, #source do
+		local entry = source[i]
+		if entry ~= nil then
+			local node
+			if type(entry) == "string" then
+				node = {
+					label = entry,
+					data = nil,
+					expanded = false
+				}
+			elseif type(entry) == "table" then
+				node = {
+					label = entry.label and tostring(entry.label) or string.format("Node %d", i),
+					data = entry.data,
+					expanded = not not entry.expanded
+				}
+			else
+				node = {
+					label = tostring(entry),
+					data = nil,
+					expanded = false
+				}
+			end
+			node.parent = parent
+			if entry and type(entry.children) == "table" and #entry.children > 0 then
+				node.children = self:_copyNodes(entry.children, node)
+				if node.expanded == nil then
+					node.expanded = false
+				end
+			else
+				node.children = {}
+				node.expanded = false
+			end
+			list[#list + 1] = node
+		end
+	end
+	return list
+end
+
+function TreeView:setNodes(nodes)
+	nodes = nodes or {}
+	expect(1, nodes, "table")
+	local previousNode = self.selectedNode
+	local previousIndex = self._selectedIndex
+	self.nodes = self:_copyNodes(nodes, nil)
+	self.scrollOffset = 1
+	self.selectedNode = nil
+	self._selectedIndex = 0
+	self:_rebuildFlatNodes()
+	local currentNode = self.selectedNode
+	if previousNode ~= currentNode or self._selectedIndex ~= previousIndex then
+		self:_notifySelect()
+	end
+end
+
+function TreeView:getSelectedNode()
+	return self.selectedNode
+end
+
+function TreeView:setSelectedNode(node)
+	if node == nil then
+		if self.selectedNode ~= nil then
+			self.selectedNode = nil
+			self._selectedIndex = 0
+			self:_notifySelect()
+		end
+		return
+	end
+	self:_selectNode(node, false)
+end
+
+function TreeView:expandNode(node)
+	self:_toggleNode(node, true)
+end
+
+function TreeView:collapseNode(node)
+	self:_toggleNode(node, false)
+end
+
+function TreeView:toggleNode(node)
+	self:_toggleNode(node, nil)
+end
+
+function TreeView:_rebuildFlatNodes()
+	local flat = {}
+	local function traverse(children, depth)
+		for i = 1, #children do
+			local node = children[i]
+			flat[#flat + 1] = { node = node, depth = depth }
+			if node.expanded and node.children and #node.children > 0 then
+				traverse(node.children, depth + 1)
+			end
+		end
+	end
+	traverse(self.nodes, 0)
+	self._flatNodes = flat
+	local index = self:_findVisibleIndex(self.selectedNode)
+	if index then
+		self._selectedIndex = index
+	elseif #flat > 0 then
+		self._selectedIndex = 1
+		self.selectedNode = flat[1].node
+	else
+		self._selectedIndex = 0
+		self.selectedNode = nil
+	end
+	self:_ensureSelectionVisible()
+end
+
+function TreeView:_findVisibleIndex(target)
+	if target == nil then
+		return nil
+	end
+	local flat = self._flatNodes
+	for i = 1, #flat do
+		if flat[i].node == target then
+			return i
+		end
+	end
+	return nil
+end
+
+function TreeView:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	return leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight
+end
+
+function TreeView:_getInnerHeight()
+	local _, _, _, _, _, innerHeight = self:_getInnerMetrics()
+	if innerHeight < 1 then
+		innerHeight = 1
+	end
+	return innerHeight
+end
+
+function TreeView:_ensureSelectionVisible()
+	local count = #self._flatNodes
+	local innerHeight = self:_getInnerHeight()
+	if count == 0 then
+		self.scrollOffset = 1
+		return
+	end
+	if self._selectedIndex < 1 then
+		self._selectedIndex = 1
+	elseif self._selectedIndex > count then
+		self._selectedIndex = count
+	end
+	if self.scrollOffset < 1 then
+		self.scrollOffset = 1
+	end
+	local maxOffset = math.max(1, count - innerHeight + 1)
+	if self.scrollOffset > maxOffset then
+		self.scrollOffset = maxOffset
+	end
+	if self._selectedIndex < self.scrollOffset then
+		self.scrollOffset = self._selectedIndex
+	elseif self._selectedIndex > self.scrollOffset + innerHeight - 1 then
+		self.scrollOffset = self._selectedIndex - innerHeight + 1
+		if self.scrollOffset > maxOffset then
+			self.scrollOffset = maxOffset
+		end
+	end
+end
+
+function TreeView:_setSelectedIndex(index, suppressEvent)
+	local count = #self._flatNodes
+	if count == 0 then
+		self.selectedNode = nil
+		self._selectedIndex = 0
+		self.scrollOffset = 1
+		if not suppressEvent then
+			self:_notifySelect()
+		end
+		return
+	end
+	if index < 1 then
+		index = 1
+	elseif index > count then
+		index = count
+	end
+	self._selectedIndex = index
+	self.selectedNode = self._flatNodes[index].node
+	self:_ensureSelectionVisible()
+	if not suppressEvent then
+		self:_notifySelect()
+	end
+end
+
+function TreeView:_selectNode(node, suppressEvent)
+	if not node then
+		return
+	end
+	local parent = node.parent
+	while parent do
+		if not parent.expanded then
+			parent.expanded = true
+		end
+		parent = parent.parent
+	end
+	self:_rebuildFlatNodes()
+	local index = self:_findVisibleIndex(node)
+	if index then
+		self:_setSelectedIndex(index, suppressEvent)
+	end
+end
+
+function TreeView:_moveSelection(delta)
+	if delta == 0 then
+		return
+	end
+	local count = #self._flatNodes
+	if count == 0 then
+		return
+	end
+	local index = self._selectedIndex
+	if index < 1 then
+		index = 1
+	end
+	index = index + delta
+	if index < 1 then
+		index = 1
+	elseif index > count then
+		index = count
+	end
+	self:_setSelectedIndex(index, false)
+end
+
+function TreeView:_scrollBy(delta)
+	if delta == 0 then
+		return
+	end
+	local count = #self._flatNodes
+	if count == 0 then
+		self.scrollOffset = 1
+		return
+	end
+	local innerHeight = self:_getInnerHeight()
+	local maxOffset = math.max(1, count - innerHeight + 1)
+	self.scrollOffset = math.min(maxOffset, math.max(1, self.scrollOffset + delta))
+end
+
+function TreeView:_rowFromPoint(x, y)
+	if not self:containsPoint(x, y) then
+		return nil
+	end
+	local ax, ay = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return nil
+	end
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	if x < innerX or x >= innerX + innerWidth then
+		return nil
+	end
+	if y < innerY or y >= innerY + innerHeight then
+		return nil
+	end
+	local row = y - innerY
+	local index = self.scrollOffset + row
+	if index < 1 or index > #self._flatNodes then
+		return nil
+	end
+	return index, innerX, innerWidth
+end
+
+function TreeView:_toggleNode(node, expand)
+	if not node or not node.children or #node.children == 0 then
+		return false
+	end
+	local newState
+	if expand == nil then
+		newState = not node.expanded
+	else
+		newState = not not expand
+	end
+	if node.expanded == newState then
+		return false
+	end
+	node.expanded = newState
+	self:_rebuildFlatNodes()
+	if self.onToggle then
+		self.onToggle(self, node, newState)
+	end
+	return true
+end
+
+function TreeView:_notifySelect()
+	if self.onSelect then
+		self.onSelect(self, self.selectedNode, self._selectedIndex)
+	end
+end
+
+function TreeView:onFocusChanged(focused)
+	if not focused and self._typeSearch then
+		self._typeSearch.buffer = ""
+		self._typeSearch.lastTime = 0
+	end
+end
+
+function TreeView:_searchForPrefix(prefix)
+	if not prefix or prefix == "" then
+		return
+	end
+	local flat = self._flatNodes
+	local count = #flat
+	if count == 0 then
+		return
+	end
+	local start = self._selectedIndex >= 1 and self._selectedIndex or 0
+	for offset = 1, count do
+		local index = ((start + offset - 1) % count) + 1
+		local node = flat[index].node
+		local label = node and node.label or ""
+		if label:lower():sub(1, #prefix) == prefix then
+			self:_setSelectedIndex(index, false)
+			return
+		end
+	end
+end
+
+function TreeView:_handleTypeSearch(ch)
+	if not ch or ch == "" then
+		return
+	end
+	local entry = self._typeSearch
+	if not entry then
+		entry = { buffer = "", lastTime = 0 }
+		self._typeSearch = entry
+	end
+	local now = osLib.clock()
+	local timeout = self.typeSearchTimeout or 0.75
+	if now - (entry.lastTime or 0) > timeout then
+		entry.buffer = ""
+	end
+	entry.buffer = entry.buffer .. ch:lower()
+	entry.lastTime = now
+	self:_searchForPrefix(entry.buffer)
+end
+
+function TreeView:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local flat = self._flatNodes
+	local count = #flat
+
+	if count == 0 then
+		for row = 0, innerHeight - 1 do
+			textLayer.text(innerX, innerY + row, string.rep(" ", innerWidth), fg, bg)
+		end
+		local placeholder = self.placeholder
+		if type(placeholder) == "string" and #placeholder > 0 then
+			local display = placeholder
+			if #display > innerWidth then
+				display = display:sub(1, innerWidth)
+			end
+			local startX = innerX + math.floor((innerWidth - #display) / 2)
+			if startX < innerX then
+				startX = innerX
+			end
+			textLayer.text(startX, innerY, display, colors.lightGray, bg)
+		end
+		return
+	end
+
+	for row = 0, innerHeight - 1 do
+		local lineY = innerY + row
+		local index = self.scrollOffset + row
+		if index > count then
+			textLayer.text(innerX, lineY, string.rep(" ", innerWidth), fg, bg)
+		else
+			local entry = flat[index]
+			local node = entry.node
+			local depth = entry.depth or 0
+			local indent = depth * self.indentWidth
+			if indent > innerWidth - 1 then
+				indent = innerWidth - 1
+			end
+			if indent < 0 then
+				indent = 0
+			end
+			local spaces = indent > 0 and string.rep(" ", indent) or ""
+			local symbol
+			if node and node.children and #node.children > 0 then
+				symbol = node.expanded and self.toggleSymbols.expanded or self.toggleSymbols.collapsed
+			else
+				symbol = self.toggleSymbols.leaf
+			end
+			symbol = tostring(symbol or " ")
+			local remaining = innerWidth - indent
+			local line = spaces
+			if remaining > 0 then
+				local glyph = symbol:sub(1, 1)
+				line = line .. glyph
+				remaining = remaining - 1
+			end
+			if remaining > 0 then
+				line = line .. " "
+				remaining = remaining - 1
+			end
+			if remaining > 0 then
+				local label = (node and node.label) or ""
+				if #label > remaining then
+					label = label:sub(1, remaining)
+				end
+				line = line .. label
+				remaining = remaining - #label
+			end
+			if remaining > 0 then
+				line = line .. string.rep(" ", remaining)
+			elseif #line > innerWidth then
+				line = line:sub(1, innerWidth)
+			end
+			local drawBg = bg
+			local drawFg = fg
+			if index == self._selectedIndex then
+				drawBg = self.highlightBg or colors.lightGray
+				drawFg = self.highlightFg or colors.black
+			end
+			textLayer.text(innerX, lineY, line, drawFg, drawBg)
+		end
+	end
+end
+
+function TreeView:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		local index, innerX, innerWidth = self:_rowFromPoint(x, y)
+		if index then
+			self.app:setFocus(self)
+			local entry = self._flatNodes[index]
+			if entry then
+				local indent = entry.depth * self.indentWidth
+				if indent < 0 then
+					indent = 0
+				end
+				if indent > innerWidth - 1 then
+					indent = innerWidth - 1
+				end
+				local toggleX = innerX + indent
+				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
+					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
+					if symbolWidth < 1 then
+						symbolWidth = 1
+					end
+					if x >= toggleX and x < toggleX + symbolWidth then
+						self:_toggleNode(entry.node, nil)
+						return true
+					end
+				end
+			end
+			self:_setSelectedIndex(index, false)
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		local index, innerX, innerWidth = self:_rowFromPoint(x, y)
+		if index then
+			self.app:setFocus(self)
+			local entry = self._flatNodes[index]
+			if entry then
+				local indent = entry.depth * self.indentWidth
+				if indent < 0 then
+					indent = 0
+				end
+				if indent > innerWidth - 1 then
+					indent = innerWidth - 1
+				end
+				local toggleX = innerX + indent
+				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
+					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
+					if symbolWidth < 1 then
+						symbolWidth = 1
+					end
+					if x >= toggleX and x < toggleX + symbolWidth then
+						self:_toggleNode(entry.node, nil)
+						return true
+					end
+				end
+			end
+			self:_setSelectedIndex(index, false)
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:_scrollBy(1)
+			elseif direction < 0 then
+				self:_scrollBy(-1)
+			end
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.up then
+			self:_moveSelection(-1)
+			return true
+		elseif keyCode == keys.down then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.pageUp then
+			self:_moveSelection(-self:_getInnerHeight())
+			return true
+		elseif keyCode == keys.pageDown then
+			self:_moveSelection(self:_getInnerHeight())
+			return true
+		elseif keyCode == keys.home then
+			self:_setSelectedIndex(1, false)
+			return true
+		elseif keyCode == keys["end"] then
+			self:_setSelectedIndex(#self._flatNodes, false)
+			return true
+		elseif keyCode == keys.left then
+			local node = self.selectedNode
+			if node then
+				if node.children and #node.children > 0 and node.expanded then
+					self:_toggleNode(node, false)
+					return true
+				elseif node.parent then
+					self:_selectNode(node.parent, false)
+					return true
+				end
+			end
+		elseif keyCode == keys.right then
+			local node = self.selectedNode
+			if node and node.children and #node.children > 0 then
+				if not node.expanded then
+					self:_toggleNode(node, true)
+				else
+					local child = node.children[1]
+					if child then
+						self:_selectNode(child, false)
+					end
+				end
+				return true
+			end
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			local node = self.selectedNode
+			if node and node.children and #node.children > 0 then
+				self:_toggleNode(node, nil)
+			else
+				self:_notifySelect()
+			end
+			return true
+		end
+	elseif event == "char" then
+		local ch = ...
+		if self:isFocused() and ch and #ch > 0 then
+			self:_handleTypeSearch(ch:sub(1, 1))
+			return true
+		end
+	elseif event == "paste" then
+		local text = ...
+		if self:isFocused() and text and #text > 0 then
+			self:_handleTypeSearch(text:sub(1, 1))
+			return true
 		end
 	end
 
@@ -3607,6 +4505,13 @@ end
 
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
+---@return PixelUI.CheckBox
+function App:createCheckBox(config)
+	return CheckBox:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.TextBox
 function App:createTextBox(config)
 	return TextBox:new(self, config)
@@ -3624,6 +4529,13 @@ end
 ---@return PixelUI.List
 function App:createList(config)
 	return List:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.TreeView
+function App:createTreeView(config)
+	return TreeView:new(self, config)
 end
 
 ---@since 0.1.0
@@ -4046,6 +4958,9 @@ pixelui.widgets = {
 	Label = function(app, config)
 		return Label:new(app, config)
 	end,
+	CheckBox = function(app, config)
+		return CheckBox:new(app, config)
+	end,
 	TextBox = function(app, config)
 		return TextBox:new(app, config)
 	end,
@@ -4054,6 +4969,9 @@ pixelui.widgets = {
 	end,
 	List = function(app, config)
 		return List:new(app, config)
+	end,
+	TreeView = function(app, config)
+		return TreeView:new(app, config)
 	end,
 	RadioButton = function(app, config)
 		return RadioButton:new(app, config)
@@ -4070,9 +4988,11 @@ pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Button = Button
 pixelui.Label = Label
+pixelui.CheckBox = CheckBox
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
 pixelui.List = List
+pixelui.TreeView = TreeView
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
