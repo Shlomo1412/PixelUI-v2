@@ -81,6 +81,12 @@ local shrekbox = require("shrekbox")
 ---@field clickEffect boolean
 ---@field private _pressed boolean
 
+---@class PixelUI.Label : PixelUI.Widget
+---@field text string
+---@field wrap boolean
+---@field align "left"|"center"|"right"
+---@field verticalAlign "top"|"middle"|"bottom"
+
 ---@class PixelUI.ProgressBar : PixelUI.Widget
 ---@field value number
 ---@field min number
@@ -91,6 +97,18 @@ local shrekbox = require("shrekbox")
 ---@field trackColor PixelUI.Color
 ---@field fillColor PixelUI.Color
 ---@field textColor PixelUI.Color
+
+---@class PixelUI.Slider : PixelUI.Widget
+---@field min number
+---@field max number
+---@field value number
+---@field range boolean
+---@field lowerValue number?
+---@field upperValue number?
+---@field step number
+---@field showValue boolean
+---@field onChange fun(self:PixelUI.Slider, ...:number)?
+---@field formatValue fun(self:PixelUI.Slider, ...:number):string?
 
 ---@class PixelUI.List : PixelUI.Widget
 ---@field items string[]
@@ -140,7 +158,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -182,9 +200,17 @@ local Button = {}
 Button.__index = Button
 setmetatable(Button, { __index = Widget })
 
+local Label = {}
+Label.__index = Label
+setmetatable(Label, { __index = Widget })
+
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 setmetatable(ProgressBar, { __index = Widget })
+
+local Slider = {}
+Slider.__index = Slider
+setmetatable(Slider, { __index = Widget })
 
 local List = {}
 List.__index = List
@@ -869,6 +895,284 @@ function Button:handleEvent(event, ...)
 	return false
 end
 
+function Label:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = false
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or 1))
+	baseConfig.width = math.max(1, math.floor(baseConfig.width or 1))
+	local instance = setmetatable({}, Label)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = false
+	local text = config and config.text
+	if text == nil then
+		text = ""
+	end
+	instance.text = tostring(text)
+	instance.wrap = not not (config and config.wrap)
+	local align = (config and config.align) and tostring(config.align):lower() or "left"
+	if align ~= "left" and align ~= "center" and align ~= "right" then
+		align = "left"
+	end
+	instance.align = align
+	local vertical = (config and config.verticalAlign) and tostring(config.verticalAlign):lower() or "top"
+	if vertical == "center" then
+		vertical = "middle"
+	end
+	if vertical ~= "top" and vertical ~= "middle" and vertical ~= "bottom" then
+		vertical = "top"
+	end
+	instance.verticalAlign = vertical
+	instance._lines = { "" }
+	instance._lastInnerWidth = nil
+	instance._lastText = nil
+	instance._lastWrap = nil
+	instance:_updateLines(true)
+	return instance
+end
+
+function Label:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	return leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight
+end
+
+function Label:_wrapLine(line, width, out)
+	if width <= 0 then
+		out[#out + 1] = ""
+		return
+	end
+	line = line:gsub("\r", "")
+	if line == "" then
+		out[#out + 1] = ""
+		return
+	end
+	local remaining = line
+	while #remaining > width do
+		local segment = remaining:sub(1, width)
+		local breakPos
+		for index = width, 1, -1 do
+			local ch = segment:sub(index, index)
+			if ch:match("%s") then
+				breakPos = index - 1
+				break
+			end
+		end
+		if breakPos and breakPos >= 1 then
+			local chunk = remaining:sub(1, breakPos)
+			chunk = chunk:gsub("%s+$", "")
+			if chunk == "" then
+				chunk = remaining:sub(1, width)
+				breakPos = width
+			end
+			out[#out + 1] = chunk
+			remaining = remaining:sub(breakPos + 1)
+		else
+			out[#out + 1] = segment
+			remaining = remaining:sub(width + 1)
+		end
+		remaining = remaining:gsub("^%s+", "")
+		if remaining == "" then
+			break
+		end
+	end
+	if remaining ~= "" then
+		out[#out + 1] = remaining
+	elseif #out == 0 then
+		out[#out + 1] = ""
+	end
+end
+
+function Label:_updateLines(force)
+	local text = tostring(self.text or "")
+	local wrapEnabled = not not self.wrap
+	local _, _, _, _, innerWidth = self:_getInnerMetrics()
+	if not force and self._lastText == text and self._lastWrap == wrapEnabled and self._lastInnerWidth == innerWidth then
+		return
+	end
+	local lines = {}
+	if text == "" then
+		lines[1] = ""
+	else
+		local start = 1
+		while true do
+			local nl = text:find("\n", start, true)
+			if not nl then
+				local segment = text:sub(start)
+				segment = segment:gsub("\r", "")
+				if wrapEnabled then
+					self:_wrapLine(segment, innerWidth, lines)
+				else
+					lines[#lines + 1] = segment
+				end
+				break
+			end
+			local segment = text:sub(start, nl - 1)
+			segment = segment:gsub("\r", "")
+			if wrapEnabled then
+				self:_wrapLine(segment, innerWidth, lines)
+			else
+				lines[#lines + 1] = segment
+			end
+			start = nl + 1
+		end
+	end
+	if #lines == 0 then
+		lines[1] = ""
+	end
+	self._lines = lines
+	self._lastText = text
+	self._lastWrap = wrapEnabled
+	self._lastInnerWidth = innerWidth
+end
+
+function Label:setText(text)
+	if text == nil then
+		text = ""
+	end
+	text = tostring(text)
+	if self.text ~= text then
+		self.text = text
+		self:_updateLines(true)
+	end
+end
+
+function Label:getText()
+	return self.text
+end
+
+function Label:setWrap(wrap)
+	wrap = not not wrap
+	if self.wrap ~= wrap then
+		self.wrap = wrap
+		self:_updateLines(true)
+	end
+end
+
+function Label:isWrapping()
+	return self.wrap
+end
+
+function Label:setHorizontalAlign(align)
+	if align == nil then
+		align = "left"
+	else
+		expect(1, align, "string")
+	end
+	local normalized = align:lower()
+	if normalized ~= "left" and normalized ~= "center" and normalized ~= "right" then
+		error("Invalid horizontal alignment '" .. align .. "'", 2)
+	end
+	if self.align ~= normalized then
+		self.align = normalized
+	end
+end
+
+function Label:setVerticalAlign(align)
+	if align == nil then
+		align = "top"
+	else
+		expect(1, align, "string")
+	end
+	local normalized = align:lower()
+	if normalized == "center" then
+		normalized = "middle"
+	end
+	if normalized ~= "top" and normalized ~= "middle" and normalized ~= "bottom" then
+		error("Invalid vertical alignment '" .. align .. "'", 2)
+	end
+	if self.verticalAlign ~= normalized then
+		self.verticalAlign = normalized
+	end
+end
+
+function Label:setSize(width, height)
+	Widget.setSize(self, width, height)
+	self:_updateLines(true)
+end
+
+function Label:setBorder(borderConfig)
+	Widget.setBorder(self, borderConfig)
+	self:_updateLines(true)
+end
+
+function Label:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or self.app.background or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+
+	self:_updateLines(false)
+	local lines = self._lines or { "" }
+	local lineCount = #lines
+	if lineCount == 0 then
+		lines = { "" }
+		lineCount = 1
+	end
+
+	if innerWidth > 0 and innerHeight > 0 then
+		local displayCount = math.min(lineCount, innerHeight)
+		local startLine = 1
+		if lineCount > displayCount then
+			if self.verticalAlign == "bottom" then
+				startLine = lineCount - displayCount + 1
+			elseif self.verticalAlign == "middle" then
+				startLine = math.floor((lineCount - displayCount) / 2) + 1
+			end
+		end
+		local topPadding = 0
+		if innerHeight > displayCount then
+			if self.verticalAlign == "bottom" then
+				topPadding = innerHeight - displayCount
+			elseif self.verticalAlign == "middle" then
+				topPadding = math.floor((innerHeight - displayCount) / 2)
+			end
+		end
+		local rowY = innerY + topPadding
+		for offset = 0, displayCount - 1 do
+			local line = lines[startLine + offset] or ""
+			if #line > innerWidth then
+				line = line:sub(1, innerWidth)
+			end
+			local drawX = innerX
+			if self.align == "center" then
+				drawX = innerX + math.floor((innerWidth - #line) / 2)
+			elseif self.align == "right" then
+				drawX = innerX + innerWidth - #line
+			end
+			if drawX < innerX then
+				drawX = innerX
+			end
+			if drawX + #line > innerX + innerWidth then
+				drawX = innerX + innerWidth - #line
+			end
+			if #line > 0 then
+				textLayer.text(drawX, rowY, line, fg, bg)
+			end
+			rowY = rowY + 1
+		end
+	end
+
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+end
+
 function RadioButton:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -1355,6 +1659,681 @@ function ProgressBar:draw(textLayer, pixelLayer)
 end
 
 function ProgressBar:handleEvent(_event, ...)
+	return false
+end
+
+function Slider:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or 3))
+	baseConfig.width = math.max(1, math.floor(baseConfig.width or 12))
+	local instance = setmetatable({}, Slider)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.min = type(config.min) == "number" and config.min or 0
+	instance.max = type(config.max) == "number" and config.max or 100
+	if instance.max <= instance.min then
+		instance.max = instance.min + 1
+	end
+	if config and type(config.step) == "number" and config.step > 0 then
+		instance.step = config.step
+	else
+		instance.step = 0
+	end
+	instance.range = not not (config and config.range)
+	instance.trackColor = (config and config.trackColor) or colors.gray
+	instance.fillColor = (config and config.fillColor) or colors.lightBlue
+	instance.handleColor = (config and config.handleColor) or colors.white
+	instance.showValue = not not (config and config.showValue)
+	if config and config.formatValue ~= nil then
+		if type(config.formatValue) ~= "function" then
+			error("Slider formatValue must be a function", 2)
+		end
+		instance.formatValue = config.formatValue
+	else
+		instance.formatValue = nil
+	end
+	instance.onChange = config and config.onChange or nil
+	instance._activeHandle = nil
+	instance._focusedHandle = instance.range and "lower" or "single"
+	instance._dragging = false
+
+	if instance.range then
+		local startValue
+		local endValue
+		if config and type(config.value) == "table" then
+			startValue = config.value[1]
+			endValue = config.value[2]
+		end
+		if type(config.startValue) == "number" then
+			startValue = config.startValue
+		end
+		if type(config.endValue) == "number" then
+			endValue = config.endValue
+		end
+		if type(startValue) ~= "number" then
+			startValue = instance.min
+		end
+		if type(endValue) ~= "number" then
+			endValue = instance.max
+		end
+		if startValue > endValue then
+			startValue, endValue = endValue, startValue
+		end
+		instance.lowerValue = instance:_applyStep(startValue)
+		instance.upperValue = instance:_applyStep(endValue)
+		if instance.lowerValue > instance.upperValue then
+			instance.lowerValue, instance.upperValue = instance.upperValue, instance.lowerValue
+		end
+	else
+		local value = config and config.value
+		if type(value) ~= "number" then
+			value = instance.min
+		end
+		instance.value = instance:_applyStep(value)
+	end
+
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+
+	return instance
+end
+
+function Slider:_clampValue(value)
+	if type(value) ~= "number" then
+		value = self.min
+	end
+	if value < self.min then
+		return self.min
+	end
+	if value > self.max then
+		return self.max
+	end
+	return value
+end
+
+function Slider:_applyStep(value)
+	value = self:_clampValue(value)
+	local step = self.step or 0
+	if step > 0 then
+		local units = (value - self.min) / step
+		value = self.min + math.floor(units + 0.5) * step
+		value = self:_clampValue(value)
+	end
+	return value
+end
+
+function Slider:_getInnerMetrics()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local ax, ay = self:getAbsoluteRect()
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	local innerHeight = math.max(0, self.height - topPad - bottomPad)
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	return innerX, innerY, innerWidth, innerHeight, leftPad, topPad, bottomPad
+end
+
+function Slider:_valueToPosition(value, width)
+	if width <= 1 then
+		return 0
+	end
+	local range = self.max - self.min
+	local ratio = 0
+	if range > 0 then
+		ratio = (value - self.min) / range
+	end
+	if ratio < 0 then
+		ratio = 0
+	elseif ratio > 1 then
+		ratio = 1
+	end
+	return math.floor(ratio * (width - 1) + 0.5)
+end
+
+function Slider:_positionToValue(position, width)
+	if width <= 1 then
+		return self.min
+	end
+	if position < 0 then
+		position = 0
+	elseif position > width - 1 then
+		position = width - 1
+	end
+	local ratio = position / (width - 1)
+	local value = self.min + (self.max - self.min) * ratio
+	return self:_applyStep(value)
+end
+
+function Slider:_notifyChange()
+	if not self.onChange then
+		return
+	end
+	if self.range then
+		self.onChange(self, self.lowerValue, self.upperValue)
+	else
+		self.onChange(self, self.value)
+	end
+end
+
+function Slider:setOnChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onChange = handler
+end
+
+function Slider:_setSingleValue(value, suppressEvent)
+	value = self:_applyStep(value)
+	if self.value ~= value then
+		self.value = value
+		if not suppressEvent then
+			self:_notifyChange()
+		end
+		return true
+	end
+	return false
+end
+
+function Slider:setValue(value)
+	if self.range then
+		return
+	end
+	expect(1, value, "number")
+	self:_setSingleValue(value, false)
+end
+
+function Slider:getValue()
+	return self.value
+end
+
+function Slider:_setLowerValue(value, suppressEvent)
+	value = self:_applyStep(value)
+	if value < self.min then
+		value = self.min
+	end
+	if value > self.upperValue then
+		value = self.upperValue
+	end
+	if self.lowerValue ~= value then
+		self.lowerValue = value
+		if not suppressEvent then
+			self:_notifyChange()
+		end
+		return true
+	end
+	return false
+end
+
+function Slider:_setUpperValue(value, suppressEvent)
+	value = self:_applyStep(value)
+	if value > self.max then
+		value = self.max
+	end
+	if value < self.lowerValue then
+		value = self.lowerValue
+	end
+	if self.upperValue ~= value then
+		self.upperValue = value
+		if not suppressEvent then
+			self:_notifyChange()
+		end
+		return true
+	end
+	return false
+end
+
+function Slider:setRangeValues(lower, upper, suppressEvent)
+	if not self.range then
+		return
+	end
+	if lower == nil then
+		lower = self.lowerValue or self.min
+	end
+	if upper == nil then
+		upper = self.upperValue or self.max
+	end
+	expect(1, lower, "number")
+	expect(2, upper, "number")
+	if lower > upper then
+		lower, upper = upper, lower
+	end
+	local changed = false
+	changed = self:_setLowerValue(lower, true) or changed
+	changed = self:_setUpperValue(upper, true) or changed
+	if changed and not suppressEvent then
+		self:_notifyChange()
+	end
+end
+
+function Slider:getRangeValues()
+	return self.lowerValue, self.upperValue
+end
+
+function Slider:setRangeLimits(minValue, maxValue)
+	expect(1, minValue, "number")
+	expect(2, maxValue, "number")
+	if maxValue <= minValue then
+		error("Slider max must be greater than min", 2)
+	end
+	self.min = minValue
+	self.max = maxValue
+	if self.range then
+		local changed = false
+		changed = self:_setLowerValue(self.lowerValue, true) or changed
+		changed = self:_setUpperValue(self.upperValue, true) or changed
+		if changed then
+			self:_notifyChange()
+		end
+	else
+		if self:_setSingleValue(self.value, true) then
+			self:_notifyChange()
+		end
+	end
+end
+
+function Slider:setStep(step)
+	if step == nil then
+		step = 0
+	else
+	expect(1, step, "number")
+	end
+	if step <= 0 then
+		self.step = 0
+	else
+		self.step = step
+	end
+	if self.range then
+		local changed = false
+		changed = self:_setLowerValue(self.lowerValue, true) or changed
+		changed = self:_setUpperValue(self.upperValue, true) or changed
+		if changed then
+			self:_notifyChange()
+		end
+	else
+		if self:_setSingleValue(self.value, true) then
+			self:_notifyChange()
+		end
+	end
+end
+
+function Slider:setShowValue(show)
+	self.showValue = not not show
+end
+
+function Slider:setColors(trackColor, fillColor, handleColor)
+	if trackColor ~= nil then
+		expect(1, trackColor, "number")
+		self.trackColor = trackColor
+	end
+	if fillColor ~= nil then
+		expect(2, fillColor, "number")
+		self.fillColor = fillColor
+	end
+	if handleColor ~= nil then
+		expect(3, handleColor, "number")
+		self.handleColor = handleColor
+	end
+end
+
+function Slider:_formatNumber(value)
+	local step = self.step or 0
+	local result
+	if step > 0 then
+		local decimals = 0
+		local probe = step
+		while probe < 1 and decimals < 4 do
+			probe = probe * 10
+			decimals = decimals + 1
+		end
+		local fmt = "%0." .. tostring(decimals) .. "f"
+		result = fmt:format(value)
+	else
+		result = string.format("%0.2f", value)
+	end
+	if result:find(".", 1, true) then
+		result = result:gsub("0+$", "")
+		result = result:gsub("%.$", "")
+	end
+	return result
+end
+
+function Slider:_formatDisplayValue()
+	if self.formatValue then
+		local ok, output
+		if self.range then
+			ok, output = pcall(self.formatValue, self, self.lowerValue, self.upperValue)
+		else
+			ok, output = pcall(self.formatValue, self, self.value)
+		end
+		if ok and type(output) == "string" then
+			return output
+		end
+	end
+	if self.range then
+		return self:_formatNumber(self.lowerValue) .. " - " .. self:_formatNumber(self.upperValue)
+	end
+	return self:_formatNumber(self.value)
+end
+
+function Slider:_getStepForNudge(multiplier)
+	local step = self.step or 0
+	if step <= 0 then
+		step = (self.max - self.min) / math.max(1, (self.range and 20 or 40))
+	end
+	if step <= 0 then
+		step = 1
+	end
+	if multiplier and multiplier > 1 then
+		step = step * multiplier
+	end
+	return step
+end
+
+function Slider:_positionFromPoint(x)
+	local innerX, _, innerWidth = self:_getInnerMetrics()
+	if innerWidth <= 0 then
+		return nil, innerWidth
+	end
+	local pos = math.floor(x - innerX)
+	if pos < 0 then
+		pos = 0
+	elseif pos > innerWidth - 1 then
+		pos = innerWidth - 1
+	end
+	return pos, innerWidth
+end
+
+function Slider:_beginInteraction(x)
+	local pos, innerWidth = self:_positionFromPoint(x)
+	if not pos then
+		return false
+	end
+	if self.range then
+		local lowerPos = self:_valueToPosition(self.lowerValue, innerWidth)
+		local upperPos = self:_valueToPosition(self.upperValue, innerWidth)
+		local handle = self._focusedHandle or "lower"
+		local distLower = math.abs(pos - lowerPos)
+		local distUpper = math.abs(pos - upperPos)
+		if distLower == distUpper then
+			if pos > upperPos then
+				handle = "upper"
+			elseif pos < lowerPos then
+				handle = "lower"
+			end
+		elseif distLower < distUpper then
+			handle = "lower"
+		else
+			handle = "upper"
+		end
+		self._activeHandle = handle
+		self._focusedHandle = handle
+		local value = self:_positionToValue(pos, innerWidth)
+		if handle == "lower" then
+			self:_setLowerValue(value)
+		else
+			self:_setUpperValue(value)
+		end
+	else
+		self._activeHandle = "single"
+		self._focusedHandle = "single"
+		local value = self:_positionToValue(pos, innerWidth)
+		self:_setSingleValue(value)
+	end
+	return true
+end
+
+function Slider:_updateInteraction(x)
+	if not self._activeHandle then
+		return false
+	end
+	local pos, innerWidth = self:_positionFromPoint(x)
+	if not pos then
+		return false
+	end
+	local value = self:_positionToValue(pos, innerWidth)
+	if self._activeHandle == "lower" then
+		self:_setLowerValue(value)
+	elseif self._activeHandle == "upper" then
+		self:_setUpperValue(value)
+	else
+		self:_setSingleValue(value)
+	end
+	return true
+end
+
+function Slider:_endInteraction()
+	self._activeHandle = nil
+	self._dragging = false
+end
+
+function Slider:_switchFocusedHandle()
+	if not self.range then
+		return
+	end
+	if self._focusedHandle == "lower" then
+		self._focusedHandle = "upper"
+	else
+		self._focusedHandle = "lower"
+	end
+end
+
+function Slider:_nudgeValue(stepMultiplier)
+	if stepMultiplier == 0 then
+		return
+	end
+	local direction = stepMultiplier >= 0 and 1 or -1
+	local magnitude = math.abs(stepMultiplier)
+	local amount = self:_getStepForNudge(magnitude)
+	amount = amount * direction
+	if self.range then
+		local handle = self._focusedHandle or "lower"
+		if handle == "upper" then
+			self:_setUpperValue(self.upperValue + amount)
+		else
+			self:_setLowerValue(self.lowerValue + amount)
+		end
+	else
+		self:_setSingleValue(self.value + amount)
+	end
+end
+
+function Slider:onFocusChanged(focused)
+	if focused then
+		if self.range then
+			if self._focusedHandle ~= "lower" and self._focusedHandle ~= "upper" then
+				self._focusedHandle = "lower"
+			end
+		else
+			self._focusedHandle = "single"
+		end
+	end
+end
+
+function Slider:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or self.app.background or colors.black
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
+	if innerWidth <= 0 or innerHeight <= 0 then
+		if self.border then
+			draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+		end
+		return
+	end
+
+	local trackY
+	local labelY = nil
+	if self.showValue and innerHeight >= 2 then
+		labelY = innerY
+		trackY = innerY + innerHeight - 1
+	else
+		trackY = innerY + math.floor((innerHeight - 1) / 2)
+	end
+
+	fill_rect(textLayer, innerX, trackY, innerWidth, 1, self.trackColor, self.trackColor)
+
+	local focusHandle
+	if self:isFocused() then
+		focusHandle = self._activeHandle or self._focusedHandle
+	end
+
+	local function drawHandle(column, handleId)
+		if column < 0 or column >= innerWidth then
+			return
+		end
+		local color = self.handleColor or colors.white
+		if focusHandle and handleId == focusHandle then
+			color = self.fg or colors.white
+		end
+		textLayer.text(innerX + column, trackY, " ", color, color)
+	end
+
+	if self.range then
+		local lowerPos = self:_valueToPosition(self.lowerValue, innerWidth)
+		local upperPos = self:_valueToPosition(self.upperValue, innerWidth)
+		if upperPos < lowerPos then
+			lowerPos, upperPos = upperPos, lowerPos
+		end
+		local fillWidth = upperPos - lowerPos + 1
+		if fillWidth > 0 then
+			fill_rect(textLayer, innerX + lowerPos, trackY, fillWidth, 1, self.fillColor, self.fillColor)
+		end
+		drawHandle(lowerPos, "lower")
+		drawHandle(upperPos, "upper")
+	else
+		local pos = self:_valueToPosition(self.value, innerWidth)
+		local fillWidth = pos + 1
+		if fillWidth > 0 then
+			fill_rect(textLayer, innerX, trackY, fillWidth, 1, self.fillColor, self.fillColor)
+		end
+		drawHandle(pos, "single")
+	end
+
+	if self.showValue and labelY then
+		local text = self:_formatDisplayValue()
+		if text and text ~= "" then
+			if #text > innerWidth then
+				text = text:sub(1, innerWidth)
+			end
+			local textX = innerX + math.floor((innerWidth - #text) / 2)
+			if textX < innerX then
+				textX = innerX
+			end
+			textLayer.text(textX, labelY, text, self.fg or colors.white, bg)
+		end
+	end
+
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+end
+
+function Slider:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self._dragging = true
+			return self:_beginInteraction(x)
+		end
+	elseif event == "mouse_drag" then
+		local _, x, y = ...
+		if self._activeHandle then
+			return self:_updateInteraction(x)
+		elseif self._dragging and self:containsPoint(x, y) then
+			return self:_beginInteraction(x)
+		end
+	elseif event == "mouse_up" then
+		local _, x = ...
+		local handled = false
+		if self._activeHandle then
+			handled = self:_updateInteraction(x)
+		end
+		if self._dragging then
+			handled = true
+		end
+		self:_endInteraction()
+		return handled
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			self:_beginInteraction(x)
+			self:_endInteraction()
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:_nudgeValue(1)
+			elseif direction < 0 then
+				self:_nudgeValue(-1)
+			end
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.left or keyCode == keys.down then
+			self:_nudgeValue(-1)
+			return true
+		elseif keyCode == keys.right or keyCode == keys.up then
+			self:_nudgeValue(1)
+			return true
+		elseif keyCode == keys.home then
+			if self.range then
+				self:setRangeValues(self.min, self.upperValue)
+				self._focusedHandle = "lower"
+			else
+				self:setValue(self.min)
+			end
+			return true
+		elseif keyCode == keys["end"] then
+			if self.range then
+				self:setRangeValues(self.lowerValue, self.max)
+				self._focusedHandle = "upper"
+			else
+				self:setValue(self.max)
+			end
+			return true
+		elseif keyCode == keys.tab then
+			if self.range then
+				self:_switchFocusedHandle()
+				return true
+			end
+		elseif keyCode == keys.pageUp then
+			self:_nudgeValue(-5)
+			return true
+		elseif keyCode == keys.pageDown then
+			self:_nudgeValue(5)
+			return true
+		end
+	elseif event == "key_up" then
+		if self._activeHandle then
+			self:_endInteraction()
+		end
+	end
+
 	return false
 end
 
@@ -2621,6 +3600,13 @@ end
 
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Label
+function App:createLabel(config)
+	return Label:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.TextBox
 function App:createTextBox(config)
 	return TextBox:new(self, config)
@@ -2652,6 +3638,13 @@ end
 ---@return PixelUI.ProgressBar
 function App:createProgressBar(config)
 	return ProgressBar:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Slider
+function App:createSlider(config)
+	return Slider:new(self, config)
 end
 
 function App:_ensureAnimationTimer()
@@ -3050,6 +4043,9 @@ pixelui.widgets = {
 	Button = function(app, config)
 		return Button:new(app, config)
 	end,
+	Label = function(app, config)
+		return Label:new(app, config)
+	end,
 	TextBox = function(app, config)
 		return TextBox:new(app, config)
 	end,
@@ -3064,17 +4060,22 @@ pixelui.widgets = {
 	end,
 	ProgressBar = function(app, config)
 		return ProgressBar:new(app, config)
+	end,
+	Slider = function(app, config)
+		return Slider:new(app, config)
 	end
 }
 
 pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Button = Button
+pixelui.Label = Label
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
 pixelui.List = List
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
+pixelui.Slider = Slider
 pixelui.easings = easings
 
 return pixelui

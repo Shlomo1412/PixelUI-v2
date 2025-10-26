@@ -85,6 +85,12 @@ local radioDefaultWidths = {}
 local selectedRadio
 local listWidget
 local listDefaults = {}
+local labelTitle
+local labelBody
+local labelDefaults = {}
+local sliderSingle
+local sliderRange
+local sliderDefaults = {}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
@@ -212,7 +218,48 @@ end, function()
     end
 end)
 
--- Step 5: RadioButton showcase
+-- Step 5: Label showcase
+local labelStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(labelStep)
+
+labelTitle = app:createLabel({
+    width = 26,
+    height = 1,
+    text = "Responsive labels",
+    align = "center",
+    bg = colors.gray,
+    fg = colors.white
+})
+labelStep:addChild(labelTitle)
+
+labelBody = app:createLabel({
+    x = 2,
+    y = 3,
+    width = 26,
+    height = 6,
+    wrap = true,
+    align = "left",
+    verticalAlign = "top",
+    text = "Labels now support optional wrapping so longer descriptions can adapt to the layout. Resize the terminal to watch this paragraph reflow automatically.",
+    bg = colors.gray,
+    fg = colors.white
+})
+labelStep:addChild(labelBody)
+
+labelDefaults = {
+    title = { width = labelTitle.width, height = labelTitle.height },
+    body = { width = labelBody.width, height = labelBody.height }
+}
+addStep(labelStep)
+
+-- Step 6: RadioButton showcase
 local radioStep = app:createFrame({
     x = 2,
     y = 2,
@@ -265,7 +312,78 @@ addStep(radioStep, function()
     end
 end)
 
--- Step 6: ProgressBar showcase
+-- Step 7: Slider showcase
+local sliderStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(sliderStep)
+
+sliderSingle = app:createSlider({
+    x = 2,
+    y = 2,
+    width = 24,
+    height = 3,
+    min = 0,
+    max = 100,
+    value = 40,
+    step = 5,
+    showValue = true,
+    trackColor = colors.gray,
+    fillColor = colors.cyan,
+    handleColor = colors.white,
+    bg = colors.gray,
+    fg = colors.white,
+    formatValue = function(_, value)
+        return string.format("%d%%", math.floor(value + 0.5))
+    end
+})
+sliderStep:addChild(sliderSingle)
+
+sliderRange = app:createSlider({
+    x = 2,
+    y = 6,
+    width = 24,
+    height = 3,
+    min = 0,
+    max = 24,
+    range = true,
+    startValue = 8,
+    endValue = 18,
+    step = 1,
+    showValue = true,
+    trackColor = colors.gray,
+    fillColor = colors.orange,
+    handleColor = colors.white,
+    bg = colors.gray,
+    fg = colors.white,
+    formatValue = function(_, lower, upper)
+        return string.format("%02d:00-%02d:00", lower, upper)
+    end
+})
+sliderStep:addChild(sliderRange)
+
+sliderDefaults = {
+    single = { width = sliderSingle.width, height = sliderSingle.height },
+    range = { width = sliderRange.width, height = sliderRange.height }
+}
+
+addStep(sliderStep, function()
+    if sliderSingle then
+        app:setFocus(sliderSingle)
+    end
+end, function()
+    local focus = app:getFocus()
+    if focus == sliderSingle or focus == sliderRange then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 8: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -537,6 +655,29 @@ local function layout()
         centerWidget(listWidget, listStep, listWidth, listHeight)
     end
 
+    if labelTitle and labelBody then
+        local labelWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local titleDefaults = (labelDefaults and labelDefaults.title) or { width = labelTitle.width, height = labelTitle.height }
+        local bodyDefaults = (labelDefaults and labelDefaults.body) or { width = labelBody.width, height = labelBody.height }
+        local bodyWidth = math.max(6, math.min(bodyDefaults.width or labelBody.width, labelWidthLimit))
+        local bodyHeightLimit = math.max(3, stepHeight - innerMargin * 2)
+        local bodyHeight = math.max(2, math.min(bodyDefaults.height or labelBody.height, bodyHeightLimit))
+        labelBody:setSize(bodyWidth, bodyHeight)
+        local bodyX = math.floor((labelStep.width - bodyWidth) / 2) + 1
+        local bodyY = innerMargin + 1
+        if bodyY + bodyHeight - 1 > innerMargin + stepHeight - 1 then
+            bodyY = math.max(innerMargin, innerMargin + stepHeight - bodyHeight)
+        end
+        labelBody:setPosition(bodyX, bodyY)
+
+        local titleWidth = math.max(4, math.min(titleDefaults.width or labelTitle.width, labelWidthLimit))
+        local titleHeight = math.max(1, titleDefaults.height or labelTitle.height)
+        labelTitle:setSize(titleWidth, titleHeight)
+        local titleX = math.floor((labelStep.width - titleWidth) / 2) + 1
+        local titleY = math.max(innerMargin, bodyY - 1)
+        labelTitle:setPosition(titleX, titleY)
+    end
+
     if #radioButtons > 0 then
         local maxRadioWidth = math.max(4, stepWidth - innerMargin)
         local freeRows = math.max(0, stepHeight - #radioButtons)
@@ -559,6 +700,35 @@ local function layout()
         end
     end
 
+    if sliderSingle and sliderRange then
+        local sliderWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local singleDefaults = (sliderDefaults and sliderDefaults.single) or { width = sliderSingle.width, height = sliderSingle.height }
+        local rangeDefaults = (sliderDefaults and sliderDefaults.range) or { width = sliderRange.width, height = sliderRange.height }
+        local singleWidth = math.max(6, math.min(singleDefaults.width or sliderSingle.width, sliderWidthLimit))
+        local rangeWidth = math.max(6, math.min(rangeDefaults.width or sliderRange.width, sliderWidthLimit))
+        local singleHeight = math.max(2, singleDefaults.height or sliderSingle.height)
+        local rangeHeight = math.max(2, rangeDefaults.height or sliderRange.height)
+        sliderSingle:setSize(singleWidth, singleHeight)
+        sliderRange:setSize(rangeWidth, rangeHeight)
+        local singleX = math.floor((sliderStep.width - singleWidth) / 2) + 1
+        local rangeX = math.floor((sliderStep.width - rangeWidth) / 2) + 1
+        local verticalSpace = math.max(0, stepHeight - singleHeight - rangeHeight)
+        local gap = math.max(1, math.floor(verticalSpace / 3))
+        local topY = innerMargin + gap
+        if topY + singleHeight - 1 > innerMargin + stepHeight - 1 then
+            topY = math.max(innerMargin, innerMargin + stepHeight - singleHeight - rangeHeight - gap)
+        end
+        if topY < innerMargin then
+            topY = innerMargin
+        end
+        sliderSingle:setPosition(singleX, topY)
+        local rangeY = topY + singleHeight + gap
+        if rangeY + rangeHeight - 1 > innerMargin + stepHeight - 1 then
+            rangeY = math.max(innerMargin, innerMargin + stepHeight - rangeHeight)
+        end
+        sliderRange:setPosition(rangeX, rangeY)
+    end
+
     if progressDeterminate and progressIndeterminate then
         local defaults = progressDefaults or {}
         local detDefaults = defaults.determinate or { width = progressDeterminate.width, height = progressDeterminate.height }
@@ -574,9 +744,9 @@ local function layout()
         if topY + detHeight - 1 > innerMargin + stepHeight - 1 then
             topY = innerMargin
         end
-    progressDeterminate:setSize(detWidth, detHeight)
-    local detX = math.floor((progressStep.width - detWidth) / 2) + 1
-    progressDeterminate:setPosition(detX, topY)
+        progressDeterminate:setSize(detWidth, detHeight)
+        local detX = math.floor((progressStep.width - detWidth) / 2) + 1
+        progressDeterminate:setPosition(detX, topY)
 
         local secondGap = math.max(1, math.floor(verticalSpace / 2))
         local secondY = topY + detHeight + secondGap
