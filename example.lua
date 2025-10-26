@@ -99,6 +99,18 @@ local treeView
 local treeDefaults = {}
 local treeInfoLabel
 local treeInfoDefaults = {}
+local chartState = {
+    widget = nil,
+    defaults = {},
+    infoLabel = nil,
+    infoDefaults = {}
+}
+local toggleState = {
+    widget = nil,
+    defaults = {},
+    statusLabel = nil,
+    statusDefaults = {}
+}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
@@ -618,7 +630,148 @@ end, function()
     end
 end)
 
--- Step 10: ProgressBar showcase
+-- Step 10: Chart showcase
+local chartStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(chartStep)
+
+chartState.widget = app:createChart({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 7,
+    data = { 12, 18, 9, 21, 15 },
+    labels = { "Mon", "Tue", "Wed", "Thu", "Fri" },
+    chartType = "bar",
+    bg = colors.gray,
+    fg = colors.white,
+    barColor = colors.lightBlue,
+    highlightColor = colors.orange,
+    axisColor = colors.white,
+    placeholder = "No metrics recorded"
+})
+chartStep:addChild(chartState.widget)
+chartState.defaults = { width = chartState.widget.width, height = chartState.widget.height }
+
+chartState.infoLabel = app:createLabel({
+    x = 2,
+    y = 10,
+    width = 26,
+    height = 2,
+    align = "center",
+    wrap = true,
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+chartStep:addChild(chartState.infoLabel)
+chartState.infoDefaults = { width = chartState.infoLabel.width, height = chartState.infoLabel.height }
+
+local function updateChartInfo(index, value)
+    if not chartState.infoLabel then
+        return
+    end
+    if not index then
+        chartState.infoLabel:setText("No selection yet.")
+        return
+    end
+    local label = chartState.widget and chartState.widget:getLabel(index)
+    if not label or label == "" then
+        label = "Point " .. tostring(index)
+    end
+    local displayValue = value or 0
+    chartState.infoLabel:setText(label .. ": " .. tostring(displayValue) .. " units")
+end
+
+chartState.widget:setOnSelect(function(_, index, value)
+    updateChartInfo(index, value)
+end)
+updateChartInfo(chartState.widget:getSelectedIndex(), chartState.widget:getSelectedValue())
+
+addStep(chartStep, function()
+    if chartState.widget then
+        app:setFocus(chartState.widget)
+    end
+end, function()
+    if chartState.widget and chartState.widget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 11: Toggle showcase
+local toggleStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(toggleStep)
+
+toggleState.widget = app:createToggle({
+    x = 2,
+    y = 4,
+    width = 16,
+    height = 3,
+    labelOn = "Enabled",
+    labelOff = "Disabled",
+    trackColorOn = colors.green,
+    trackColorOff = colors.lightGray,
+    thumbColor = colors.white,
+    bg = colors.gray,
+    fg = colors.white
+})
+toggleStep:addChild(toggleState.widget)
+toggleState.defaults = { width = toggleState.widget.width, height = toggleState.widget.height }
+
+toggleState.statusLabel = app:createLabel({
+    x = 2,
+    y = 8,
+    width = 26,
+    height = 2,
+    align = "center",
+    wrap = true,
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+toggleStep:addChild(toggleState.statusLabel)
+toggleState.statusDefaults = { width = toggleState.statusLabel.width, height = toggleState.statusLabel.height }
+
+local function updateToggleStatus(isOn)
+    if not toggleState.statusLabel then
+        return
+    end
+    if isOn then
+        toggleState.statusLabel:setText("Notifications are enabled.")
+    else
+        toggleState.statusLabel:setText("Notifications are muted.")
+    end
+end
+
+toggleState.widget:setOnChange(function(_, value)
+    updateToggleStatus(value)
+end)
+updateToggleStatus(toggleState.widget:isOn())
+
+addStep(toggleStep, function()
+    if toggleState.widget then
+        app:setFocus(toggleState.widget)
+    end
+end, function()
+    if toggleState.widget and toggleState.widget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 12: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1030,6 +1183,69 @@ local function layout()
                 infoY = innerMargin
             end
             treeInfoLabel:setPosition(infoX, infoY)
+        end
+    end
+
+    if chartState.widget then
+        local defaults = chartState.defaults or {}
+        local chartWidthLimit = math.max(8, stepWidth - innerMargin * 2)
+        local chartHeightLimit = math.max(4, stepHeight - innerMargin * 3)
+        local chartWidth = math.max(8, math.min(defaults.width or chartState.widget.width, chartWidthLimit))
+        local chartHeight = math.max(4, math.min(defaults.height or chartState.widget.height, chartHeightLimit))
+        chartState.widget:setSize(chartWidth, chartHeight)
+        local chartX = math.floor((chartStep.width - chartWidth) / 2) + 1
+        local chartY = innerMargin + 1
+        if chartY + chartHeight - 1 > innerMargin + stepHeight - 1 then
+            chartY = math.max(innerMargin, innerMargin + stepHeight - chartHeight)
+        end
+        chartState.widget:setPosition(chartX, chartY)
+
+        if chartState.infoLabel then
+            local infoDefaults = chartState.infoDefaults or {}
+            local infoWidth = math.max(6, math.min(infoDefaults.width or chartState.infoLabel.width, chartWidthLimit))
+            local remainingHeight = math.max(1, stepHeight - (chartY - innerMargin) - chartHeight - 1)
+            local infoHeight = math.max(1, math.min(infoDefaults.height or chartState.infoLabel.height, remainingHeight))
+            chartState.infoLabel:setSize(infoWidth, infoHeight)
+            local infoX = math.floor((chartStep.width - infoWidth) / 2) + 1
+            local infoY = chartY + chartHeight + 1
+            if infoY + infoHeight - 1 > innerMargin + stepHeight - 1 then
+                infoY = math.max(innerMargin, innerMargin + stepHeight - infoHeight)
+            end
+            chartState.infoLabel:setPosition(infoX, infoY)
+        end
+    end
+
+    if toggleState.widget then
+        local defaults = toggleState.defaults or {}
+        local toggleWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local toggleHeightLimit = math.max(1, stepHeight - innerMargin * 2)
+        local baseWidth = defaults.width or toggleState.widget.width
+        local baseHeight = defaults.height or toggleState.widget.height
+        local toggleWidth = math.max(6, math.min(baseWidth, toggleWidthLimit))
+        local toggleHeight = math.max(1, math.min(baseHeight, toggleHeightLimit))
+        toggleState.widget:setSize(toggleWidth, toggleHeight)
+        local toggleX = math.floor((toggleStep.width - toggleWidth) / 2) + 1
+        local toggleY = innerMargin + math.max(1, math.floor((stepHeight - toggleHeight) / 3))
+        if toggleY + toggleHeight - 1 > innerMargin + stepHeight - 1 then
+            toggleY = math.max(innerMargin, innerMargin + stepHeight - toggleHeight)
+        end
+        if toggleY < innerMargin then
+            toggleY = innerMargin
+        end
+        toggleState.widget:setPosition(toggleX, toggleY)
+
+        if toggleState.statusLabel then
+            local statusDefaults = toggleState.statusDefaults or {}
+            local statusWidth = math.max(6, math.min(statusDefaults.width or toggleState.statusLabel.width, toggleWidthLimit))
+            local remaining = math.max(1, stepHeight - (toggleY - innerMargin) - toggleHeight - 1)
+            local statusHeight = math.max(1, math.min(statusDefaults.height or toggleState.statusLabel.height, remaining))
+            toggleState.statusLabel:setSize(statusWidth, statusHeight)
+            local statusX = math.floor((toggleStep.width - statusWidth) / 2) + 1
+            local statusY = toggleY + toggleHeight + 1
+            if statusY + statusHeight - 1 > innerMargin + stepHeight - 1 then
+                statusY = math.max(innerMargin, innerMargin + stepHeight - statusHeight)
+            end
+            toggleState.statusLabel:setPosition(statusX, statusY)
         end
     end
 

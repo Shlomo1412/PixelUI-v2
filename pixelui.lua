@@ -96,6 +96,38 @@ local shrekbox = require("shrekbox")
 ---@field focusFg PixelUI.Color?
 ---@field onChange fun(self:PixelUI.CheckBox, checked:boolean, indeterminate:boolean)?
 
+---@class PixelUI.Toggle : PixelUI.Widget
+---@field value boolean
+---@field labelOn string
+---@field labelOff string
+---@field trackColorOn PixelUI.Color
+---@field trackColorOff PixelUI.Color
+---@field thumbColor PixelUI.Color
+---@field onLabelColor PixelUI.Color?
+---@field offLabelColor PixelUI.Color?
+---@field focusBg PixelUI.Color?
+---@field focusFg PixelUI.Color?
+---@field showLabel boolean
+---@field disabled boolean
+---@field onChange fun(self:PixelUI.Toggle, value:boolean)?
+
+---@class PixelUI.Chart : PixelUI.Widget
+---@field data number[]
+---@field labels string[]
+---@field chartType "bar"|"line"
+---@field minValue number?
+---@field maxValue number?
+---@field showAxis boolean
+---@field showLabels boolean
+---@field placeholder string?
+---@field barColor PixelUI.Color
+---@field highlightColor PixelUI.Color
+---@field axisColor PixelUI.Color
+---@field lineColor PixelUI.Color
+---@field rangePadding number
+---@field selectedIndex integer?
+---@field onSelect fun(self:PixelUI.Chart, index:integer?, value:number?)?
+
 ---@class PixelUI.ProgressBar : PixelUI.Widget
 ---@field value number
 ---@field min number
@@ -181,7 +213,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI
 ---@field create fun(options:PixelUI.AppOptions?):PixelUI.App
 ---@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView }
+---@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, Toggle: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Toggle, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView, Chart: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Chart }
 ---@field easings table<string, fun(t:number):number>
 
 local pixelui = {
@@ -231,6 +263,10 @@ local CheckBox = {}
 CheckBox.__index = CheckBox
 setmetatable(CheckBox, { __index = Widget })
 
+local Toggle = {}
+Toggle.__index = Toggle
+setmetatable(Toggle, { __index = Widget })
+
 local ProgressBar = {}
 ProgressBar.__index = ProgressBar
 setmetatable(ProgressBar, { __index = Widget })
@@ -246,6 +282,10 @@ setmetatable(List, { __index = Widget })
 local TreeView = {}
 TreeView.__index = TreeView
 setmetatable(TreeView, { __index = Widget })
+
+local Chart = {}
+Chart.__index = Chart
+setmetatable(Chart, { __index = Widget })
 
 local RadioButton = {}
 RadioButton.__index = RadioButton
@@ -1414,6 +1454,288 @@ function CheckBox:handleEvent(event, ...)
 		local keyCode = ...
 		if keyCode == keys.space or keyCode == keys.enter then
 			self:_activate()
+			return true
+		end
+	end
+
+	return false
+end
+
+function Toggle:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or 3))
+	baseConfig.width = math.max(4, math.floor(baseConfig.width or 10))
+	local instance = setmetatable({}, Toggle)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	local initialValue = config.value
+	if initialValue == nil then
+		initialValue = config.on
+	end
+	instance.value = not not initialValue
+	instance.labelOn = (config and config.labelOn) or "On"
+	instance.labelOff = (config and config.labelOff) or "Off"
+	instance.trackColorOn = (config and config.trackColorOn) or colors.lightBlue
+	instance.trackColorOff = (config and config.trackColorOff) or colors.gray
+	instance.thumbColor = (config and config.thumbColor) or colors.white
+	instance.onLabelColor = config and config.onLabelColor or nil
+	instance.offLabelColor = config and config.offLabelColor or nil
+	instance.focusBg = config and config.focusBg or colors.lightGray
+	instance.focusFg = config and config.focusFg or colors.black
+	instance.showLabel = not (config and config.showLabel == false)
+	instance.disabled = not not (config and config.disabled)
+	instance.onChange = config and config.onChange or nil
+	return instance
+end
+
+function Toggle:_emitChange()
+	if self.onChange then
+		self.onChange(self, self.value)
+	end
+end
+
+function Toggle:setOnChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onChange = handler
+end
+
+function Toggle:setValue(value, suppressEvent)
+	value = not not value
+	if self.value == value then
+		return
+	end
+	self.value = value
+	if not suppressEvent then
+		self:_emitChange()
+	end
+end
+
+function Toggle:isOn()
+	return self.value
+end
+
+function Toggle:toggle()
+	if self.disabled then
+		return
+	end
+	self:setValue(not self.value)
+end
+
+function Toggle:setLabels(onLabel, offLabel)
+	if onLabel ~= nil then
+		expect(1, onLabel, "string")
+		self.labelOn = onLabel
+	end
+	if offLabel ~= nil then
+		expect(2, offLabel, "string")
+		self.labelOff = offLabel
+	end
+end
+
+function Toggle:setShowLabel(show)
+	self.showLabel = not not show
+end
+
+function Toggle:setDisabled(disabled)
+	disabled = not not disabled
+	if self.disabled == disabled then
+		return
+	end
+	self.disabled = disabled
+end
+
+function Toggle:isDisabled()
+	return self.disabled
+end
+
+function Toggle:setColors(onColor, offColor, thumbColor, onLabelColor, offLabelColor)
+	if onColor ~= nil then
+		expect(1, onColor, "number")
+		self.trackColorOn = onColor
+	end
+	if offColor ~= nil then
+		expect(2, offColor, "number")
+		self.trackColorOff = offColor
+	end
+	if thumbColor ~= nil then
+		expect(3, thumbColor, "number")
+		self.thumbColor = thumbColor
+	end
+	if onLabelColor ~= nil then
+		expect(4, onLabelColor, "number")
+		self.onLabelColor = onLabelColor
+	end
+	if offLabelColor ~= nil then
+		expect(5, offLabelColor, "number")
+		self.offLabelColor = offLabelColor
+	end
+end
+
+function Toggle:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	local border = self.border
+	local leftPad = (border and border.left) and border.thickness or 0
+	local rightPad = (border and border.right) and border.thickness or 0
+	local topPad = (border and border.top) and border.thickness or 0
+	local bottomPad = (border and border.bottom) and border.thickness or 0
+
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+
+	local trackX = innerX
+	local trackY = innerY
+	local trackWidth = innerWidth
+	local trackHeight = innerHeight
+
+	local offColor = self.trackColorOff or colors.gray
+	local onColor = self.trackColorOn or colors.lightBlue
+	local activeColor = self.value and onColor or offColor
+
+	fill_rect(textLayer, trackX, trackY, trackWidth, trackHeight, activeColor, activeColor)
+
+	local knobWidth = math.max(1, math.floor(trackWidth / 2))
+	if trackWidth >= 4 then
+		knobWidth = math.max(2, knobWidth)
+	end
+	if knobWidth > trackWidth then
+		knobWidth = trackWidth
+	end
+	local knobX
+	if self.value then
+		knobX = trackX + trackWidth - knobWidth
+	else
+		knobX = trackX
+	end
+	if knobX < trackX then
+		knobX = trackX
+	end
+	if knobX + knobWidth > trackX + trackWidth then
+		knobX = trackX + trackWidth - knobWidth
+	end
+
+	local knobColor = self.thumbColor or colors.white
+	if self:isFocused() then
+		knobColor = self.focusBg or knobColor
+	end
+	fill_rect(textLayer, knobX, trackY, knobWidth, trackHeight, knobColor, knobColor)
+
+	local labelText = ""
+	if self.showLabel then
+		if self.value then
+			labelText = self.labelOn or "On"
+		else
+			labelText = self.labelOff or "Off"
+		end
+	end
+	if labelText ~= "" and trackHeight > 0 then
+		local available = math.max(0, trackWidth - 2)
+		if available > 0 and #labelText > available then
+			labelText = labelText:sub(1, available)
+		end
+		local textColor = fg
+		if self.value then
+			textColor = self.onLabelColor or fg
+		else
+			textColor = self.offLabelColor or fg
+		end
+		local textY = trackY + math.floor((trackHeight - 1) / 2)
+		local textX = trackX + math.floor((trackWidth - #labelText) / 2)
+		if textX < trackX then
+			textX = trackX
+		end
+		if textX + #labelText - 1 > trackX + trackWidth - 1 then
+			textX = trackX + trackWidth - #labelText
+		end
+		if #labelText > 0 then
+			textLayer.text(textX, textY, labelText, textColor, activeColor)
+		end
+	end
+
+	if self:isFocused() then
+		local outline = self.focusFg or colors.white
+		if trackWidth > 1 then
+			for dx = 0, trackWidth - 1 do
+				pixelLayer.pixel(trackX + dx, trackY, outline)
+				if trackHeight > 1 then
+					pixelLayer.pixel(trackX + dx, trackY + trackHeight - 1, outline)
+				end
+			end
+		end
+		if trackHeight > 1 then
+			for dy = 0, trackHeight - 1 do
+				pixelLayer.pixel(trackX, trackY + dy, outline)
+				if trackWidth > 1 then
+					pixelLayer.pixel(trackX + trackWidth - 1, trackY + dy, outline)
+				end
+			end
+		end
+	end
+
+	if self.disabled then
+		for dx = 0, trackWidth - 1, 2 do
+			local column = trackX + dx
+			pixelLayer.pixel(column, trackY, colors.gray)
+			if trackHeight > 1 then
+				pixelLayer.pixel(column, trackY + trackHeight - 1, colors.gray)
+			end
+		end
+	end
+end
+
+function Toggle:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" or event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			if self.disabled then
+				return true
+			end
+			self.app:setFocus(self)
+			self:toggle()
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() or self.disabled then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.space or keyCode == keys.enter then
+			self:toggle()
+			return true
+		end
+	elseif event == "char" then
+		if not self:isFocused() or self.disabled then
+			return false
+		end
+		local ch = ...
+		if ch == " " then
+			self:toggle()
 			return true
 		end
 	end
@@ -3235,6 +3557,635 @@ function TreeView:handleEvent(event, ...)
 	return false
 end
 
+local function chart_clamp(value, minValue, maxValue)
+	if value < minValue then
+		return minValue
+	end
+	if value > maxValue then
+		return maxValue
+	end
+	return value
+end
+
+local function chart_draw_line(pixelLayer, x0, y0, x1, y1, color)
+	if not pixelLayer then
+		return
+	end
+	color = color or colors.white
+	local dx = math.abs(x1 - x0)
+	local sx = x0 < x1 and 1 or -1
+	local dy = -math.abs(y1 - y0)
+	local sy = y0 < y1 and 1 or -1
+	local err = dx + dy
+	while true do
+		pixelLayer.pixel(x0, y0, color)
+		if x0 == x1 and y0 == y1 then
+			break
+		end
+		local e2 = 2 * err
+		if e2 >= dy then
+			err = err + dy
+			x0 = x0 + sx
+		end
+		if e2 <= dx then
+			err = err + dx
+			y0 = y0 + sy
+		end
+	end
+end
+
+function Chart:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 8))
+	baseConfig.width = math.max(6, math.floor(baseConfig.width or 18))
+	local instance = setmetatable({}, Chart)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.data = {}
+	instance.labels = {}
+	instance.chartType = "bar"
+	instance.showAxis = not (config and config.showAxis == false)
+	instance.showLabels = not (config and config.showLabels == false)
+	instance.placeholder = (config and config.placeholder) or "No data"
+	instance.barColor = (config and config.barColor) or colors.lightBlue
+	instance.highlightColor = (config and config.highlightColor) or colors.orange
+	instance.axisColor = (config and config.axisColor) or (instance.fg or colors.white)
+	instance.lineColor = (config and config.lineColor) or (instance.fg or colors.white)
+	if config and type(config.rangePadding) == "number" then
+		instance.rangePadding = math.max(0, config.rangePadding)
+	else
+		instance.rangePadding = 0.05
+	end
+	if config and type(config.minValue) == "number" then
+		instance.minValue = config.minValue
+	else
+		instance.minValue = nil
+	end
+	if config and type(config.maxValue) == "number" then
+		instance.maxValue = config.maxValue
+	else
+		instance.maxValue = nil
+	end
+	instance.onSelect = config and config.onSelect or nil
+	instance.selectedIndex = nil
+	instance._lastLayout = nil
+	if config and config.chartType then
+		instance:setChartType(config.chartType)
+	end
+	if config and config.labels then
+		instance:setLabels(config.labels)
+	end
+	if config and config.data then
+		instance:setData(config.data)
+	end
+	if config and config.selectedIndex then
+		instance:setSelectedIndex(config.selectedIndex, true)
+	else
+		instance:_clampSelection(true)
+	end
+	return instance
+end
+
+function Chart:_emitSelect()
+	if self.onSelect then
+		local index = self.selectedIndex
+		local value = index and self.data[index] or nil
+		self.onSelect(self, index, value)
+	end
+end
+
+function Chart:_clampSelection(suppressEvent)
+	local count = #self.data
+	if count == 0 then
+		if self.selectedIndex ~= nil then
+			self.selectedIndex = nil
+			if not suppressEvent then
+				self:_emitSelect()
+			end
+		end
+		return
+	end
+	local index = self.selectedIndex
+	if type(index) ~= "number" then
+		index = 1
+	else
+		index = math.floor(index)
+		if index < 1 then
+			index = 1
+		elseif index > count then
+			index = count
+		end
+	end
+	if self.selectedIndex ~= index then
+		self.selectedIndex = index
+		if not suppressEvent then
+			self:_emitSelect()
+		end
+	end
+end
+
+function Chart:setData(data)
+	expect(1, data, "table")
+	local cleaned = {}
+	for i = 1, #data do
+		local value = data[i]
+		if type(value) ~= "number" then
+			value = tonumber(value) or 0
+		end
+		cleaned[i] = value
+	end
+	self.data = cleaned
+	self:_clampSelection(false)
+end
+
+function Chart:getData()
+	return self.data
+end
+
+function Chart:setLabels(labels)
+	if labels == nil then
+		self.labels = {}
+		return
+	end
+	expect(1, labels, "table")
+	local cleaned = {}
+	for i = 1, #labels do
+		local label = labels[i]
+		if label ~= nil then
+			cleaned[i] = tostring(label)
+		end
+	end
+	self.labels = cleaned
+end
+
+function Chart:getLabels()
+	return self.labels
+end
+
+function Chart:getLabel(index)
+	if type(index) ~= "number" then
+		return nil
+	end
+	if not self.labels then
+		return nil
+	end
+	return self.labels[math.floor(index)]
+end
+
+function Chart:setChartType(chartType)
+	if chartType == nil then
+		return
+	end
+	expect(1, chartType, "string")
+	local normalized = chartType:lower()
+	if normalized ~= "bar" and normalized ~= "line" then
+		error("Chart type must be 'bar' or 'line'", 2)
+	end
+	self.chartType = normalized
+end
+
+function Chart:setShowAxis(show)
+	self.showAxis = not not show
+end
+
+function Chart:setShowLabels(show)
+	self.showLabels = not not show
+end
+
+function Chart:setPlaceholder(text)
+	if text ~= nil then
+		expect(1, text, "string")
+	end
+	self.placeholder = text or ""
+end
+
+function Chart:setRange(minValue, maxValue)
+	if minValue ~= nil then
+		expect(1, minValue, "number")
+	end
+	if maxValue ~= nil then
+		expect(2, maxValue, "number")
+	end
+	self.minValue = minValue
+	self.maxValue = maxValue
+end
+
+function Chart:setRangePadding(padding)
+	expect(1, padding, "number")
+	if padding < 0 then
+		padding = 0
+	end
+	self.rangePadding = padding
+end
+
+function Chart:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function Chart:setSelectedIndex(index, suppressEvent)
+	if index == nil then
+		if self.selectedIndex ~= nil then
+			self.selectedIndex = nil
+			if not suppressEvent then
+				self:_emitSelect()
+			end
+		end
+		return false
+	end
+	expect(1, index, "number")
+	local count = #self.data
+	if count == 0 then
+		if self.selectedIndex ~= nil then
+			self.selectedIndex = nil
+			if not suppressEvent then
+				self:_emitSelect()
+			end
+		end
+		return false
+	end
+	local clamped = math.floor(index)
+	if clamped < 1 then
+		clamped = 1
+	elseif clamped > count then
+		clamped = count
+	end
+	if self.selectedIndex == clamped then
+		return false
+	end
+	self.selectedIndex = clamped
+	if not suppressEvent then
+		self:_emitSelect()
+	end
+	return true
+end
+
+function Chart:getSelectedIndex()
+	return self.selectedIndex
+end
+
+function Chart:getSelectedValue()
+	local index = self.selectedIndex
+	if not index then
+		return nil
+	end
+	return self.data[index]
+end
+
+function Chart:onFocusChanged(focused)
+	if focused then
+		self:_clampSelection(true)
+	end
+end
+
+function Chart:_indexFromPoint(px)
+	local layout = self._lastLayout
+	if not layout or not layout.bars then
+		return nil
+	end
+	local bars = layout.bars
+	for i = 1, #bars do
+		local span = bars[i]
+		if px >= span.left and px <= span.right then
+			return i
+		end
+	end
+	if px < layout.innerX or px >= layout.innerX + layout.innerWidth then
+		return nil
+	end
+	if layout.innerWidth <= 0 then
+		return nil
+	end
+	local relative = px - layout.innerX
+	local index = math.floor(relative * layout.dataCount / layout.innerWidth) + 1
+	if index < 1 or index > layout.dataCount then
+		return nil
+	end
+	return index
+end
+
+function Chart:_moveSelection(delta)
+	if delta == 0 then
+		return false
+	end
+	local count = #self.data
+	if count == 0 then
+		return false
+	end
+	local index = self.selectedIndex or (delta > 0 and 0 or count + 1)
+	index = index + delta
+	if index < 1 then
+		index = 1
+	elseif index > count then
+		index = count
+	end
+	return self:setSelectedIndex(index, false)
+end
+
+function Chart:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bg = self.bg or colors.black
+	local fg = self.fg or colors.white
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	local border = self.border
+	local borderThickness = (border and border.thickness) or 0
+	local leftPad = (border and border.left) and borderThickness or 0
+	local rightPad = (border and border.right) and borderThickness or 0
+	local topPad = (border and border.top) and borderThickness or 0
+	local bottomPad = (border and border.bottom) and borderThickness or 0
+
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+
+	self._lastLayout = nil
+
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+
+	local dataCount = #self.data
+	if dataCount == 0 then
+		local placeholder = self.placeholder or ""
+		if placeholder ~= "" then
+			local text = placeholder
+			if #text > innerWidth then
+				text = text:sub(1, innerWidth)
+			end
+			local textX = innerX + math.floor((innerWidth - #text) / 2)
+			if textX < innerX then
+				textX = innerX
+			end
+			local textY = innerY + math.floor((innerHeight - 1) / 2)
+			textLayer.text(textX, textY, text, colors.lightGray, bg)
+		end
+		return
+	end
+
+	local labelHeight = (self.showLabels and innerHeight >= 2) and 1 or 0
+	local axisHeight = (self.showAxis and (innerHeight - labelHeight) >= 2) and 1 or 0
+	local plotHeight = innerHeight - axisHeight - labelHeight
+	if plotHeight < 1 then
+		plotHeight = innerHeight
+		axisHeight = 0
+		labelHeight = 0
+	end
+
+	local plotTop = innerY
+	local plotBottom = plotTop + plotHeight - 1
+	local axisY = axisHeight > 0 and (plotBottom + 1) or nil
+	local labelY
+	if labelHeight > 0 then
+		if axisY then
+			labelY = axisY + 1
+		else
+			labelY = plotBottom + 1
+		end
+		if labelY > innerY + innerHeight - 1 then
+			labelY = innerY + innerHeight - 1
+		end
+	end
+
+	local computedMin = math.huge
+	local computedMax = -math.huge
+	for i = 1, dataCount do
+		local value = self.data[i] or 0
+		if value < computedMin then
+			computedMin = value
+		end
+		if value > computedMax then
+			computedMax = value
+		end
+	end
+	if computedMin == math.huge then
+		computedMin = 0
+	end
+	if computedMax == -math.huge then
+		computedMax = 0
+	end
+	local minValue = type(self.minValue) == "number" and self.minValue or computedMin
+	local maxValue = type(self.maxValue) == "number" and self.maxValue or computedMax
+	if maxValue == minValue then
+		maxValue = maxValue + 1
+		minValue = minValue - 1
+	end
+	local range = maxValue - minValue
+	if range <= 0 then
+		range = 1
+		maxValue = minValue + range
+	end
+	local padding = self.rangePadding or 0
+	if padding > 0 then
+		local span = maxValue - minValue
+		local padAmount = span * padding
+		if padAmount == 0 then
+			padAmount = padding
+		end
+		minValue = minValue - padAmount
+		maxValue = maxValue + padAmount
+		range = maxValue - minValue
+		if range <= 0 then
+			range = 1
+			maxValue = minValue + range
+		end
+	end
+
+	local bars = {}
+	for i = 1, dataCount do
+		local left = innerX + math.floor((i - 1) * innerWidth / dataCount)
+		local right = innerX + math.floor(i * innerWidth / dataCount) - 1
+		if right < left then
+			right = left
+		end
+		if right > innerX + innerWidth - 1 then
+			right = innerX + innerWidth - 1
+		end
+		local widthPixels = right - left + 1
+		if widthPixels < 1 then
+			widthPixels = 1
+		end
+		bars[i] = {
+			left = left,
+			right = right,
+			width = widthPixels,
+			center = left + math.floor((widthPixels - 1) / 2)
+		}
+	end
+
+	if self.chartType == "bar" then
+		for i = 1, dataCount do
+			local value = self.data[i] or 0
+			local ratio = 0
+			if range > 0 then
+				ratio = (value - minValue) / range
+			end
+			ratio = chart_clamp(ratio, 0, 1)
+			local barHeight = math.floor(ratio * plotHeight + 0.5)
+			if plotHeight > 0 and barHeight <= 0 and value > minValue then
+				barHeight = 1
+			end
+			if barHeight > plotHeight then
+				barHeight = plotHeight
+			end
+			if barHeight < 1 then
+				barHeight = 1
+			end
+			local top = plotBottom - barHeight + 1
+			if top < plotTop then
+				top = plotTop
+				barHeight = plotBottom - plotTop + 1
+			end
+			local color = self.barColor or fg
+			if self.selectedIndex == i then
+				color = self.highlightColor or color
+			end
+			fill_rect(textLayer, bars[i].left, top, bars[i].width, barHeight, color, color)
+		end
+	else
+		local points = {}
+		for i = 1, dataCount do
+			local value = self.data[i] or 0
+			local ratio = 0
+			if range > 0 then
+				ratio = (value - minValue) / range
+			end
+			ratio = chart_clamp(ratio, 0, 1)
+			local offsetRange = math.max(plotHeight - 1, 0)
+			local pointY = plotBottom - math.floor(ratio * offsetRange + 0.5)
+			if pointY < plotTop then
+				pointY = plotTop
+			end
+			if pointY > plotBottom then
+				pointY = plotBottom
+			end
+			points[i] = { x = bars[i].center, y = pointY }
+		end
+		for i = 2, #points do
+			local prev = points[i - 1]
+			local current = points[i]
+			chart_draw_line(pixelLayer, prev.x, prev.y, current.x, current.y, self.lineColor or fg)
+		end
+		for i = 1, #points do
+			local point = points[i]
+			local color = self.lineColor or fg
+			local marker = "o"
+			if self.selectedIndex == i then
+				color = self.highlightColor or colors.orange
+				marker = "O"
+			end
+			textLayer.text(point.x, point.y, marker, color, bg)
+		end
+	end
+
+	if axisY then
+		fill_rect(textLayer, innerX, axisY, innerWidth, 1, bg, bg)
+		local axisLine = string.rep("-", innerWidth)
+		textLayer.text(innerX, axisY, axisLine, self.axisColor or fg, bg)
+	end
+
+	if labelY then
+		fill_rect(textLayer, innerX, labelY, innerWidth, 1, bg, bg)
+		local labels = self.labels or {}
+		for i = 1, dataCount do
+			local label = labels[i]
+			if label and label ~= "" then
+				label = tostring(label)
+				local span = bars[i]
+				local maxWidth = span.width
+				if maxWidth > 0 and #label > maxWidth then
+					label = label:sub(1, maxWidth)
+				end
+				local labelX = span.left + math.floor((span.width - #label) / 2)
+				if labelX < span.left then
+					labelX = span.left
+				end
+				if labelX + #label - 1 > span.right then
+					labelX = span.right - #label + 1
+				end
+				local color = (self.selectedIndex == i) and (self.highlightColor or colors.orange) or (self.axisColor or fg)
+				textLayer.text(labelX, labelY, label, color, bg)
+			end
+		end
+	end
+
+	self._lastLayout = {
+		innerX = innerX,
+		innerWidth = innerWidth,
+		dataCount = dataCount,
+		bars = bars
+	}
+end
+
+function Chart:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" or event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_indexFromPoint(x)
+			if index then
+				self:setSelectedIndex(index, false)
+			end
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:_moveSelection(1)
+			elseif direction < 0 then
+				self:_moveSelection(-1)
+			end
+			return true
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.left then
+			self:_moveSelection(-1)
+			return true
+		elseif keyCode == keys.right then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.home then
+			self:setSelectedIndex(1, false)
+			return true
+		elseif keyCode == keys["end"] then
+			local count = #self.data
+			if count > 0 then
+				self:setSelectedIndex(count, false)
+			end
+			return true
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			self:_emitSelect()
+			return true
+		end
+	end
+
+	return false
+end
+
 function List:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -4512,6 +5463,13 @@ end
 
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Toggle
+function App:createToggle(config)
+	return Toggle:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.TextBox
 function App:createTextBox(config)
 	return TextBox:new(self, config)
@@ -4536,6 +5494,13 @@ end
 ---@return PixelUI.TreeView
 function App:createTreeView(config)
 	return TreeView:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Chart
+function App:createChart(config)
+	return Chart:new(self, config)
 end
 
 ---@since 0.1.0
@@ -4961,6 +5926,9 @@ pixelui.widgets = {
 	CheckBox = function(app, config)
 		return CheckBox:new(app, config)
 	end,
+	Toggle = function(app, config)
+		return Toggle:new(app, config)
+	end,
 	TextBox = function(app, config)
 		return TextBox:new(app, config)
 	end,
@@ -4972,6 +5940,9 @@ pixelui.widgets = {
 	end,
 	TreeView = function(app, config)
 		return TreeView:new(app, config)
+	end,
+	Chart = function(app, config)
+		return Chart:new(app, config)
 	end,
 	RadioButton = function(app, config)
 		return RadioButton:new(app, config)
@@ -4989,10 +5960,12 @@ pixelui.Frame = Frame
 pixelui.Button = Button
 pixelui.Label = Label
 pixelui.CheckBox = CheckBox
+pixelui.Toggle = Toggle
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
 pixelui.List = List
 pixelui.TreeView = TreeView
+pixelui.Chart = Chart
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
