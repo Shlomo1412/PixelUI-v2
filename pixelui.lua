@@ -6069,6 +6069,7 @@ function TextBox:new(app, config)
 	instance.autocompleteMaxItems = math.max(1, math.floor(config.autocompleteMaxItems or 5))
 	instance.autocompleteBg = config.autocompleteBg or colors.gray
 	instance.autocompleteFg = config.autocompleteFg or colors.white
+	instance.autocompleteGhostColor = config.autocompleteGhostColor or colors.lightGray
 	instance.syntax = normalize_syntax_config(config.syntax)
 	instance._lines = { "" }
 	instance.text = ""
@@ -6098,7 +6099,9 @@ function TextBox:new(app, config)
 		selectedIndex = 1,
 		anchorLine = 1,
 		anchorCol = 1,
-		prefix = ""
+		prefix = "",
+		ghost = "",
+		trigger = "auto"
 	}
 	if not instance.border then
 		instance.border = normalize_border(true)
@@ -6775,7 +6778,7 @@ function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHe
 	end
 	textLayer.text(activeX, activeY, display .. string.rep(" ", math.max(0, innerWidth - (activeX - innerX) - #display)), activeFg, activeBg)
 	if overlayHeight >= 2 then
-		local info = "F3 next | Shift+F3 prev | Tab switch | Enter apply | Esc close"
+		local info = "Ctrl+G next | Ctrl+Shift+G prev | Tab switch | Enter apply | Esc close"
 		if #info > innerWidth then
 			info = info:sub(1, innerWidth)
 		end
@@ -6785,10 +6788,14 @@ end
 
 function TextBox:_hideAutocomplete()
 	local ac = self._autocompleteState
-	if ac.visible then
-		ac.visible = false
-		ac.items = {}
-	end
+	ac.visible = false
+	ac.items = {}
+	ac.ghost = ""
+	ac.prefix = ""
+	ac.trigger = "auto"
+	ac.selectedIndex = 1
+	ac.anchorLine = self._cursorLine
+	ac.anchorCol = self._cursorCol
 end
 
 function TextBox:_updateAutocomplete(trigger)
@@ -6821,15 +6828,18 @@ function TextBox:_updateAutocomplete(trigger)
 		suggestions = self.autocomplete
 	end
 	local items = {}
+	local lowerPrefix = prefix:lower()
 	for i = 1, #suggestions do
 		local entry = suggestions[i]
 		if type(entry) == "string" then
-			if prefix == "" or entry:lower():find("^" .. prefix:lower(), 1, true) then
+			local labelLower = entry:lower()
+			if prefix == "" or labelLower:sub(1, #lowerPrefix) == lowerPrefix then
 				items[#items + 1] = { label = entry, insert = entry }
 			end
 		elseif type(entry) == "table" and entry.label then
 			local label = entry.label
-			if prefix == "" or label:lower():find("^" .. prefix:lower(), 1, true) then
+			local labelLower = label:lower()
+			if prefix == "" or labelLower:sub(1, #lowerPrefix) == lowerPrefix then
 				items[#items + 1] = { label = label, insert = entry.insert or label }
 			end
 		end
@@ -6839,6 +6849,7 @@ function TextBox:_updateAutocomplete(trigger)
 		return
 	end
 	local ac = self._autocompleteState
+	ac.trigger = trigger or "auto"
 	ac.visible = true
 	ac.items = {}
 	for i = 1, math.min(self.autocompleteMaxItems, #items) do
@@ -6848,6 +6859,29 @@ function TextBox:_updateAutocomplete(trigger)
 	ac.anchorLine = self._cursorLine
 	ac.anchorCol = startCol
 	ac.prefix = prefix
+	ac.ghost = self:_computeAutocompleteGhost(ac.items[ac.selectedIndex], ac.prefix, ac.trigger)
+end
+
+function TextBox:_computeAutocompleteGhost(item, prefix, trigger)
+	if not item then
+		return ""
+	end
+	local insertText = item.insert or item.label or ""
+	if insertText == "" then
+		return ""
+	end
+	if prefix == "" then
+		if trigger == "manual" then
+			return insertText
+		end
+		return ""
+	end
+	local lowerInsert = insertText:lower()
+	local lowerPrefix = prefix:lower()
+	if lowerInsert:sub(1, #prefix) ~= lowerPrefix then
+		return ""
+	end
+	return insertText:sub(#prefix + 1)
 end
 
 function TextBox:_acceptAutocomplete()
@@ -6878,10 +6912,15 @@ function TextBox:_moveAutocompleteSelection(delta)
 		return
 	end
 	ac.selectedIndex = ((ac.selectedIndex - 1 + delta) % count) + 1
+	ac.ghost = self:_computeAutocompleteGhost(ac.items[ac.selectedIndex], ac.prefix, ac.trigger)
 end
 
 function TextBox:_toggleFindOverlay(mode)
 	local find = self._find
+	if find.visible and (not mode or find.activeField == mode) then
+		self:_closeFindOverlay()
+		return
+	end
 	find.visible = true
 	if mode then
 		find.activeField = mode
@@ -7061,6 +7100,23 @@ function TextBox:_replaceAll()
 	return true
 end
 
+function TextBox:_handleEscape()
+	if self._find.visible then
+		self:_closeFindOverlay()
+		return true
+	end
+	if self:_hasSelection() then
+		self:_clearSelection()
+		self:_notifyCursorChange()
+		return true
+	end
+	if self._autocompleteState.visible then
+		self:_hideAutocomplete()
+		return true
+	end
+	return false
+end
+
 function TextBox:_handleKey(keyCode, isHeld)
 	if self._find.visible then
 		if keyCode == keys.tab then
@@ -7096,7 +7152,7 @@ function TextBox:_handleKey(keyCode, isHeld)
 		elseif keyCode == keys.h then
 			self:_toggleFindOverlay("replace")
 			return true
-		elseif keyCode == keys.g or keyCode == keys.f3 then
+		elseif keyCode == keys.g then
 			if self._shiftDown then
 				self:_gotoPreviousMatch()
 			else
@@ -7171,19 +7227,7 @@ function TextBox:_handleKey(keyCode, isHeld)
 		self:_scrollLines(math.max(1, select(2, self:_getContentSize()) - 1))
 		return true
 	elseif keyCode == keys.escape then
-		if self._find.visible then
-			self:_closeFindOverlay()
-			return true
-		end
-		if self:_hasSelection() then
-			self:_clearSelection()
-			self:_notifyCursorChange()
-			return true
-		end
-		if self._autocompleteState.visible then
-			self:_hideAutocomplete()
-			return true
-		end
+		return self:_handleEscape()
 	end
 	return false
 end
@@ -7207,6 +7251,7 @@ function TextBox:draw(textLayer, pixelLayer)
 	local overlayHeight = self:_getOverlayHeight(innerHeight)
 	local contentHeight = math.max(1, innerHeight - overlayHeight)
 	local selectionRange
+	local hasSelection = false
 	if self:_hasSelection() then
 		local startLine, startCol, endLine, endCol = self:_getSelectionRange()
 		selectionRange = {
@@ -7215,7 +7260,9 @@ function TextBox:draw(textLayer, pixelLayer)
 			endLine = endLine,
 			endCol = endCol
 		}
+		hasSelection = true
 	end
+	local ac = self._autocompleteState
 	local baseBg = bg
 	for row = 0, contentHeight - 1 do
 		local lineIndex = self._scrollY + row + 1
@@ -7239,6 +7286,45 @@ function TextBox:draw(textLayer, pixelLayer)
 					textLayer.text(innerX + cursorCol, drawY, ch, cursorFg, cursorBg)
 				end
 			end
+			if self:isFocused() and ac.visible and ac.ghost ~= "" and not hasSelection and lineIndex == ac.anchorLine then
+				local ghostStartCol = ac.anchorCol + #ac.prefix
+				local ghostOffset = ghostStartCol - self._scrollX - 1
+				if ghostOffset < innerWidth then
+					local ghostText = ac.ghost
+					local lineLength = #lineText
+					if ghostStartCol <= lineLength then
+						local overlap = lineLength - ghostStartCol + 1
+						if overlap >= #ghostText then
+							ghostText = ""
+						else
+							ghostText = ghostText:sub(overlap + 1)
+							ghostOffset = ghostOffset + overlap
+						end
+					end
+					if ghostText ~= "" then
+						if ghostOffset < 0 then
+							local trim = -ghostOffset
+							if trim >= #ghostText then
+								ghostText = ""
+							else
+								ghostText = ghostText:sub(trim + 1)
+								ghostOffset = 0
+							end
+						end
+						if ghostText ~= "" and ghostOffset < innerWidth then
+							local available = innerWidth - ghostOffset
+							if available > 0 then
+								if #ghostText > available then
+									ghostText = ghostText:sub(1, available)
+								end
+								if ghostText ~= "" then
+									textLayer.text(innerX + ghostOffset, drawY, ghostText, self.autocompleteGhostColor or colors.lightGray, baseBg)
+								end
+							end
+						end
+					end
+				end
+			end
 		end
 	end
 	if self.text == "" and not self:isFocused() and self.placeholder ~= "" then
@@ -7249,43 +7335,6 @@ function TextBox:draw(textLayer, pixelLayer)
 		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, innerWidth - #placeholder)), colors.lightGray, baseBg)
 	end
 	self:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHeight)
-	if self._autocompleteState.visible and #self._autocompleteState.items > 0 then
-		local ac = self._autocompleteState
-		local lineOffset = ac.anchorLine - (self._scrollY + 1)
-		local popupY = innerY + lineOffset + 1
-		local popupX = innerX + (ac.anchorCol - (self._scrollX + 1))
-		local popupWidth = 0
-		for i = 1, #ac.items do
-			popupWidth = math.max(popupWidth, #ac.items[i].label)
-		end
-		popupWidth = math.min(innerWidth, math.max(6, popupWidth + 2))
-		local popupHeight = math.min(#ac.items, self.autocompleteMaxItems)
-		if popupX + popupWidth > innerX + innerWidth then
-			popupX = innerX + innerWidth - popupWidth
-		end
-		if popupX < innerX then
-			popupX = innerX
-		end
-		if popupY + popupHeight > innerY + contentHeight then
-			popupY = popupY - popupHeight
-		end
-		local bgPopup = self.autocompleteBg or colors.gray
-		local fgPopup = self.autocompleteFg or colors.white
-		local selBg = self.selectionBg or colors.lightGray
-		local selFg = self.selectionFg or colors.black
-		for i = 1, popupHeight do
-			local item = ac.items[i]
-			local label = item.label
-			if #label > popupWidth - 2 then
-				label = label:sub(1, popupWidth - 2)
-			end
-			local padding = popupWidth - 2 - #label
-			local text = " " .. label .. string.rep(" ", padding + 1)
-			local rowBg = (i == ac.selectedIndex) and selBg or bgPopup
-			local rowFg = (i == ac.selectedIndex) and selFg or fgPopup
-			textLayer.text(popupX, popupY + i - 1, text, rowFg, rowBg)
-		end
-	end
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
@@ -7391,8 +7440,10 @@ function TextBox:handleEvent(event, ...)
 		elseif keyCode == keys.leftCtrl or keyCode == keys.rightCtrl then
 			self._ctrlDown = false
 			return true
-		elseif keyCode == keys.f3 then
-			return true
+		elseif keyCode == keys.escape then
+			if self:_handleEscape() then
+				return true
+			end
 		end
 	end
 	return false

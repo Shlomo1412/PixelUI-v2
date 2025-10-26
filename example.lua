@@ -4,10 +4,9 @@ local pixelui = require("pixelui")
 
 ---@type PixelUI.App
 local app = pixelui.create({
-    background = colors.black,
+    background = colors.gray,
     rootBorder = {
-        color = colors.gray,
-        sides = { "top" }
+        color = colors.gray
     }
 })
 
@@ -1004,7 +1003,7 @@ editorState.instructions = app:createLabel({
     height = 2,
     wrap = true,
     align = "left",
-    text = "Shortcuts: Ctrl+F find, Ctrl+H replace, Ctrl+Space autocomplete, Shift+Arrows selects.",
+    text = "Shortcuts: Ctrl+F find (Esc closes), Ctrl+H replace, Ctrl+Space autocomplete (Tab/Enter accepts), Shift+Arrows selects.",
     bg = colors.gray,
     fg = colors.white
 })
