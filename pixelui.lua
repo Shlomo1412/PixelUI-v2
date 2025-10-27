@@ -150,6 +150,20 @@ local shrekbox = require("shrekbox")
 ---@field duration number
 ---@field dismissOnClick boolean
 
+---@class PixelUI.LoadingRing : PixelUI.Widget
+---@field segmentCount integer
+---@field thickness integer
+---@field color PixelUI.Color
+---@field secondaryColor PixelUI.Color?
+---@field trailColor PixelUI.Color?
+---@field tertiaryColor PixelUI.Color?
+---@field speed number
+---@field direction integer
+---@field radiusPixels integer?
+---@field trailPalette PixelUI.Color[]?
+---@field fadeSteps integer
+---@field autoStart boolean?
+
 ---@class PixelUI.Slider : PixelUI.Widget
 ---@field min number
 ---@field max number
@@ -377,6 +391,10 @@ setmetatable(ComboBox, { __index = Widget })
 local NotificationToast = {}
 NotificationToast.__index = NotificationToast
 setmetatable(NotificationToast, { __index = Widget })
+
+local LoadingRing = {}
+LoadingRing.__index = LoadingRing
+setmetatable(LoadingRing, { __index = Widget })
 
 local App = {}
 App.__index = App
@@ -1457,6 +1475,361 @@ function NotificationToast:onFocusChanged()
 	-- toasts do not track focus
 end
 
+function LoadingRing:new(app, config)
+	config = config or {}
+	expect(1, app, "table")
+	if config ~= nil then
+		expect(2, config, "table")
+	end
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = false
+	baseConfig.width = math.max(3, math.floor(baseConfig.width or 8))
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 5))
+	local instance = setmetatable({}, LoadingRing)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = false
+	instance.color = config.color or colors.cyan
+	instance.secondaryColor = config.secondaryColor or colors.lightBlue
+	instance.tertiaryColor = config.tertiaryColor or colors.blue
+	instance.trailColor = config.trailColor or colors.gray
+	instance.trailPalette = config.trailPalette and clone_table(config.trailPalette) or nil
+	instance.segmentCount = math.max(6, math.floor(config.segments or config.segmentCount or 12))
+	instance.thickness = math.max(1, math.floor(config.thickness or 2))
+	instance.radiusPixels = config.radius and math.max(2, math.floor(config.radius)) or nil
+	local speed = tonumber(config.speed)
+	if not speed or speed <= 0 then
+		speed = 0.08
+	end
+	instance.speed = math.max(0.01, speed)
+	instance.fadeSteps = math.max(0, math.floor(config.fadeSteps or 2))
+	local direction = config.direction
+	if type(direction) == "string" then
+		local dir = direction:lower()
+		if dir == "counterclockwise" or dir == "anticlockwise" or dir == "ccw" then
+			direction = -1
+		else
+			direction = 1
+		end
+	elseif type(direction) == "number" then
+		direction = direction >= 0 and 1 or -1
+	else
+		direction = 1
+	end
+	instance.direction = direction
+	instance._phase = 0
+	instance._tickTimer = nil
+	instance._paused = config.autoStart == false
+	if not instance._paused then
+		instance:_scheduleTick()
+	end
+	return instance
+end
+
+function LoadingRing:_cancelTick()
+	if self._tickTimer then
+		if osLib.cancelTimer then
+			pcall(osLib.cancelTimer, self._tickTimer)
+		end
+		self._tickTimer = nil
+	end
+end
+
+function LoadingRing:_scheduleTick()
+	self:_cancelTick()
+	if self._paused then
+		return
+	end
+	if not self.speed or self.speed <= 0 then
+		return
+	end
+	self._tickTimer = osLib.startTimer(self.speed)
+end
+
+function LoadingRing:start()
+	if not self._paused then
+		return
+	end
+	self._paused = false
+	self:_scheduleTick()
+end
+
+function LoadingRing:stop()
+	if self._paused then
+		return
+	end
+	self._paused = true
+	self:_cancelTick()
+end
+
+function LoadingRing:setSpeed(speed)
+	if speed == nil then
+		return
+	end
+	local value = tonumber(speed)
+	if not value then
+		return
+	end
+	if value <= 0 then
+		self.speed = 0
+		self:_cancelTick()
+		return
+	end
+	value = math.max(0.01, value)
+	if value ~= self.speed then
+		self.speed = value
+		if not self._paused then
+			self:_scheduleTick()
+		end
+	end
+end
+
+function LoadingRing:setDirection(direction)
+	if direction == nil then
+		return
+	end
+	local dir = direction
+	if type(dir) == "string" then
+		local lower = dir:lower()
+		if lower == "counterclockwise" or lower == "anticlockwise" or lower == "ccw" then
+			dir = -1
+		else
+			dir = 1
+		end
+	elseif type(dir) == "number" then
+		dir = dir >= 0 and 1 or -1
+	else
+		dir = 1
+	end
+	if dir ~= self.direction then
+		self.direction = dir
+	end
+end
+
+function LoadingRing:setSegments(count)
+	if count == nil then
+		return
+	end
+	local value = math.max(3, math.floor(count))
+	if value ~= self.segmentCount then
+		self.segmentCount = value
+		self._phase = self._phase % value
+	end
+end
+
+function LoadingRing:setThickness(thickness)
+	if thickness == nil then
+		return
+	end
+	local value = math.max(1, math.floor(thickness))
+	self.thickness = value
+end
+
+function LoadingRing:setRadius(radius)
+	if radius == nil then
+		self.radiusPixels = nil
+		return
+	end
+	local value = math.max(2, math.floor(radius))
+	self.radiusPixels = value
+end
+
+function LoadingRing:setColor(color)
+	if color == nil then
+		return
+	end
+	expect(1, color, "number")
+	self.color = color
+end
+
+function LoadingRing:setSecondaryColor(color)
+	if color == nil then
+		self.secondaryColor = nil
+		return
+	end
+	expect(1, color, "number")
+	self.secondaryColor = color
+end
+
+function LoadingRing:setTertiaryColor(color)
+	if color == nil then
+		self.tertiaryColor = nil
+		return
+	end
+	expect(1, color, "number")
+	self.tertiaryColor = color
+end
+
+function LoadingRing:setTrailColor(color)
+	if color == nil then
+		self.trailColor = nil
+		return
+	end
+	expect(1, color, "number")
+	self.trailColor = color
+end
+
+function LoadingRing:setTrailPalette(palette)
+	if palette ~= nil then
+		expect(1, palette, "table")
+	end
+	self.trailPalette = palette and clone_table(palette) or nil
+end
+
+function LoadingRing:setFadeSteps(steps)
+	if steps == nil then
+		return
+	end
+	local value = math.max(0, math.floor(steps))
+	self.fadeSteps = value
+end
+
+function LoadingRing:_computeTrailColors()
+	local result = {}
+	local palette = self.trailPalette
+	if type(palette) == "table" then
+		for index = 1, #palette do
+			local value = palette[index]
+			if value then
+				result[#result + 1] = value
+			end
+		end
+	end
+	if #result == 0 then
+		if self.secondaryColor then
+			result[#result + 1] = self.secondaryColor
+		end
+		if self.tertiaryColor then
+			result[#result + 1] = self.tertiaryColor
+		end
+	end
+	local fadeSteps = math.max(0, math.floor(self.fadeSteps or 0))
+	if fadeSteps > 0 then
+		local filler = self.trailColor or result[#result] or self.color
+		for _ = 1, fadeSteps do
+			result[#result + 1] = filler
+		end
+	elseif #result == 0 and self.trailColor then
+		result[1] = self.trailColor
+	end
+	if #result == 0 then
+		result[1] = self.color
+	end
+	return result
+end
+
+function LoadingRing:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	if width <= 0 or height <= 0 then
+		return
+	end
+
+	local background = self.bg or self.app.background
+	fill_rect(textLayer, ax, ay, width, height, background, background)
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, background)
+	end
+
+	local leftPad = (self.border and self.border.left) and 1 or 0
+	local rightPad = (self.border and self.border.right) and 1 or 0
+	local topPad = (self.border and self.border.top) and 1 or 0
+	local bottomPad = (self.border and self.border.bottom) and 1 or 0
+
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+
+	fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, background, background)
+
+	local centerX = innerX + (innerWidth - 1) / 2
+	local centerY = innerY + (innerHeight - 1) / 2
+	local maxRadius = math.floor(math.min(innerWidth, innerHeight) / 2)
+	local radius = self.radiusPixels and math.floor(self.radiusPixels) or maxRadius
+	if radius > maxRadius then
+		radius = maxRadius
+	end
+	if radius < 1 then
+		radius = 1
+	end
+	local thickness = math.max(1, math.min(math.floor(self.thickness or 1), radius))
+	local outerRadius = radius + 0.35
+	local innerRadius = math.max(0, radius - thickness + 0.35)
+	local outerSquared = outerRadius * outerRadius
+	local innerSquared = innerRadius * innerRadius
+
+	local segments = math.max(3, math.floor(self.segmentCount or 12))
+	local headIndex = self._phase % segments
+	local direction = self.direction >= 0 and 1 or -1
+	local twoPi = math.pi * 2
+	local trailColors = self:_computeTrailColors()
+
+	for offsetY = 0, innerHeight - 1 do
+		local py = innerY + offsetY
+		local relY = py - centerY
+		for offsetX = 0, innerWidth - 1 do
+			local px = innerX + offsetX
+			local relX = px - centerX
+			local distanceSquared = relX * relX + relY * relY
+			local color = background
+			if distanceSquared <= outerSquared and distanceSquared >= innerSquared then
+				local angle = math.atan(relY, relX)
+				if angle < 0 then
+					angle = angle + twoPi
+				end
+				local segmentIndex = math.floor(angle / twoPi * segments) % segments
+				local relative
+				if direction >= 0 then
+					relative = (headIndex - segmentIndex) % segments
+				else
+					relative = (segmentIndex - headIndex) % segments
+				end
+				if relative == 0 then
+					color = self.color or background
+				else
+					local trailIndex = math.floor(relative + 0.0001)
+					if trailIndex < 1 then
+						trailIndex = 1
+					end
+					color = trailColors[trailIndex] or background
+				end
+			end
+			pixelLayer.pixel(px, py, color)
+		end
+	end
+end
+
+function LoadingRing:handleEvent(event, ...)
+	if event == "timer" then
+		local timerId = ...
+		if self._tickTimer and timerId == self._tickTimer then
+			self._tickTimer = nil
+			local segments = math.max(3, math.floor(self.segmentCount or 12))
+			local direction = self.direction >= 0 and 1 or -1
+			local nextPhase = (self._phase + direction) % segments
+			if nextPhase < 0 then
+				nextPhase = nextPhase + segments
+			end
+			self._phase = nextPhase
+			if not self._paused then
+				self:_scheduleTick()
+			end
+			return true
+		end
+	end
+
+	return Widget.handleEvent(self, event, ...)
+end
+
 ---@param widget PixelUI.Widget
 local function compute_absolute_position(widget)
 	local ax, ay = widget.x, widget.y
@@ -1515,6 +1888,7 @@ function Widget:setZ(z)
 	self.z = z
 end
 
+
 ---@since 0.1.0
 ---@param borderConfig PixelUI.BorderConfig|boolean|nil
 function Widget:setBorder(borderConfig)
@@ -1523,6 +1897,7 @@ function Widget:setBorder(borderConfig)
 		return
 	end
 	if borderConfig == false then
+
 		self.border = nil
 		return
 	end
@@ -1534,11 +1909,13 @@ function Widget:setBorder(borderConfig)
 	self.border = normalize_border(borderConfig)
 end
 
+
 ---@since 0.1.0
 ---@return boolean
 function Widget:isFocused()
 	return self._focused
 end
+
 
 ---@since 0.1.0
 ---@param focused boolean
@@ -1547,6 +1924,7 @@ function Widget:setFocused(focused)
 	if self._focused == focused then
 		return
 	end
+
 	self._focused = focused
 	self:onFocusChanged(focused)
 end
@@ -1568,6 +1946,7 @@ function Widget:getAbsoluteRect()
 end
 
 ---@since 0.1.0
+
 ---@param px integer
 ---@param py integer
 ---@return boolean
@@ -1590,6 +1969,7 @@ function Widget:handleEvent(_event, ...)
 	return false
 end
 
+
 function Frame:new(app, config)
 	local instance = setmetatable({}, Frame)
 	instance:_init_base(app, config)
@@ -1600,12 +1980,14 @@ function Frame:new(app, config)
 	return instance
 end
 
+
 ---@since 0.1.0
 ---@param child PixelUI.Widget
 function Frame:addChild(child)
 	expect(1, child, "table")
 	if child.app ~= self.app then
 		error("Cannot add widget from a different PixelUI app", 2)
+
 	end
 	if child.parent and child.parent ~= self then
 		local remove = rawget(child.parent, "removeChild")
@@ -1614,6 +1996,7 @@ function Frame:addChild(child)
 		end
 	end
 	child.parent = self
+
 	self._orderCounter = self._orderCounter + 1
 	child._orderIndex = self._orderCounter
 	table.insert(self._children, child)
@@ -1621,6 +2004,7 @@ function Frame:addChild(child)
 end
 
 ---@since 0.1.0
+
 ---@param child PixelUI.Widget
 function Frame:removeChild(child)
 	for index = 1, #self._children do
@@ -1629,6 +2013,7 @@ function Frame:removeChild(child)
 			child.parent = nil
 			if self.app and self.app._focusWidget == child then
 				self.app:setFocus(nil)
+
 			end
 			return true
 		end
@@ -1637,6 +2022,7 @@ function Frame:removeChild(child)
 end
 
 local function copy_children(list)
+
 	local result = {}
 	for i = 1, #list do
 		result[i] = list[i]
@@ -1645,12 +2031,14 @@ local function copy_children(list)
 end
 
 local function sort_children_ascending(list)
+
 	table.sort(list, function(a, b)
 		if a.z == b.z then
 			return (a._orderIndex or 0) < (b._orderIndex or 0)
 		end
 		return a.z < b.z
 	end)
+
 end
 
 ---@since 0.1.0
@@ -1659,16 +2047,20 @@ function Frame:getChildren()
 	return copy_children(self._children)
 end
 
+
 ---@since 0.1.0
 ---@param title string?
 function Frame:setTitle(title)
+
 	if title ~= nil then
 		expect(1, title, "string")
 	end
 	self.title = title
+
 end
 
 ---@since 0.1.0
+
 ---@param textLayer Layer
 ---@param pixelLayer Layer
 function Frame:draw(textLayer, pixelLayer)
@@ -1678,6 +2070,7 @@ function Frame:draw(textLayer, pixelLayer)
 
 	local ax, ay, width, height = self:getAbsoluteRect()
 	local bg = self.bg or self.app.background
+
 	local innerX, innerY = ax + 1, ay + 1
 	local innerWidth = math.max(0, width - 2)
 	local innerHeight = math.max(0, height - 2)
@@ -1702,6 +2095,7 @@ function Frame:draw(textLayer, pixelLayer)
 			end
 			if #truncated < titleWidth then
 				truncated = truncated .. string.rep(" ", titleWidth - #truncated)
+
 			end
 			textLayer.text(titleX, titleY, truncated, self.fg, bg)
 		end
@@ -1738,8 +2132,10 @@ function Frame:handleEvent(event, ...)
 		end
 	end
 
+
 	return false
 end
+
 
 function Button:new(app, config)
 	local instance = setmetatable({}, Button)
@@ -1756,6 +2152,7 @@ function Button:new(app, config)
 	instance._pressed = false
 	instance.focusable = false
 	return instance
+
 end
 
 ---@since 0.1.0
@@ -8558,6 +8955,12 @@ function App:createNotificationToast(config)
 	return NotificationToast:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.LoadingRing
+function App:createLoadingRing(config)
+	return LoadingRing:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Slider
@@ -9416,6 +9819,9 @@ pixelui.widgets = {
 	Slider = function(app, config)
 		return Slider:new(app, config)
 	end,
+	LoadingRing = function(app, config)
+		return LoadingRing:new(app, config)
+	end,
 	NotificationToast = function(app, config)
 		return NotificationToast:new(app, config)
 	end
@@ -9436,6 +9842,7 @@ pixelui.Chart = Chart
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
+pixelui.LoadingRing = LoadingRing
 pixelui.NotificationToast = NotificationToast
 pixelui.easings = easings
 pixelui.ThreadHandle = ThreadHandle
