@@ -11,6 +11,7 @@ const AnnotationParser = require('./parse-annotations');
 function escapeMarkdown(text) {
   if (!text) return '';
   return text
+    .replace(/\\/g, '\\\\')
     .replace(/\|/g, '\\|')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
