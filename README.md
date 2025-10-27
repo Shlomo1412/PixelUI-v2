@@ -56,9 +56,16 @@ app:run()
 
 ### In ComputerCraft
 
+Download the library directly in ComputerCraft:
+
+```
+wget https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/compressed/pixelui.lua pixelui.lua
+```
+
+Or using shell.run in Lua:
+
 ```lua
--- Download the library
-wget https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/compressed/pixelui.lua
+shell.run("wget", "https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/compressed/pixelui.lua", "pixelui.lua")
 ```
 
 ### For Development
