@@ -109,7 +109,11 @@ for (let i = 0; i < lines.length; i++) {
           params: [],
           returns: [],
           since: null,
-          description: []
+          description: [],
+          usage: [],
+          examples: [],
+          see: [],
+          deprecated: null
         };
 
         // Parse all annotation types
@@ -135,6 +139,26 @@ for (let i = 0; i < lines.length; i++) {
           const sinceMatch = ann.line.match(/^---@since\s+(.+)/);
           if (sinceMatch) {
             funcDoc.since = sinceMatch[1];
+          }
+
+          const usageMatch = ann.line.match(/^---@usage\s+(.+)/);
+          if (usageMatch) {
+            funcDoc.usage.push(usageMatch[1]);
+          }
+
+          const exampleMatch = ann.line.match(/^---@example\s+(.+)/);
+          if (exampleMatch) {
+            funcDoc.examples.push(exampleMatch[1]);
+          }
+
+          const seeMatch = ann.line.match(/^---@see\s+(.+)/);
+          if (seeMatch) {
+            funcDoc.see.push(seeMatch[1]);
+          }
+
+          const deprecatedMatch = ann.line.match(/^---@deprecated(?:\s+(.+))?/);
+          if (deprecatedMatch) {
+            funcDoc.deprecated = deprecatedMatch[1] || true;
           }
         });
 
@@ -244,6 +268,16 @@ classes.forEach(cls => {
       classContent += `### ${method.name}
 
 `;
+      if (method.deprecated) {
+        classContent += `:::warning Deprecated\n`;
+        if (typeof method.deprecated === 'string') {
+          classContent += `${method.deprecated}\n`;
+        } else {
+          classContent += `This method is deprecated.\n`;
+        }
+        classContent += `:::\n\n`;
+      }
+
       if (method.since) {
         classContent += `*Since: ${method.since}*\n\n`;
       }
@@ -273,6 +307,33 @@ classes.forEach(cls => {
             classContent += ` - ${ret.description}`;
           }
           classContent += '\n';
+        });
+        classContent += '\n';
+      }
+
+      // Usage examples
+      if (method.usage && method.usage.length > 0) {
+        classContent += `**Usage:**\n\n`;
+        classContent += `\`\`\`lua\n`;
+        method.usage.forEach(usage => {
+          classContent += `${usage}\n`;
+        });
+        classContent += `\`\`\`\n\n`;
+      }
+
+      // Examples
+      if (method.examples && method.examples.length > 0) {
+        classContent += `**Examples:**\n\n`;
+        method.examples.forEach(example => {
+          classContent += `\`\`\`lua\n${example}\n\`\`\`\n\n`;
+        });
+      }
+
+      // See also
+      if (method.see && method.see.length > 0) {
+        classContent += `**See also:**\n\n`;
+        method.see.forEach(ref => {
+          classContent += `- ${ref}\n`;
         });
         classContent += '\n';
       }

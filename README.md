@@ -1,5 +1,9 @@
 # PixelUI v2
 
+![GitHub Repo stars](https://img.shields.io/github/stars/Shlomo1412/PixelUI-v2?style=for-the-badge)
+![GitHub License](https://img.shields.io/github/license/Shlomo1412/PixelUI-v2?style=for-the-badge)
+![GitHub Release](https://img.shields.io/github/v/release/Shlomo1412/PixelUI-v2?style=for-the-badge)
+
 A modern, pixel-perfect UI library for ComputerCraft built on top of [ShrekBox](https://github.com/9551-Dev/shrekbox).
 
 ## Features
@@ -108,6 +112,49 @@ npm run docs:preview
 ```
 
 The documentation is automatically deployed to GitHub Pages when changes are pushed to the `main` branch.
+
+## Demo
+
+Here's a glimpse of what you can build with PixelUI:
+
+```lua
+local pixelui = require("pixelui")
+
+-- Create app with styled background
+local app = pixelui.create({ background = colors.lightGray })
+local root = app:getRoot()
+
+-- Add a frame with border
+local frame = app:createFrame({
+  x = 5, y = 3, width = 30, height = 15,
+  bg = colors.white,
+  border = { color = colors.gray, sides = {"top", "bottom", "left", "right"} }
+})
+
+-- Add interactive widgets
+local label = app:createLabel({
+  x = 2, y = 2, width = 26, height = 1,
+  text = "Welcome to PixelUI!",
+  align = "center", bg = colors.white, fg = colors.blue
+})
+
+local button = app:createButton({
+  x = 8, y = 11, width = 14, height = 3,
+  label = "Click Me",
+  bg = colors.blue, fg = colors.white,
+  onClick = function(self)
+    label.text = "Button Clicked!"
+    app:render()
+  end
+})
+
+frame:addChild(label)
+frame:addChild(button)
+root:addChild(frame)
+app:run()
+```
+
+Check out more examples in the [documentation](https://shlomo1412.github.io/PixelUI-v2/guide/examples)!
 
 ## Contributing
 

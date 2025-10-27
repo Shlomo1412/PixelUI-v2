@@ -3,8 +3,14 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "PixelUI",
-  description: "A modern UI library for ComputerCraft",
+  description: "A modern UI library for ComputerCraft - pixel-perfect rendering with rich widgets",
   base: '/PixelUI-v2/',
+  
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/PixelUI-v2/logo.svg' }],
+    ['meta', { property: 'og:title', content: 'PixelUI - Modern UI Library for ComputerCraft' }],
+    ['meta', { property: 'og:description', content: 'A powerful, pixel-perfect UI framework for ComputerCraft with rich widgets and animations' }],
+  ],
   
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
@@ -85,6 +91,16 @@ export default defineConfig({
 
     search: {
       provider: 'local'
+    },
+
+    editLink: {
+      pattern: 'https://github.com/Shlomo1412/PixelUI-v2/edit/main/docs/:path',
+      text: 'Edit this page on GitHub'
+    },
+
+    footer: {
+      message: 'Released under the MIT License.',
+      copyright: 'Built with ❤️ for ComputerCraft'
     }
   }
 })
