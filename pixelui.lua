@@ -4,6 +4,10 @@ local osLib = assert(rawget(_G, "os"), "os API unavailable")
 local pullEvent = assert(osLib.pullEvent, "os.pullEvent unavailable")
 local windowAPI = assert(rawget(_G, "window"), "window API unavailable")
 local keys = assert(rawget(_G, "keys"), "keys API unavailable")
+local table_pack = table.pack or function(...)
+	return { n = select("#", ...), ... }
+end
+local table_unpack = table.unpack or unpack
 local expect = require("cc.expect").expect
 local shrekbox = require("shrekbox")
 
@@ -223,6 +227,43 @@ local shrekbox = require("shrekbox")
 ---@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)?
 ---@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")?
 
+---@alias PixelUI.ThreadStatus "running"|"completed"|"error"|"cancelled"
+
+---@class PixelUI.ThreadOptions
+---@field name string?
+---@field onStatus fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus)?
+---@field onMetadata fun(handle:PixelUI.ThreadHandle, key:string, value:any)?
+
+---@class PixelUI.ThreadHandle
+---@field app PixelUI.App
+---@field getId fun(self:PixelUI.ThreadHandle):integer
+---@field getName fun(self:PixelUI.ThreadHandle):string
+---@field setName fun(self:PixelUI.ThreadHandle, name:string)
+---@field getStatus fun(self:PixelUI.ThreadHandle):PixelUI.ThreadStatus
+---@field isRunning fun(self:PixelUI.ThreadHandle):boolean
+---@field isFinished fun(self:PixelUI.ThreadHandle):boolean
+---@field cancel fun(self:PixelUI.ThreadHandle):boolean
+---@field isCancelled fun(self:PixelUI.ThreadHandle):boolean
+---@field getResult fun(self:PixelUI.ThreadHandle):...
+---@field getResults fun(self:PixelUI.ThreadHandle):any[]?
+---@field getError fun(self:PixelUI.ThreadHandle):any
+---@field setMetadata fun(self:PixelUI.ThreadHandle, key:string, value:any)
+---@field getMetadata fun(self:PixelUI.ThreadHandle, key:string):any
+---@field getAllMetadata fun(self:PixelUI.ThreadHandle):table<string, any>
+---@field onStatusChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus))
+---@field onMetadataChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, key:string, value:any))
+
+---@class PixelUI.ThreadContext
+---@field sleep fun(self:PixelUI.ThreadContext, seconds:number|nil)
+---@field yield fun(self:PixelUI.ThreadContext)
+---@field checkCancelled fun(self:PixelUI.ThreadContext)
+---@field isCancelled fun(self:PixelUI.ThreadContext):boolean
+---@field setMetadata fun(self:PixelUI.ThreadContext, key:string, value:any)
+---@field setStatus fun(self:PixelUI.ThreadContext, text:string)
+---@field setDetail fun(self:PixelUI.ThreadContext, text:string)
+---@field setProgress fun(self:PixelUI.ThreadContext, value:number)
+---@field getHandle fun(self:PixelUI.ThreadContext):PixelUI.ThreadHandle
+
 ---@class PixelUI.AnimationOptions
 ---@field duration number?
 ---@field easing (fun(t:number):number)|string?
@@ -299,6 +340,12 @@ setmetatable(ProgressBar, { __index = Widget })
 local Slider = {}
 Slider.__index = Slider
 setmetatable(Slider, { __index = Widget })
+
+local ThreadHandle = {}
+ThreadHandle.__index = ThreadHandle
+
+local ThreadContext = {}
+ThreadContext.__index = ThreadContext
 
 local List = {}
 List.__index = List
@@ -7512,7 +7559,11 @@ function pixelui.create(options)
 		_animations = {},
 		_animationTimer = nil,
 		_animationInterval = animationInterval,
-		_radioGroups = {}
+		_radioGroups = {},
+		_threads = {},
+		_threadTimers = {},
+		_threadTicker = nil,
+		_threadIdCounter = 0
 	}, App)
 
 	app.root = Frame:new(app, {
@@ -7783,6 +7834,403 @@ function App:animate(options)
 	return handle
 end
 
+local THREAD_STATUS_RUNNING = "running"
+local THREAD_STATUS_COMPLETED = "completed"
+local THREAD_STATUS_ERROR = "error"
+local THREAD_STATUS_CANCELLED = "cancelled"
+
+local THREAD_CANCEL_SIGNAL = {}
+
+local function thread_safe_emit(listeners, prefix, ...)
+	if not listeners then
+		return
+	end
+	for i = 1, #listeners do
+		local callback = listeners[i]
+		local ok, err = pcall(callback, ...)
+		if not ok then
+			print(prefix .. tostring(err))
+		end
+	end
+end
+
+function ThreadHandle:getId()
+	return self.id
+end
+
+function ThreadHandle:getName()
+	return self.name
+end
+
+function ThreadHandle:setName(name)
+	expect(1, name, "string")
+	self.name = name
+end
+
+function ThreadHandle:getStatus()
+	return self.status
+end
+
+function ThreadHandle:isRunning()
+	return self.status == THREAD_STATUS_RUNNING
+end
+
+function ThreadHandle:isFinished()
+	local status = self.status
+	return status == THREAD_STATUS_COMPLETED or status == THREAD_STATUS_ERROR or status == THREAD_STATUS_CANCELLED
+end
+
+function ThreadHandle:isCancelled()
+	return self._cancelRequested or self.status == THREAD_STATUS_CANCELLED
+end
+
+function ThreadHandle:cancel()
+	if self.status ~= THREAD_STATUS_RUNNING then
+		return false
+	end
+	self._cancelRequested = true
+	if self.waiting == "timer" and self.timerId then
+		local timers = self.app._threadTimers
+		if timers then
+			timers[self.timerId] = nil
+		end
+		self.timerId = nil
+	end
+	self.waiting = nil
+	self._ready = true
+	self.app:_ensureThreadPump()
+	return true
+end
+
+function ThreadHandle:getResult()
+	if not self.result then
+		return nil
+	end
+	return table_unpack(self.result, 1, self.result.n or #self.result)
+end
+
+function ThreadHandle:getResults()
+	if not self.result then
+		return nil
+	end
+	local copy = { n = self.result.n }
+	local count = self.result.n or #self.result
+	for i = 1, count do
+		copy[i] = self.result[i]
+	end
+	return copy
+end
+
+function ThreadHandle:getError()
+	return self.error
+end
+
+function ThreadHandle:setMetadata(key, value)
+	expect(1, key, "string")
+	local current = self.metadata[key]
+	if current == value then
+		return
+	end
+	self.metadata[key] = value
+	self:_emitMetadata(key, value)
+end
+
+function ThreadHandle:getMetadata(key)
+	expect(1, key, "string")
+	return self.metadata[key]
+end
+
+function ThreadHandle:getAllMetadata()
+	local copy = {}
+	for k, v in pairs(self.metadata) do
+		copy[k] = v
+	end
+	return copy
+end
+
+function ThreadHandle:onStatusChange(callback)
+	if callback == nil then
+		return
+	end
+	expect(1, callback, "function")
+	local listeners = self._statusListeners
+	listeners[#listeners + 1] = callback
+	local ok, err = pcall(callback, self, self.status)
+	if not ok then
+		print("Thread status listener error: " .. tostring(err))
+	end
+end
+
+function ThreadHandle:onMetadataChange(callback)
+	if callback == nil then
+		return
+	end
+	expect(1, callback, "function")
+	local listeners = self._metadataListeners
+	listeners[#listeners + 1] = callback
+	for key, value in pairs(self.metadata) do
+		local ok, err = pcall(callback, self, key, value)
+		if not ok then
+			print("Thread metadata listener error: " .. tostring(err))
+		end
+	end
+end
+
+function ThreadHandle:_emitMetadata(key, value)
+	thread_safe_emit(self._metadataListeners, "Thread metadata listener error: ", self, key, value)
+end
+
+function ThreadHandle:_setStatus(newStatus)
+	if self.status == newStatus then
+		return
+	end
+	self.status = newStatus
+	thread_safe_emit(self._statusListeners, "Thread status listener error: ", self, newStatus)
+end
+
+local function createThreadContext(handle)
+	return setmetatable({ _handle = handle }, ThreadContext)
+end
+
+function ThreadContext:checkCancelled()
+	if self._handle._cancelRequested then
+		error(THREAD_CANCEL_SIGNAL, 0)
+	end
+end
+
+function ThreadContext:isCancelled()
+	return self._handle._cancelRequested == true
+end
+
+function ThreadContext:sleep(seconds)
+	if seconds ~= nil then
+		expect(1, seconds, "number")
+	else
+		seconds = 0
+	end
+	if seconds < 0 then
+		seconds = 0
+	end
+	self:checkCancelled()
+	local handle = self._handle
+	if handle.timerId then
+		local timers = handle.app._threadTimers
+		if timers then
+			timers[handle.timerId] = nil
+		end
+		handle.timerId = nil
+	end
+	handle.waiting = "timer"
+	local timerId = osLib.startTimer(seconds)
+	handle.timerId = timerId
+	local timers = handle.app._threadTimers
+	if not timers then
+		timers = {}
+		handle.app._threadTimers = timers
+	end
+	timers[timerId] = handle
+	handle._ready = false
+	return coroutine.yield("sleep")
+end
+
+function ThreadContext:yield()
+	self:checkCancelled()
+	self._handle.waiting = "yield"
+	return coroutine.yield("yield")
+end
+
+function ThreadContext:setMetadata(key, value)
+	self._handle:setMetadata(key, value)
+end
+
+function ThreadContext:setStatus(text)
+	self._handle:setMetadata("status", text)
+end
+
+function ThreadContext:setDetail(text)
+	self._handle:setMetadata("detail", text)
+end
+
+function ThreadContext:setProgress(value)
+	if value ~= nil then
+		expect(1, value, "number")
+	end
+	self._handle:setMetadata("progress", value)
+end
+
+function ThreadContext:getHandle()
+	return self._handle
+end
+
+function App:_ensureThreadPump()
+	if not self._threads or self._threadTicker then
+		return
+	end
+	for i = 1, #self._threads do
+		local handle = self._threads[i]
+		if handle and handle.status == THREAD_STATUS_RUNNING and handle._ready then
+			self._threadTicker = osLib.startTimer(0)
+			return
+		end
+	end
+end
+
+function App:_cleanupThread(handle)
+	if handle.timerId and self._threadTimers then
+		self._threadTimers[handle.timerId] = nil
+		handle.timerId = nil
+	end
+	handle.waiting = nil
+	handle._ready = false
+	handle._resumeValue = nil
+end
+
+function App:_resumeThread(handle)
+	if handle.status ~= THREAD_STATUS_RUNNING then
+		return
+	end
+	if handle._cancelRequested then
+		handle:_setStatus(THREAD_STATUS_CANCELLED)
+		self:_cleanupThread(handle)
+		return
+	end
+	local resumeValue = handle._resumeValue
+	handle._resumeValue = nil
+	local results = table_pack(coroutine.resume(handle.co, resumeValue))
+	local ok = results[1]
+	if not ok then
+		local err = results[2]
+		if err == THREAD_CANCEL_SIGNAL then
+			handle:_setStatus(THREAD_STATUS_CANCELLED)
+		else
+			if type(err) == "string" and debug and debug.traceback then
+				err = debug.traceback(handle.co, err)
+			end
+			handle.error = err
+			print("PixelUI thread error: " .. tostring(err))
+			handle:_setStatus(THREAD_STATUS_ERROR)
+		end
+		self:_cleanupThread(handle)
+		return
+	end
+	if coroutine.status(handle.co) == "dead" then
+		local out = { n = results.n - 1 }
+		for i = 2, results.n do
+			out[i - 1] = results[i]
+		end
+		handle.result = out
+		handle:_setStatus(THREAD_STATUS_COMPLETED)
+		self:_cleanupThread(handle)
+		return
+	end
+	local action = results[2]
+	handle.waiting = nil
+	if action == "sleep" then
+		return
+	elseif action == "yield" then
+		handle._ready = true
+	else
+		handle._ready = true
+	end
+	self:_ensureThreadPump()
+end
+
+function App:_serviceThreads()
+	if not self._threads or #self._threads == 0 then
+		return
+	end
+	local ready = {}
+	for i = 1, #self._threads do
+		local handle = self._threads[i]
+		if handle and handle.status == THREAD_STATUS_RUNNING and handle._ready then
+			handle._ready = false
+			ready[#ready + 1] = handle
+		end
+	end
+	for i = 1, #ready do
+		self:_resumeThread(ready[i])
+	end
+	self:_ensureThreadPump()
+end
+
+function App:_shutdownThreads()
+	if not self._threads then
+		return
+	end
+	for i = 1, #self._threads do
+		local handle = self._threads[i]
+		if handle and handle.status == THREAD_STATUS_RUNNING then
+			handle._cancelRequested = true
+			handle:_setStatus(THREAD_STATUS_CANCELLED)
+			self:_cleanupThread(handle)
+		end
+	end
+	self._threadTimers = {}
+	self._threadTicker = nil
+end
+
+function App:spawnThread(fn, options)
+	expect(1, fn, "function")
+	if options ~= nil then
+		expect(2, options, "table")
+	else
+		options = {}
+	end
+	if not self._threads then
+		self._threads = {}
+	end
+	if not self._threadTimers then
+		self._threadTimers = {}
+	end
+	self._threadIdCounter = (self._threadIdCounter or 0) + 1
+	local id = self._threadIdCounter
+	local name = options.name or ("Thread " .. tostring(id))
+	local handle = setmetatable({
+		app = self,
+		id = id,
+		name = name,
+		status = THREAD_STATUS_RUNNING,
+		co = nil,
+		waiting = nil,
+		timerId = nil,
+		_ready = true,
+		_cancelRequested = false,
+		_resumeValue = nil,
+		metadata = {},
+		result = nil,
+		error = nil,
+		_statusListeners = {},
+		_metadataListeners = {}
+	}, ThreadHandle)
+	local co = coroutine.create(function()
+		local context = createThreadContext(handle)
+		handle._context = context
+		local outputs = table_pack(fn(context, self))
+		return table_unpack(outputs, 1, outputs.n)
+	end)
+	handle.co = co
+	self._threads[#self._threads + 1] = handle
+	if options.onStatus then
+		handle:onStatusChange(options.onStatus)
+	end
+	if options.onMetadata then
+		handle:onMetadataChange(options.onMetadata)
+	end
+	self:_ensureThreadPump()
+	return handle
+end
+
+function App:getThreads()
+	local list = {}
+	if not self._threads then
+		return list
+	end
+	for i = 1, #self._threads do
+		list[i] = self._threads[i]
+	end
+	return list
+end
+
 function App:_registerPopup(widget)
 	if not widget then
 		return
@@ -7981,6 +8429,25 @@ function App:step(event, ...)
 
 	if event == "timer" then
 		local timerId = ...
+		if self._threadTicker and timerId == self._threadTicker then
+			self._threadTicker = nil
+			self:_serviceThreads()
+			consumed = true
+		end
+		local timers = self._threadTimers
+		if timers then
+			local handle = timers[timerId]
+			if handle then
+				timers[timerId] = nil
+				if handle.status == THREAD_STATUS_RUNNING and handle.timerId == timerId then
+					handle.timerId = nil
+					handle.waiting = nil
+					handle._ready = true
+					handle._resumeValue = true
+				end
+				consumed = true
+			end
+		end
 		if self._animationTimer and timerId == self._animationTimer then
 			self:_updateAnimations()
 			if self._animations and #self._animations > 0 then
@@ -8019,6 +8486,7 @@ function App:step(event, ...)
 		self:setFocus(nil)
 	end
 
+	self:_serviceThreads()
 	self:render()
 end
 
@@ -8034,12 +8502,14 @@ function App:run()
 			self:step(table.unpack(event))
 		end
 	end
+	self:_shutdownThreads()
 end
 
 ---@since 0.1.0
 function App:stop()
 	self.running = false
 	self:_clearAnimations(true)
+	self:_shutdownThreads()
 end
 
 pixelui.widgets = {
@@ -8103,5 +8573,13 @@ pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
 pixelui.easings = easings
+pixelui.ThreadHandle = ThreadHandle
+pixelui.ThreadContext = ThreadContext
+pixelui.threadStatus = {
+	running = THREAD_STATUS_RUNNING,
+	completed = THREAD_STATUS_COMPLETED,
+	error = THREAD_STATUS_ERROR,
+	cancelled = THREAD_STATUS_CANCELLED
+}
 
 return pixelui

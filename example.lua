@@ -131,6 +131,10 @@ local progressIndeterminate
 local progressDefaults = {}
 local progressAnimationHandle
 local progressStepIndex
+local threadDemo = {
+    entries = {},
+    defaults = {}
+}
 
 local randomSeeded = false
 local function seedRandom()
@@ -1139,6 +1143,301 @@ end, function()
     end
 end)
 
+-- Step 15: Thread showcase
+local threadStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(threadStep)
+
+threadDemo.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Spawn tasks to watch PixelUI threads work in the background while the UI stays responsive.",
+    bg = colors.gray,
+    fg = colors.white
+})
+threadStep:addChild(threadDemo.instructions)
+threadDemo.defaults.instructions = { width = threadDemo.instructions.width, height = threadDemo.instructions.height }
+
+threadDemo.list = app:createList({
+    x = 2,
+    y = 5,
+    width = 26,
+    height = 4,
+    items = {},
+    bg = colors.gray,
+    fg = colors.white,
+    highlightBg = colors.lightGray,
+    highlightFg = colors.black,
+    border = { color = colors.lightGray }
+})
+threadDemo.list:setPlaceholder("Tasks appear here once you spawn one.")
+threadStep:addChild(threadDemo.list)
+threadDemo.defaults.list = { width = threadDemo.list.width, height = threadDemo.list.height }
+
+threadDemo.detailLabel = app:createLabel({
+    x = 2,
+    y = 7,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Press Spawn Task to run simulated work on a background thread.",
+    bg = colors.gray,
+    fg = colors.white
+})
+threadStep:addChild(threadDemo.detailLabel)
+threadDemo.defaults.detail = { width = threadDemo.detailLabel.width, height = threadDemo.detailLabel.height }
+
+threadDemo.startButton = app:createButton({
+    x = 2,
+    y = 12,
+    width = 12,
+    height = 2,
+    label = "Spawn Task",
+    bg = colors.orange,
+    fg = colors.black
+})
+threadStep:addChild(threadDemo.startButton)
+threadDemo.defaults.startButton = { width = threadDemo.startButton.width, height = threadDemo.startButton.height }
+
+threadDemo.cancelButton = app:createButton({
+    x = 18,
+    y = 12,
+    width = 12,
+    height = 2,
+    label = "Cancel Tasks",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+threadStep:addChild(threadDemo.cancelButton)
+threadDemo.defaults.cancelButton = { width = threadDemo.cancelButton.width, height = threadDemo.cancelButton.height }
+
+local function updateThreadEntry(entry)
+    local parts = {}
+    local statusText = entry.statusText or entry.status or entry.handle:getStatus()
+    if statusText and statusText ~= "" then
+        parts[#parts + 1] = statusText
+    end
+    if entry.progress ~= nil then
+        local percent = math.floor(entry.progress * 100 + 0.5)
+        parts[#parts + 1] = string.format("%d%%", percent)
+    end
+    if entry.detailText and entry.detailText ~= "" then
+        parts[#parts + 1] = entry.detailText
+    end
+    if #parts == 0 then
+        parts[1] = entry.handle:getStatus()
+    end
+    entry.display = string.format("%s - %s", entry.name, table.concat(parts, " | "))
+end
+
+local function refreshThreadList()
+    if not threadDemo.list then
+        return
+    end
+    local items = {}
+    for i = 1, #threadDemo.entries do
+        local entry = threadDemo.entries[i]
+        items[i] = entry.display or entry.name
+    end
+    threadDemo.list:setItems(items)
+end
+
+local function updateThreadDetail()
+    if not threadDemo.detailLabel or not threadDemo.list then
+        return
+    end
+    local selectedIndex = threadDemo.list:getSelectedIndex()
+    local entry = threadDemo.entries[selectedIndex]
+    if entry then
+        local statusText = entry.statusText or entry.status or entry.handle:getStatus()
+        local lines = {}
+        if statusText and statusText ~= "" then
+            local text = statusText
+            if entry.progress ~= nil then
+                text = string.format("%s (%d%%)", statusText, math.floor(entry.progress * 100 + 0.5))
+            end
+            lines[#lines + 1] = text
+        end
+        if entry.detailText and entry.detailText ~= "" then
+            lines[#lines + 1] = entry.detailText
+        end
+        if entry.handle:isFinished() then
+            local result = entry.handle:getResult()
+            if result ~= nil then
+                lines[#lines + 1] = tostring(result)
+            end
+        end
+        if #lines == 0 then
+            lines[1] = entry.name
+        end
+        threadDemo.detailLabel:setText(table.concat(lines, "\n"))
+    else
+        local total = #threadDemo.entries
+        if total == 0 then
+            threadDemo.detailLabel:setText("Press Spawn Task to run simulated work on a background thread.")
+        else
+            local running = 0
+            local completed = 0
+            for i = 1, total do
+                local current = threadDemo.entries[i]
+                local status = current.status or current.handle:getStatus()
+                if status == pixelui.threadStatus.running then
+                    running = running + 1
+                elseif status == pixelui.threadStatus.completed then
+                    completed = completed + 1
+                end
+            end
+            threadDemo.detailLabel:setText(string.format("%d task(s): %d running, %d completed.", total, running, completed))
+        end
+    end
+end
+
+local function attachThreadListeners(entry)
+    local handle = entry.handle
+    handle:onStatusChange(function(_, status)
+        entry.status = status
+        if status == pixelui.threadStatus.completed then
+            entry.statusText = "Completed"
+            entry.detailText = entry.detailText ~= "" and entry.detailText or "Thread finished successfully."
+            entry.progress = 1
+        elseif status == pixelui.threadStatus.cancelled then
+            entry.statusText = "Cancelled"
+            entry.detailText = entry.detailText ~= "" and entry.detailText or "Cancelled by user."
+        elseif status == pixelui.threadStatus.error then
+            entry.statusText = "Error"
+            entry.detailText = tostring(handle:getError() or "Unknown error")
+        elseif status == pixelui.threadStatus.running then
+            if not entry.statusText or entry.statusText == "Queued" then
+                entry.statusText = "Running"
+            end
+        end
+        updateThreadEntry(entry)
+        refreshThreadList()
+        updateThreadDetail()
+    end)
+
+    handle:onMetadataChange(function(_, key, value)
+        local changed = false
+        if key == "status" and value ~= nil then
+            entry.statusText = tostring(value)
+            changed = true
+        elseif key == "detail" then
+            entry.detailText = value and tostring(value) or ""
+            changed = true
+        elseif key == "progress" then
+            if type(value) == "number" then
+                if value < 0 then
+                    value = 0
+                elseif value > 1 then
+                    value = 1
+                end
+                entry.progress = value
+            else
+                entry.progress = nil
+            end
+            changed = true
+        end
+        if changed then
+            updateThreadEntry(entry)
+            refreshThreadList()
+            updateThreadDetail()
+        end
+    end)
+end
+
+local function spawnDemoThread()
+    local index = #threadDemo.entries + 1
+    local name = string.format("Task %02d", index)
+    local handle = app:spawnThread(function(ctx)
+        ctx:setStatus("Queued")
+        ctx:setDetail("Waiting for scheduler")
+        ctx:setProgress(0)
+        ctx:yield()
+        ctx:setStatus("Initializing")
+        ctx:setDetail("Setting up workload")
+        ctx:sleep(0.3)
+        for segment = 1, 5 do
+            ctx:checkCancelled()
+            ctx:setStatus(string.format("Processing %d/5", segment))
+            ctx:setDetail(string.format("Crunching chunk %d", segment))
+            ctx:setProgress((segment - 1) / 5)
+            ctx:sleep(0.4)
+        end
+        ctx:setDetail("Finalizing results")
+        ctx:setProgress(1)
+        ctx:setStatus("Complete")
+        ctx:sleep(0.1)
+        return name .. " finished"
+    end, {
+        name = name
+    })
+    local entry = {
+        handle = handle,
+        name = name,
+        status = handle:getStatus(),
+        statusText = "Queued",
+        detailText = "Waiting to run",
+        progress = 0
+    }
+    threadDemo.entries[#threadDemo.entries + 1] = entry
+    updateThreadEntry(entry)
+    refreshThreadList()
+    threadDemo.list:setSelectedIndex(#threadDemo.entries, true)
+    updateThreadDetail()
+    attachThreadListeners(entry)
+end
+
+threadDemo.list:setOnSelect(function()
+    updateThreadDetail()
+end)
+
+threadDemo.startButton:setOnClick(function()
+    spawnDemoThread()
+end)
+
+threadDemo.cancelButton:setOnClick(function()
+    local cancelled = 0
+    for i = 1, #threadDemo.entries do
+        local entry = threadDemo.entries[i]
+        if entry.handle:isRunning() and entry.handle:cancel() then
+            cancelled = cancelled + 1
+        end
+    end
+    if cancelled == 0 then
+        threadDemo.detailLabel:setText("No running tasks to cancel.")
+    else
+        threadDemo.detailLabel:setText(string.format("Cancelling %d task(s)...", cancelled))
+    end
+end)
+
+addStep(threadStep, function()
+    if threadDemo.list and #threadDemo.entries > 0 then
+        app:setFocus(threadDemo.list)
+    elseif threadDemo.startButton then
+        app:setFocus(threadDemo.startButton)
+    else
+        app:setFocus(nil)
+    end
+    updateThreadDetail()
+end, function()
+    if threadDemo.list and threadDemo.list:isFocused() then
+        app:setFocus(nil)
+    elseif threadDemo.startButton and threadDemo.startButton:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -1247,7 +1546,77 @@ local nextButton = app:createButton({
 })
 root:addChild(nextButton)
 
+local layoutState = {
+    app = app,
+    root = root,
+    wizard = wizard,
+    steps = steps,
+    navHeight = navHeight,
+    navGap = navGap,
+    innerMargin = innerMargin,
+    prevButton = prevButton,
+    nextButton = nextButton,
+    defaultButtonSize = defaultButtonSize,
+    buttonStep = buttonStep,
+    stepButton = stepButton,
+    defaultTextBoxSize = defaultTextBoxSize,
+    textStep = textStep,
+    stepBox = stepBox,
+    defaultComboSize = defaultComboSize,
+    comboStep = comboStep,
+    stepCombo = stepCombo,
+    listWidget = listWidget,
+    listDefaults = listDefaults,
+    listStep = listStep,
+    labelTitle = labelTitle,
+    labelBody = labelBody,
+    labelDefaults = labelDefaults,
+    labelStep = labelStep,
+    radioButtons = radioButtons,
+    radioDefaultWidths = radioDefaultWidths,
+    radioStep = radioStep,
+    sliderSingle = sliderSingle,
+    sliderRange = sliderRange,
+    sliderDefaults = sliderDefaults,
+    sliderStep = sliderStep,
+    checkboxWidgets = checkboxWidgets,
+    checkboxDefaults = checkboxDefaults,
+    checkboxStatus = checkboxStatus,
+    checkboxStatusDefaults = checkboxStatusDefaults,
+    checkboxStep = checkboxStep,
+    treeView = treeView,
+    treeDefaults = treeDefaults,
+    treeStep = treeStep,
+    treeInfoLabel = treeInfoLabel,
+    treeInfoDefaults = treeInfoDefaults,
+    chartState = chartState,
+    chartStep = chartStep,
+    toggleState = toggleState,
+    toggleStep = toggleStep,
+    tableState = tableState,
+    tableStep = tableStep,
+    editorState = editorState,
+    editorStep = editorStep,
+    progressDeterminate = progressDeterminate,
+    progressIndeterminate = progressIndeterminate,
+    progressDefaults = progressDefaults,
+    progressStep = progressStep,
+    threadDemo = threadDemo,
+    threadStep = threadStep
+}
+
 local function layout()
+    local state = layoutState
+    local app = state.app
+    local root = state.root
+    local wizard = state.wizard
+    local stepsList = state.steps
+    local navHeight = state.navHeight
+    local navGap = state.navGap
+    local innerMargin = state.innerMargin
+    local prevButton = state.prevButton
+    local nextButton = state.nextButton
+
     local rootWidth = root.width
     local rootHeight = root.height
     local actualNavHeight = math.max(navHeight, prevButton.height, nextButton.height)
@@ -1269,14 +1638,13 @@ local function layout()
 
     local stepWidth = math.max(6, wizardWidth - innerMargin * 2)
     local stepHeight = math.max(5, wizardHeight - innerMargin * 2)
-    for i = 1, #steps do
-        local frame = steps[i].frame
-        frame:setSize(stepWidth, stepHeight)
+    for i = 1, #stepsList do
+        stepsList[i].frame:setSize(stepWidth, stepHeight)
     end
 
     if not isAnimating then
         applyStepVisibility(currentStep)
-        local active = steps[currentStep]
+        local active = stepsList[currentStep]
         if active then
             if active.onShow then
                 active.onShow()
@@ -1286,24 +1654,36 @@ local function layout()
         end
     end
 
+    local buttonStep = state.buttonStep
+    local stepButton = state.stepButton
+    local defaultButtonSize = state.defaultButtonSize
     local buttonWidth = math.max(4, math.min(defaultButtonSize.width, stepWidth))
     local buttonHeight = math.min(defaultButtonSize.height, stepHeight)
     stepButton:setSize(buttonWidth, buttonHeight)
     centerWidget(stepButton, buttonStep, buttonWidth, buttonHeight)
 
+    local textStep = state.textStep
+    local stepBox = state.stepBox
+    local defaultTextBoxSize = state.defaultTextBoxSize
     local textWidthLimit = math.max(4, stepWidth - 2)
     local textWidth = math.max(4, math.min(defaultTextBoxSize.width, textWidthLimit))
     local textHeight = math.min(defaultTextBoxSize.height, stepHeight)
     stepBox:setSize(textWidth, textHeight)
     centerWidget(stepBox, textStep, textWidth, textHeight)
 
+    local comboStep = state.comboStep
+    local stepCombo = state.stepCombo
+    local defaultComboSize = state.defaultComboSize
     local comboWidthLimit = math.max(6, stepWidth - 2)
     local comboWidth = math.max(6, math.min(defaultComboSize.width, comboWidthLimit))
     local comboHeight = math.min(defaultComboSize.height, stepHeight)
     stepCombo:setSize(comboWidth, comboHeight)
     centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
 
+    local listWidget = state.listWidget
     if listWidget then
+        local listDefaults = state.listDefaults or {}
+        local listStep = state.listStep
         local listWidthLimit = math.max(6, stepWidth - innerMargin * 2)
         local listHeightLimit = math.max(3, stepHeight - innerMargin * 2)
         local baseWidth = listDefaults.width or listWidget.width
@@ -1314,7 +1694,11 @@ local function layout()
         centerWidget(listWidget, listStep, listWidth, listHeight)
     end
 
+    local labelTitle = state.labelTitle
+    local labelBody = state.labelBody
     if labelTitle and labelBody then
+        local labelStep = state.labelStep
+        local labelDefaults = state.labelDefaults
         local labelWidthLimit = math.max(6, stepWidth - innerMargin * 2)
         local titleDefaults = (labelDefaults and labelDefaults.title) or { width = labelTitle.width, height = labelTitle.height }
         local bodyDefaults = (labelDefaults and labelDefaults.body) or { width = labelBody.width, height = labelBody.height }
@@ -1337,7 +1721,10 @@ local function layout()
         labelTitle:setPosition(titleX, titleY)
     end
 
+    local radioButtons = state.radioButtons or {}
     if #radioButtons > 0 then
+        local radioStep = state.radioStep
+        local radioDefaultWidths = state.radioDefaultWidths or {}
         local maxRadioWidth = math.max(4, stepWidth - innerMargin)
         local freeRows = math.max(0, stepHeight - #radioButtons)
         local gap = (#radioButtons > 1) and math.floor(freeRows / (#radioButtons - 1)) or 0
@@ -1348,7 +1735,6 @@ local function layout()
                 local presetWidth = radioDefaultWidths[index] or radio.width
                 local radioWidth = math.max(4, math.min(presetWidth, maxRadioWidth))
                 radio:setSize(radioWidth, 1)
-                -- center horizontally within the radioStep frame
                 local centerX = math.floor((radioStep.width - radioWidth) / 2) + 1
                 radio:setPosition(centerX, radioY)
                 if radio:isSelected() then
@@ -1359,7 +1745,11 @@ local function layout()
         end
     end
 
+    local sliderSingle = state.sliderSingle
+    local sliderRange = state.sliderRange
     if sliderSingle and sliderRange then
+        local sliderStep = state.sliderStep
+        local sliderDefaults = state.sliderDefaults
         local sliderWidthLimit = math.max(6, stepWidth - innerMargin * 2)
         local singleDefaults = (sliderDefaults and sliderDefaults.single) or { width = sliderSingle.width, height = sliderSingle.height }
         local rangeDefaults = (sliderDefaults and sliderDefaults.range) or { width = sliderRange.width, height = sliderRange.height }
@@ -1388,7 +1778,12 @@ local function layout()
         sliderRange:setPosition(rangeX, rangeY)
     end
 
+    local checkboxWidgets = state.checkboxWidgets or {}
     if #checkboxWidgets > 0 then
+        local checkboxStep = state.checkboxStep
+        local checkboxDefaults = state.checkboxDefaults or {}
+        local checkboxStatus = state.checkboxStatus
+        local checkboxStatusDefaults = state.checkboxStatusDefaults
         local checkboxWidthLimit = math.max(6, stepWidth - innerMargin * 2)
         local baseY = innerMargin
         for index = 1, #checkboxWidgets do
@@ -1414,11 +1809,15 @@ local function layout()
         end
     end
 
+    local treeView = state.treeView
     if treeView then
+        local treeStep = state.treeStep
+        local treeDefaults = state.treeDefaults or {}
+        local treeInfoLabel = state.treeInfoLabel
+        local treeInfoDefaults = state.treeInfoDefaults
         local treeWidthLimit = math.max(8, stepWidth - innerMargin * 2)
-        local defaults = treeDefaults or {}
-        local defaultWidth = defaults.width or treeView.width
-        local defaultHeight = defaults.height or treeView.height
+        local defaultWidth = treeDefaults.width or treeView.width
+        local defaultHeight = treeDefaults.height or treeView.height
         local treeWidth = math.max(8, math.min(defaultWidth, treeWidthLimit))
 
         local infoHeight = 0
@@ -1430,12 +1829,12 @@ local function layout()
             infoHeight = math.max(2, math.min(infoDefaults.height or treeInfoLabel.height, maxInfoHeight))
         end
 
-        local availableHeight = math.max(1, stepHeight - infoHeight - 1)
-        local treeHeight = math.min(defaultHeight, availableHeight)
-        if availableHeight >= 3 then
+        local availableHeightForTree = math.max(1, stepHeight - infoHeight - 1)
+        local treeHeight = math.min(defaultHeight, availableHeightForTree)
+        if availableHeightForTree >= 3 then
             treeHeight = math.max(3, treeHeight)
         end
-        treeHeight = math.max(1, math.min(treeHeight, availableHeight))
+        treeHeight = math.max(1, math.min(treeHeight, availableHeightForTree))
 
         treeView:setSize(treeWidth, treeHeight)
         local treeX = math.floor((treeStep.width - treeWidth) / 2) + 1
@@ -1457,7 +1856,9 @@ local function layout()
         end
     end
 
+    local chartState = state.chartState
     if chartState.widget then
+        local chartStep = state.chartStep
         local defaults = chartState.defaults or {}
         local chartWidthLimit = math.max(8, stepWidth - innerMargin * 2)
         local chartHeightLimit = math.max(4, stepHeight - innerMargin * 3)
@@ -1486,7 +1887,9 @@ local function layout()
         end
     end
 
+    local toggleState = state.toggleState
     if toggleState.widget then
+        local toggleStep = state.toggleStep
         local defaults = toggleState.defaults or {}
         local toggleWidthLimit = math.max(6, stepWidth - innerMargin * 2)
         local toggleHeightLimit = math.max(1, stepHeight - innerMargin * 2)
@@ -1520,7 +1923,9 @@ local function layout()
         end
     end
 
+    local tableState = state.tableState
     if tableState.widget then
+        local tableStep = state.tableStep
         local defaults = tableState.defaults or {}
         local tableWidthLimit = math.max(8, stepWidth - innerMargin * 2)
         local tableHeightLimit = math.max(4, stepHeight - innerMargin * 3)
@@ -1558,19 +1963,21 @@ local function layout()
 
         if tableState.refreshButton then
             local refreshDefaults = tableState.refreshDefaults or {}
-            local buttonWidth = math.max(8, math.min(refreshDefaults.width or tableState.refreshButton.width, tableWidthLimit))
-            local buttonHeight = math.max(1, refreshDefaults.height or tableState.refreshButton.height)
-            local buttonX = math.floor((tableStep.width - buttonWidth) / 2) + 1
-            local buttonY = detailBottomGuard + 1
-            if buttonY + buttonHeight - 1 > innerMargin + stepHeight - 1 then
-                buttonY = math.max(innerMargin, innerMargin + stepHeight - buttonHeight)
+            local rWidth = math.max(8, math.min(refreshDefaults.width or tableState.refreshButton.width, tableWidthLimit))
+            local rHeight = math.max(1, refreshDefaults.height or tableState.refreshButton.height)
+            local rX = math.floor((tableStep.width - rWidth) / 2) + 1
+            local rY = detailBottomGuard + 1
+            if rY + rHeight - 1 > innerMargin + stepHeight - 1 then
+                rY = math.max(innerMargin, innerMargin + stepHeight - rHeight)
             end
-            tableState.refreshButton:setSize(buttonWidth, buttonHeight)
-            tableState.refreshButton:setPosition(buttonX, buttonY)
+            tableState.refreshButton:setSize(rWidth, rHeight)
+            tableState.refreshButton:setPosition(rX, rY)
         end
     end
 
+    local editorState = state.editorState
     if editorState.widget then
+        local editorStep = state.editorStep
         local defaults = editorState.defaults or {}
         local editorWidthLimit = math.max(10, stepWidth - innerMargin * 2)
         local editorHeightLimit = math.max(4, stepHeight - innerMargin * 3)
@@ -1621,15 +2028,18 @@ local function layout()
         end
     end
 
+    local progressDeterminate = state.progressDeterminate
+    local progressIndeterminate = state.progressIndeterminate
     if progressDeterminate and progressIndeterminate then
-        local defaults = progressDefaults or {}
-        local detDefaults = defaults.determinate or { width = progressDeterminate.width, height = progressDeterminate.height }
-        local indDefaults = defaults.indeterminate or { width = progressIndeterminate.width, height = progressIndeterminate.height }
+        local progressStep = state.progressStep
+        local progressDefaults = state.progressDefaults or {}
+        local detDefaults = progressDefaults.determinate or { width = progressDeterminate.width, height = progressDeterminate.height }
+        local indDefaults = progressDefaults.indeterminate or { width = progressIndeterminate.width, height = progressIndeterminate.height }
         local barWidthLimit = math.max(6, stepWidth - innerMargin * 2)
-        local detWidth = math.max(6, math.min(detDefaults.width or barWidthLimit, barWidthLimit))
-        local indWidth = math.max(6, math.min(indDefaults.width or barWidthLimit, barWidthLimit))
-        local detHeight = math.max(1, math.min(detDefaults.height or stepHeight, stepHeight))
-        local indHeight = math.max(1, math.min(indDefaults.height or stepHeight, stepHeight))
+        local detWidth = math.max(6, math.min(detDefaults.width or progressDeterminate.width, barWidthLimit))
+        local indWidth = math.max(6, math.min(indDefaults.width or progressIndeterminate.width, barWidthLimit))
+        local detHeight = math.max(1, math.min(detDefaults.height or progressDeterminate.height, stepHeight))
+        local indHeight = math.max(1, math.min(indDefaults.height or progressIndeterminate.height, stepHeight))
         local verticalSpace = math.max(0, stepHeight - detHeight - indHeight)
         local gap = math.max(1, math.floor(verticalSpace / 3))
         local topY = innerMargin + gap
@@ -1649,6 +2059,76 @@ local function layout()
         progressIndeterminate:setSize(indWidth, indHeight)
         local indX = math.floor((progressStep.width - indWidth) / 2) + 1
         progressIndeterminate:setPosition(indX, secondY)
+    end
+
+    local threadDemo = state.threadDemo
+    if threadDemo.list and threadDemo.instructions and threadDemo.detailLabel and threadDemo.startButton and threadDemo.cancelButton then
+        local threadStep = state.threadStep
+        local defaults = threadDemo.defaults or {}
+        local instructionsDefaults = defaults.instructions or { width = threadDemo.instructions.width, height = threadDemo.instructions.height }
+        local listDefaults = defaults.list or { width = threadDemo.list.width, height = threadDemo.list.height }
+        local detailDefaults = defaults.detail or { width = threadDemo.detailLabel.width, height = threadDemo.detailLabel.height }
+        local startDefaults = defaults.startButton or { width = threadDemo.startButton.width, height = threadDemo.startButton.height }
+        local cancelDefaults = defaults.cancelButton or { width = threadDemo.cancelButton.width, height = threadDemo.cancelButton.height }
+        local maxWidth = math.max(8, stepWidth - innerMargin * 2)
+        local buttonHeight = math.max(1, math.max(startDefaults.height or threadDemo.startButton.height, cancelDefaults.height or threadDemo.cancelButton.height))
+        local bottomY = innerMargin + stepHeight - 1
+        local startWidth = math.max(8, math.min(startDefaults.width or threadDemo.startButton.width, math.floor(maxWidth / 2)))
+        local cancelWidth = math.max(8, math.min(cancelDefaults.width or threadDemo.cancelButton.width, math.floor(maxWidth / 2)))
+        threadDemo.startButton:setSize(startWidth, buttonHeight)
+        threadDemo.cancelButton:setSize(cancelWidth, buttonHeight)
+        local buttonSpacing = 2
+        local totalButtonWidth = startWidth + cancelWidth + buttonSpacing
+        if totalButtonWidth > stepWidth - innerMargin * 2 then
+            local over = totalButtonWidth - (stepWidth - innerMargin * 2)
+            local adjust = math.ceil(over / 2)
+            startWidth = math.max(6, startWidth - adjust)
+            cancelWidth = math.max(6, cancelWidth - adjust)
+            threadDemo.startButton:setSize(startWidth, buttonHeight)
+            threadDemo.cancelButton:setSize(cancelWidth, buttonHeight)
+            totalButtonWidth = startWidth + cancelWidth + buttonSpacing
+        end
+        local buttonX = math.floor((threadStep.width - totalButtonWidth) / 2) + 1
+        if buttonX < innerMargin then
+            buttonX = innerMargin
+        end
+        local buttonY = bottomY - buttonHeight + 1
+        threadDemo.startButton:setPosition(buttonX, buttonY)
+        threadDemo.cancelButton:setPosition(buttonX + startWidth + buttonSpacing, buttonY)
+
+        local availableHeightForContent = buttonY - innerMargin - 1
+        if availableHeightForContent < 5 then
+            availableHeightForContent = 5
+        end
+        local instructionsHeight = math.max(2, math.min(instructionsDefaults.height or threadDemo.instructions.height, math.max(2, math.floor(availableHeightForContent / 3))))
+        local instrWidth = math.max(8, math.min(instructionsDefaults.width or threadDemo.instructions.width, maxWidth))
+        threadDemo.instructions:setSize(instrWidth, instructionsHeight)
+        local instrX = math.floor((threadStep.width - instrWidth) / 2) + 1
+        local instrY = innerMargin
+        threadDemo.instructions:setPosition(instrX, instrY)
+
+        local listAvailableHeight = availableHeightForContent - instructionsHeight - 1
+        if listAvailableHeight < 3 then
+            listAvailableHeight = 3
+        end
+        local detailHeight = math.max(2, math.min(detailDefaults.height or threadDemo.detailLabel.height, math.max(2, math.floor(listAvailableHeight / 3))))
+        local listHeight = math.max(3, math.min(listDefaults.height or threadDemo.list.height, listAvailableHeight - detailHeight - 1))
+        if listHeight < 3 then
+            listHeight = 3
+        end
+        local listWidth = math.max(8, math.min(listDefaults.width or threadDemo.list.width, maxWidth))
+        threadDemo.list:setSize(listWidth, listHeight)
+        local listX = math.floor((threadStep.width - listWidth) / 2) + 1
+        local listY = instrY + instructionsHeight + 1
+        threadDemo.list:setPosition(listX, listY)
+
+        local detailWidth = listWidth
+        threadDemo.detailLabel:setSize(detailWidth, detailHeight)
+        local detailY = listY + listHeight + 1
+        if detailY + detailHeight - 1 > buttonY - 1 then
+            detailY = math.max(instrY + instructionsHeight + 1, buttonY - detailHeight)
+        end
+        threadDemo.detailLabel:setPosition(listX, detailY)
     end
 
     local navY = wizardY + wizardHeight + navGap
