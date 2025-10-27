@@ -1,0 +1,21 @@
+{
+  "name": "pixelui-v2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "node scripts/generate-docs.js && vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "generate-docs": "node scripts/generate-docs.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
