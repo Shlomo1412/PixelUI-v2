@@ -7,7 +7,7 @@ local keys = assert(rawget(_G, "keys"), "keys API unavailable")
 local table_pack = table.pack or function(...)
 	return { n = select("#", ...), ... }
 end
-local table_unpack = table.unpack or unpack
+local table_unpack = assert(table.unpack, "table.unpack unavailable")
 local expect = require("cc.expect").expect
 local shrekbox = require("shrekbox")
 
@@ -141,6 +141,14 @@ local shrekbox = require("shrekbox")
 ---@field trackColor PixelUI.Color
 ---@field fillColor PixelUI.Color
 ---@field textColor PixelUI.Color
+
+---@class PixelUI.NotificationToast : PixelUI.Widget
+---@field title string?
+---@field message string
+---@field severity string
+---@field autoHide boolean
+---@field duration number
+---@field dismissOnClick boolean
 
 ---@class PixelUI.Slider : PixelUI.Widget
 ---@field min number
@@ -276,11 +284,6 @@ local shrekbox = require("shrekbox")
 
 ---@alias PixelUI.WidgetConfig table
 
----@class PixelUI
----@field create fun(options:PixelUI.AppOptions?):PixelUI.App
----@field version string
----@field widgets { Frame: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Frame, Button: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Button, Label: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Label, CheckBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.CheckBox, Toggle: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Toggle, TextBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TextBox, ComboBox: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ComboBox, RadioButton: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.RadioButton, ProgressBar: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.ProgressBar, Slider: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Slider, List: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.List, Table: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Table, TreeView: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.TreeView, Chart: fun(app:PixelUI.App, config:PixelUI.WidgetConfig?):PixelUI.Chart }
----@field easings table<string, fun(t:number):number>
 
 local pixelui = {
 	version = "0.1.0"
@@ -371,12 +374,215 @@ local ComboBox = {}
 ComboBox.__index = ComboBox
 setmetatable(ComboBox, { __index = Widget })
 
+local NotificationToast = {}
+NotificationToast.__index = NotificationToast
+setmetatable(NotificationToast, { __index = Widget })
+
 local App = {}
 App.__index = App
 
 local borderSides = { "top", "right", "bottom", "left" }
 local RADIO_DOT_CHAR = string.char(7)
 
+local TOAST_DEFAULT_STYLES = {
+	info = { bg = colors.blue, fg = colors.white, accent = colors.lightBlue, icon = "i" },
+	success = { bg = colors.green, fg = colors.black, accent = colors.lime, icon = "+" },
+	warning = { bg = colors.orange, fg = colors.black, accent = colors.yellow, icon = "!" },
+	error = { bg = colors.red, fg = colors.white, accent = colors.white, icon = "x" }
+}
+
+local function normalize_toast_severity(severity)
+	if severity == nil then
+		return "info"
+	end
+	local value = tostring(severity):lower()
+	if TOAST_DEFAULT_STYLES[value] then
+		return value
+	end
+	return "info"
+end
+
+
+local function resolve_toast_padding(padding)
+	if padding == nil then
+		return 1, 1, 1, 1
+	end
+	if type(padding) == "number" then
+		local value = math.max(0, math.floor(padding))
+		return value, value, value, value
+	end
+	local left, right, top, bottom = 1, 1, 1, 1
+	if type(padding) == "table" then
+		local horizontal = padding.horizontal or padding.x
+		local vertical = padding.vertical or padding.y
+		if horizontal ~= nil then
+			horizontal = math.max(0, math.floor(horizontal))
+			left = horizontal
+			right = horizontal
+		end
+		if vertical ~= nil then
+			vertical = math.max(0, math.floor(vertical))
+			top = vertical
+			bottom = vertical
+		end
+		if padding.left ~= nil then
+			left = math.max(0, math.floor(padding.left))
+		end
+		if padding.right ~= nil then
+			right = math.max(0, math.floor(padding.right))
+		end
+		if padding.top ~= nil then
+			top = math.max(0, math.floor(padding.top))
+		end
+		if padding.bottom ~= nil then
+			bottom = math.max(0, math.floor(padding.bottom))
+		end
+	end
+	return left, right, top, bottom
+end
+
+local function toast_wrap_line(line, width, out)
+	if width <= 0 then
+		out[#out + 1] = ""
+		return
+	end
+	line = (line or ""):gsub("\r", "")
+	if line == "" then
+		out[#out + 1] = ""
+		return
+	end
+	local remaining = line
+	while #remaining > width do
+		local segment = remaining:sub(1, width)
+		local breakPos
+		for index = width, 1, -1 do
+			local ch = segment:sub(index, index)
+			if ch:match("%s") then
+				breakPos = index - 1
+				break
+			end
+		end
+		if breakPos and breakPos >= 1 then
+			local chunk = remaining:sub(1, breakPos)
+			chunk = chunk:gsub("%s+$", "")
+			if chunk == "" then
+				chunk = remaining:sub(1, width)
+				breakPos = width
+			end
+			out[#out + 1] = chunk
+			remaining = remaining:sub(breakPos + 1)
+		else
+			out[#out + 1] = segment
+			remaining = remaining:sub(width + 1)
+		end
+		remaining = remaining:gsub("^%s+", "")
+		if remaining == "" then
+			break
+		end
+	end
+	if remaining ~= "" then
+		out[#out + 1] = remaining
+	elseif #out == 0 then
+		out[#out + 1] = ""
+	end
+end
+
+local function normalize_toast_anchor(anchor)
+	if anchor == nil then
+		return nil
+	end
+	if anchor == false then
+		return nil
+	end
+	if type(anchor) ~= "string" then
+		return nil
+	end
+	local normalized = anchor:lower():gsub("%s+", "_"):gsub("-", "_")
+	if normalized == "manual" or normalized == "none" then
+		return nil
+	end
+	if normalized == "topright" then
+		normalized = "top_right"
+	elseif normalized == "topleft" then
+		normalized = "top_left"
+	elseif normalized == "bottomright" then
+		normalized = "bottom_right"
+	elseif normalized == "bottomleft" then
+		normalized = "bottom_left"
+	end
+	if normalized == "top_right" or normalized == "top_left" or normalized == "bottom_right" or normalized == "bottom_left" then
+		return normalized
+	end
+	return nil
+end
+
+local function resolve_toast_anchor_margins(margins)
+	local top, right, bottom, left = 1, 1, 1, 1
+	if margins == nil then
+		return { top = top, right = right, bottom = bottom, left = left }
+	end
+	if type(margins) == "number" then
+		local value = math.max(0, math.floor(margins))
+		top, right, bottom, left = value, value, value, value
+	elseif type(margins) == "table" then
+		if margins.all ~= nil then
+			local value = math.max(0, math.floor(margins.all))
+			top, right, bottom, left = value, value, value, value
+		end
+		if margins.vertical ~= nil then
+			local value = math.max(0, math.floor(margins.vertical))
+			top, bottom = value, value
+		end
+		if margins.horizontal ~= nil then
+			local value = math.max(0, math.floor(margins.horizontal))
+			right, left = value, value
+		end
+		if margins.top ~= nil then
+			top = math.max(0, math.floor(margins.top))
+		end
+		if margins.right ~= nil then
+			right = math.max(0, math.floor(margins.right))
+		end
+		if margins.bottom ~= nil then
+			bottom = math.max(0, math.floor(margins.bottom))
+		end
+		if margins.left ~= nil then
+			left = math.max(0, math.floor(margins.left))
+		end
+	end
+	return { top = top, right = right, bottom = bottom, left = left }
+end
+
+local function toast_wrap_text(text, width)
+	local lines = {}
+	if width <= 0 then
+		lines[1] = ""
+		return lines
+	end
+	text = tostring(text or "")
+	if text == "" then
+		lines[1] = ""
+		return lines
+	end
+	local start = 1
+	while true do
+		local nl = text:find("\n", start, true)
+		if not nl then
+			toast_wrap_line(text:sub(start), width, lines)
+			break
+		end
+		toast_wrap_line(text:sub(start, nl - 1), width, lines)
+		start = nl + 1
+	end
+	if #lines == 0 then
+		lines[1] = ""
+	end
+	return lines
+end
+
+---@generic T: table
+---@param src T|nil
+---@return T|nil
 local function clone_table(src)
 	if not src then
 		return nil
@@ -600,6 +806,655 @@ local function draw_border(pixelLayer, x, y, width, height, border, background)
 	if border.right then
 		draw_vertical_line(px + pw - verticalThickness, verticalThickness, color)
 	end
+end
+
+function NotificationToast:new(app, config)
+	config = config or {}
+	expect(1, app, "table")
+	if config ~= nil then
+		expect(2, config, "table")
+	end
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = false
+	baseConfig.width = math.max(12, math.floor(baseConfig.width or 24))
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 5))
+	if baseConfig.visible == nil then
+		baseConfig.visible = false
+	end
+	local instance = setmetatable({}, NotificationToast)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = false
+
+	local explicitAnchor = config.anchor ~= nil
+	local anchor = normalize_toast_anchor(config.anchor)
+	if not anchor and not explicitAnchor then
+		if config.x ~= nil or config.y ~= nil then
+			anchor = nil
+		else
+			anchor = "top_right"
+		end
+	end
+	instance.anchor = anchor
+	instance.anchorMargins = resolve_toast_anchor_margins(config.anchorMargin)
+	instance.anchorAnimationDuration = math.max(0.05, tonumber(config.anchorAnimationDuration) or 0.2)
+	instance.anchorEasing = config.anchorEasing or "easeOutCubic"
+	instance._anchorDirty = true
+	instance._anchorAnimationHandle = nil
+
+	instance.title = config.title ~= nil and tostring(config.title) or nil
+	instance.message = config.message ~= nil and tostring(config.message) or ""
+	instance.icon = config.icon ~= nil and tostring(config.icon) or nil
+	instance.severity = normalize_toast_severity(config.severity)
+	local duration = config.duration
+	if duration ~= nil then
+		duration = tonumber(duration) or 0
+	else
+		duration = 3
+	end
+	if duration < 0 then
+		duration = 0
+	end
+	instance.duration = duration
+	instance.autoHide = config.autoHide ~= false
+	instance.dismissOnClick = config.dismissOnClick ~= false
+	instance.onDismiss = config.onDismiss
+	if instance.onDismiss ~= nil and type(instance.onDismiss) ~= "function" then
+		error("config.onDismiss must be a function", 2)
+	end
+	instance.variantOverrides = config.variants and clone_table(config.variants) or nil
+	instance.styleOverride = config.style and clone_table(config.style) or nil
+	instance.paddingLeft, instance.paddingRight, instance.paddingTop, instance.paddingBottom = resolve_toast_padding(config.padding)
+	instance._hideTimer = nil
+	instance._wrappedLines = { "" }
+	instance._lastWrapWidth = nil
+	instance._lastMessage = nil
+	instance:_refreshWrap(true)
+	return instance
+end
+
+function NotificationToast:_applyPadding(padding, force)
+	local left, right, top, bottom = resolve_toast_padding(padding)
+	if force or left ~= self.paddingLeft or right ~= self.paddingRight or top ~= self.paddingTop or bottom ~= self.paddingBottom then
+		self.paddingLeft = left
+		self.paddingRight = right
+		self.paddingTop = top
+		self.paddingBottom = bottom
+		self:_refreshWrap(true)
+		self._anchorDirty = true
+	end
+end
+
+function NotificationToast:setPadding(padding)
+	self:_applyPadding(padding, false)
+end
+
+function NotificationToast:getAnchor()
+	return self.anchor
+end
+
+function NotificationToast:getAnchorMargins()
+	return clone_table(self.anchorMargins)
+end
+
+function NotificationToast:refreshAnchor(animate)
+	if not self.anchor then
+		self._anchorDirty = false
+		return
+	end
+	self._anchorDirty = true
+	if animate and self.visible then
+		self:_applyAnchorPosition(true)
+	else
+		self:_applyAnchorPosition(false)
+	end
+end
+
+function NotificationToast:setAnchor(anchor)
+	local normalized = normalize_toast_anchor(anchor)
+	if normalized == nil and anchor ~= nil then
+		self.anchor = nil
+	else
+		self.anchor = normalized
+	end
+	self:refreshAnchor(false)
+end
+
+function NotificationToast:setAnchorMargin(margins)
+	self.anchorMargins = resolve_toast_anchor_margins(margins)
+	self:refreshAnchor(false)
+end
+
+function NotificationToast:_computeAnchorPosition()
+	local anchor = self.anchor
+	if not anchor then
+		return nil, nil
+	end
+	local parent = self.parent
+	if not parent then
+		return nil, nil
+	end
+	local parentWidth = parent.width
+	local parentHeight = parent.height
+	if type(parentWidth) ~= "number" or type(parentHeight) ~= "number" then
+		return nil, nil
+	end
+	local width = self.width
+	local height = self.height
+	local margins = self.anchorMargins or resolve_toast_anchor_margins(nil)
+	local targetX
+	local targetY
+	if anchor == "top_right" then
+		targetX = parentWidth - width - (margins.right or 0) + 1
+		targetY = (margins.top or 0) + 1
+	elseif anchor == "top_left" then
+		targetX = (margins.left or 0) + 1
+		targetY = (margins.top or 0) + 1
+	elseif anchor == "bottom_right" then
+		targetX = parentWidth - width - (margins.right or 0) + 1
+		targetY = parentHeight - height - (margins.bottom or 0) + 1
+	elseif anchor == "bottom_left" then
+		targetX = (margins.left or 0) + 1
+		targetY = parentHeight - height - (margins.bottom or 0) + 1
+	else
+		return nil, nil
+	end
+	if targetX < 1 then
+		targetX = 1
+	end
+	if targetY < 1 then
+		targetY = 1
+	end
+	if targetX + width - 1 > parentWidth then
+		targetX = math.max(1, parentWidth - width + 1)
+	end
+	if targetY + height - 1 > parentHeight then
+		targetY = math.max(1, parentHeight - height + 1)
+	end
+	return targetX, targetY
+end
+
+function NotificationToast:getAnchorTargetPosition()
+	return self:_computeAnchorPosition()
+end
+
+function NotificationToast:_applyAnchorPosition(animate)
+	if not self.anchor then
+		self._anchorDirty = false
+		return
+	end
+	local targetX, targetY = self:_computeAnchorPosition()
+	if not targetX or not targetY then
+		return
+	end
+	if self._anchorAnimationHandle then
+		self._anchorAnimationHandle:cancel()
+		self._anchorAnimationHandle = nil
+	end
+	if animate and self.app and self.app.animate then
+		local horizontalOffset = math.max(2, math.floor(self.width / 6))
+		local verticalOffset = math.max(1, math.floor(self.height / 3))
+		local startX = targetX
+		local startY = targetY
+		if self.anchor == "top_right" then
+			startX = targetX + horizontalOffset
+			startY = math.max(1, targetY - verticalOffset)
+		elseif self.anchor == "top_left" then
+			startX = targetX - horizontalOffset
+			startY = math.max(1, targetY - verticalOffset)
+		elseif self.anchor == "bottom_right" then
+			startX = targetX + horizontalOffset
+			startY = targetY + verticalOffset
+		elseif self.anchor == "bottom_left" then
+			startX = targetX - horizontalOffset
+			startY = targetY + verticalOffset
+		end
+		Widget.setPosition(self, startX, startY)
+		local duration = self.anchorAnimationDuration or 0.2
+		local easing = self.anchorEasing or "easeOutCubic"
+		local initialX = startX
+		local initialY = startY
+		local deltaX = targetX - initialX
+		local deltaY = targetY - initialY
+		self._anchorAnimationHandle = self.app:animate({
+			duration = duration,
+			easing = easing,
+			update = function(progress)
+				local newX = math.floor(initialX + deltaX * progress + 0.5)
+				local newY = math.floor(initialY + deltaY * progress + 0.5)
+				Widget.setPosition(self, newX, newY)
+			end,
+			onComplete = function()
+				Widget.setPosition(self, targetX, targetY)
+				self._anchorAnimationHandle = nil
+			end,
+			onCancel = function()
+				Widget.setPosition(self, targetX, targetY)
+				self._anchorAnimationHandle = nil
+			end
+		})
+		self._anchorDirty = false
+		return
+	end
+	if self.x ~= targetX or self.y ~= targetY then
+		Widget.setPosition(self, targetX, targetY)
+	end
+	self._anchorDirty = false
+end
+
+function NotificationToast:_getActiveBorder()
+	if self.border then
+		return self.border
+	end
+	return nil
+end
+
+function NotificationToast:_refreshWrap(force, widthOverride)
+	local wrapWidth
+	if widthOverride ~= nil then
+		wrapWidth = math.max(0, math.floor(widthOverride))
+	else
+		local border = self:_getActiveBorder()
+		local leftPad = (border and border.left) and border.thickness or 0
+		local rightPad = (border and border.right) and border.thickness or 0
+		wrapWidth = math.max(0, self.width - leftPad - rightPad - (self.paddingLeft or 0) - (self.paddingRight or 0))
+	end
+	if wrapWidth < 0 then
+		wrapWidth = 0
+	end
+	if not force and self._lastWrapWidth == wrapWidth and self._lastMessage == self.message then
+		return
+	end
+	self._wrappedLines = toast_wrap_text(self.message, wrapWidth)
+	self._lastWrapWidth = wrapWidth
+	self._lastMessage = self.message
+end
+
+function NotificationToast:_getStyle()
+	local severity = self.severity
+	local baseStyle = TOAST_DEFAULT_STYLES.info
+	if severity ~= nil then
+		local candidate = TOAST_DEFAULT_STYLES[severity]
+		if candidate then
+			baseStyle = candidate
+		end
+	else
+		severity = "info"
+	end
+	local resolved = baseStyle
+	if self.variantOverrides then
+		local variantOverride = self.variantOverrides[severity]
+		if variantOverride then
+			resolved = clone_table(baseStyle) or baseStyle
+			for k, v in pairs(variantOverride) do
+				resolved[k] = v
+			end
+		end
+	end
+	if self.styleOverride then
+		if resolved == baseStyle then
+			resolved = clone_table(baseStyle) or baseStyle
+		end
+		for k, v in pairs(self.styleOverride) do
+			resolved[k] = v
+		end
+	end
+	return resolved or baseStyle
+end
+
+function NotificationToast:_cancelTimer()
+	if self._hideTimer then
+		if osLib.cancelTimer then
+			pcall(osLib.cancelTimer, self._hideTimer)
+		end
+		self._hideTimer = nil
+	end
+end
+
+function NotificationToast:_scheduleHide(seconds)
+	if not self.autoHide then
+		return
+	end
+	local duration = seconds
+	if duration == nil then
+		duration = self.duration
+	end
+	if not duration or duration <= 0 then
+		return
+	end
+	self._hideTimer = osLib.startTimer(duration)
+end
+
+function NotificationToast:setTitle(title)
+	if title == nil then
+		self.title = nil
+	else
+		self.title = tostring(title)
+	end
+end
+
+function NotificationToast:getTitle()
+	return self.title
+end
+
+function NotificationToast:setMessage(message)
+	if message == nil then
+		message = ""
+	end
+	local text = tostring(message)
+	if self.message ~= text then
+		self.message = text
+		self:_refreshWrap(true)
+	end
+end
+
+function NotificationToast:getMessage()
+	return self.message
+end
+
+function NotificationToast:setSeverity(severity)
+	local normalized = normalize_toast_severity(severity)
+	if self.severity ~= normalized then
+		self.severity = normalized
+	end
+end
+
+
+function NotificationToast:getSeverity()
+	return self.severity
+end
+
+function NotificationToast:setIcon(icon)
+	if icon == nil or icon == "" then
+		self.icon = nil
+		return
+	end
+	self.icon = tostring(icon)
+end
+
+function NotificationToast:getIcon()
+	return self.icon
+end
+
+function NotificationToast:setAutoHide(autoHide)
+	autoHide = not not autoHide
+	if self.autoHide ~= autoHide then
+		self.autoHide = autoHide
+		if not autoHide then
+			self:_cancelTimer()
+		end
+	end
+end
+
+function NotificationToast:isAutoHide()
+	return self.autoHide
+end
+
+function NotificationToast:setDuration(duration)
+	if duration == nil then
+		return
+	end
+	local seconds = tonumber(duration) or 0
+	if seconds < 0 then
+		seconds = 0
+	end
+	self.duration = seconds
+	if self.visible and self.autoHide then
+		self:_cancelTimer()
+		self:_scheduleHide(seconds)
+	end
+end
+
+function NotificationToast:getDuration()
+	return self.duration
+end
+
+function NotificationToast:setDismissOnClick(enabled)
+	self.dismissOnClick = not not enabled
+end
+
+function NotificationToast:isDismissOnClick()
+	return self.dismissOnClick
+end
+
+function NotificationToast:setOnDismiss(handler)
+	if handler ~= nil and type(handler) ~= "function" then
+		error("onDismiss handler must be a function", 2)
+	end
+	self.onDismiss = handler
+end
+
+function NotificationToast:setVariants(variants)
+	if variants ~= nil and type(variants) ~= "table" then
+		error("variants must be a table", 2)
+	end
+	self.variantOverrides = variants and clone_table(variants) or nil
+end
+
+function NotificationToast:setStyle(style)
+	if style ~= nil and type(style) ~= "table" then
+		error("style must be a table", 2)
+	end
+	self.styleOverride = style and clone_table(style) or nil
+end
+
+function NotificationToast:present(options)
+	expect(1, options, "table")
+	if options.title ~= nil then
+		self:setTitle(options.title)
+	end
+	if options.message ~= nil then
+		self:setMessage(options.message)
+	end
+	if options.icon ~= nil then
+		self:setIcon(options.icon)
+	end
+	if options.severity ~= nil then
+		self:setSeverity(options.severity)
+	end
+	if options.duration ~= nil then
+		self:setDuration(options.duration)
+	end
+	if options.autoHide ~= nil then
+		self:setAutoHide(options.autoHide)
+	end
+	if options.style ~= nil then
+		self:setStyle(options.style)
+	end
+	if options.variants ~= nil then
+		self:setVariants(options.variants)
+	end
+	self:show(options.duration)
+end
+
+function NotificationToast:show(duration)
+	local wasVisible = self.visible
+	self.visible = true
+	self:_refreshWrap(true)
+	self:_cancelTimer()
+	if self.anchor then
+		if not wasVisible then
+			self:_applyAnchorPosition(true)
+		elseif self._anchorDirty then
+			self:_applyAnchorPosition(false)
+		end
+	end
+	local override = nil
+	if duration ~= nil then
+		override = tonumber(duration) or 0
+		if override < 0 then
+			override = 0
+		end
+	end
+	self:_scheduleHide(override)
+end
+
+function NotificationToast:hide(invokeCallback)
+	local wasVisible = self.visible
+	self.visible = false
+	self:_cancelTimer()
+	if self._anchorAnimationHandle then
+		self._anchorAnimationHandle:cancel()
+		self._anchorAnimationHandle = nil
+	end
+	if invokeCallback ~= false and wasVisible and self.onDismiss then
+		self.onDismiss(self)
+	end
+end
+
+function NotificationToast:setSize(width, height)
+	Widget.setSize(self, width, height)
+	self:_refreshWrap(true)
+	self._anchorDirty = true
+	if self.anchor then
+		self:_applyAnchorPosition(false)
+	end
+end
+
+function NotificationToast:setBorder(borderConfig)
+	Widget.setBorder(self, borderConfig)
+	self:_refreshWrap(true)
+	self._anchorDirty = true
+end
+
+function NotificationToast:_renderLine(textLayer, x, y, width, text, fg, bg)
+	if width <= 0 then
+		return
+	end
+	local content = text or ""
+	if #content > width then
+		content = content:sub(1, width)
+	end
+	if #content < width then
+		content = content .. string.rep(" ", width - #content)
+	end
+	textLayer.text(x, y, content, fg, bg)
+end
+
+function NotificationToast:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	if self._anchorDirty and not self._anchorAnimationHandle then
+		self:_applyAnchorPosition(false)
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	if width <= 0 or height <= 0 then
+		return
+	end
+
+	local style = self:_getStyle() or TOAST_DEFAULT_STYLES.info
+	local bg = style.bg or self.bg or colors.gray
+	local fg = style.fg or self.fg or colors.white
+	local accent = style.accent or fg
+	local titleColor = style.titleColor or fg
+	local iconColor = style.iconColor or accent
+
+	fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	local renderBorder = self.border
+	if renderBorder then
+		draw_border(pixelLayer, ax, ay, width, height, renderBorder, bg)
+	else
+		draw_border(pixelLayer, ax, ay, width, height, {
+			color = accent,
+			top = true,
+			right = true,
+			bottom = true,
+			left = true,
+			thickness = 1
+		}, bg)
+	end
+
+	local border = renderBorder
+	local leftPad = (border and border.left) and border.thickness or 0
+	local rightPad = (border and border.right) and border.thickness or 0
+	local topPad = (border and border.top) and border.thickness or 0
+	local bottomPad = (border and border.bottom) and border.thickness or 0
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+	local contentX = innerX + (self.paddingLeft or 0)
+	local contentY = innerY + (self.paddingTop or 0)
+	local contentWidth = math.max(0, innerWidth - (self.paddingLeft or 0) - (self.paddingRight or 0))
+	local contentHeight = math.max(0, innerHeight - (self.paddingTop or 0) - (self.paddingBottom or 0))
+	if contentWidth <= 0 or contentHeight <= 0 then
+		return
+	end
+
+	local iconChar = self.icon
+	if not iconChar or iconChar == "" then
+		iconChar = style.icon or ""
+	end
+	iconChar = tostring(iconChar or "")
+	local iconSpacing = 0
+	local textX = contentX
+	local lineY = contentY
+	if iconChar ~= "" and contentWidth > 0 then
+		local iconDisplay = iconChar:sub(1, 1)
+		textLayer.text(contentX, lineY, iconDisplay, iconColor, bg)
+		if contentWidth >= 3 then
+			textLayer.text(contentX + 1, lineY, " ", iconColor, bg)
+			iconSpacing = 2
+		else
+			iconSpacing = 1
+		end
+		textX = contentX + iconSpacing
+	end
+
+	local availableWidth = math.max(0, contentWidth - iconSpacing)
+	self:_refreshWrap(false, availableWidth)
+
+	if self.title and self.title ~= "" and contentHeight > 0 and availableWidth > 0 then
+		self:_renderLine(textLayer, textX, lineY, availableWidth, self.title, titleColor, bg)
+		lineY = lineY + 1
+		contentHeight = contentHeight - 1
+	end
+
+	if contentHeight > 0 and availableWidth > 0 then
+		local lines = self._wrappedLines or { "" }
+		local maxLines = math.min(contentHeight, #lines)
+		for index = 1, maxLines do
+			self:_renderLine(textLayer, textX, lineY, availableWidth, lines[index], fg, bg)
+			lineY = lineY + 1
+		end
+	end
+end
+
+function NotificationToast:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "timer" then
+		local timerId = ...
+		if self._hideTimer and timerId == self._hideTimer then
+			self._hideTimer = nil
+			self:hide(true)
+			return true
+		end
+	elseif event == "mouse_click" then
+		local _, x, y = ...
+		if self.dismissOnClick and self:containsPoint(x, y) then
+			self:hide(true)
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self.dismissOnClick and self:containsPoint(x, y) then
+			self:hide(true)
+			return true
+		end
+	end
+
+	return false
+end
+
+function NotificationToast:onFocusChanged()
+	-- toasts do not track focus
 end
 
 ---@param widget PixelUI.Widget
@@ -7697,6 +8552,12 @@ function App:createProgressBar(config)
 	return ProgressBar:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.NotificationToast
+function App:createNotificationToast(config)
+	return NotificationToast:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Slider
@@ -8554,6 +9415,9 @@ pixelui.widgets = {
 	end,
 	Slider = function(app, config)
 		return Slider:new(app, config)
+	end,
+	NotificationToast = function(app, config)
+		return NotificationToast:new(app, config)
 	end
 }
 
@@ -8572,6 +9436,7 @@ pixelui.Chart = Chart
 pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
+pixelui.NotificationToast = NotificationToast
 pixelui.easings = easings
 pixelui.ThreadHandle = ThreadHandle
 pixelui.ThreadContext = ThreadContext

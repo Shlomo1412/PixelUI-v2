@@ -131,6 +131,11 @@ local progressIndeterminate
 local progressDefaults = {}
 local progressAnimationHandle
 local progressStepIndex
+local toastState = {
+    buttons = {},
+    buttonDefaults = {},
+    defaults = {}
+}
 local threadDemo = {
     entries = {},
     defaults = {}
@@ -1438,6 +1443,147 @@ end, function()
     end
 end)
 
+-- Step 16: NotificationToast showcase
+local toastStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(toastStep)
+
+toastState.frame = toastStep
+toastState.defaults.instructions = toastState.defaults.instructions or {}
+toastState.defaults.toast = toastState.defaults.toast or {}
+toastState.buttons = {}
+toastState.buttonDefaults = {}
+
+toastState.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Preview toast notifications. Choose a severity below to see built-in styles, or click the toast to dismiss it.",
+    bg = colors.gray,
+    fg = colors.white
+})
+toastStep:addChild(toastState.instructions)
+toastState.defaults.instructions.width = toastState.instructions.width
+toastState.defaults.instructions.height = toastState.instructions.height
+
+toastState.toast = app:createNotificationToast({
+    width = 26,
+    height = 5,
+    visible = false,
+    padding = { left = 2, right = 2, top = 1, bottom = 1 },
+    border = { color = colors.white },
+    duration = 4,
+    dismissOnClick = true,
+    anchor = "top_right",
+    anchorMargin = { top = 1, right = 1 },
+    anchorAnimationDuration = 0.25
+})
+toastState.toast:setTitle("Toast Preview")
+toastState.toast:setMessage("Select a button below to try different toast severities.")
+toastStep:addChild(toastState.toast)
+toastState.defaults.toast.width = toastState.toast.width
+toastState.defaults.toast.height = toastState.toast.height
+
+local toastButtonsData = {
+    {
+        label = "Info",
+        severity = "info",
+        title = "Heads Up",
+        message = "You have new documentation tips to review.",
+        autoHide = true,
+        duration = 4
+    },
+    {
+        label = "Success",
+        severity = "success",
+        title = "Deployment Complete",
+        message = "The latest pipeline finished without errors.",
+        autoHide = true,
+        duration = 5
+    },
+    {
+        label = "Warning",
+        severity = "warning",
+        title = "Low Storage",
+        message = "Only 12% capacity remains on /data. Plan cleanup soon.",
+        autoHide = true,
+        duration = 5
+    },
+    {
+        label = "Error",
+        severity = "error",
+        title = "Action Needed",
+        message = "A service failed to respond. Retry the request when ready.",
+        autoHide = false,
+        duration = 0
+    }
+}
+
+for index = 1, #toastButtonsData do
+    local config = toastButtonsData[index]
+    local button = app:createButton({
+        width = 10,
+        height = 2,
+        label = config.label,
+        bg = colors.lightGray,
+        fg = colors.black
+    })
+    toastStep:addChild(button)
+    toastState.buttons[index] = button
+    toastState.buttonDefaults[index] = { width = button.width, height = button.height }
+    button:setOnClick(function()
+        local toast = toastState.toast
+        if not toast then
+            return
+        end
+        toast:present({
+            severity = config.severity,
+            title = config.title,
+            message = config.message,
+            duration = config.duration,
+            autoHide = config.autoHide
+        })
+    end)
+end
+
+local function resetToastPreview()
+    local toast = toastState.toast
+    if not toast then
+        return
+    end
+    toast:present({
+        severity = "info",
+        title = "Toast Preview",
+        message = "Select a button below to try different toast severities.",
+        autoHide = false,
+        duration = 0
+    })
+end
+
+addStep(toastStep, function()
+    resetToastPreview()
+    if toastState.buttons[1] then
+        app:setFocus(toastState.buttons[1])
+    else
+        app:setFocus(nil)
+    end
+end, function()
+    if toastState.toast then
+        toastState.toast:hide(false)
+        toastState.toast:setAutoHide(true)
+    end
+    app:setFocus(nil)
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -1601,6 +1747,8 @@ local layoutState = {
     progressIndeterminate = progressIndeterminate,
     progressDefaults = progressDefaults,
     progressStep = progressStep,
+    toastState = toastState,
+    toastStep = toastStep,
     threadDemo = threadDemo,
     threadStep = threadStep
 }
@@ -2059,6 +2207,127 @@ local function layout()
         progressIndeterminate:setSize(indWidth, indHeight)
         local indX = math.floor((progressStep.width - indWidth) / 2) + 1
         progressIndeterminate:setPosition(indX, secondY)
+    end
+
+    local toastLayoutState = state.toastState
+    if toastLayoutState and toastLayoutState.frame and toastLayoutState.toast then
+        local toastStep = state.toastStep
+        local instructions = toastLayoutState.instructions
+        local toastWidget = toastLayoutState.toast
+        local buttonList = toastLayoutState.buttons or {}
+        local buttonDefaults = toastLayoutState.buttonDefaults or {}
+        local defaults = toastLayoutState.defaults or {}
+        local instructionsDefaults = defaults.instructions or {}
+        local toastDefaults = defaults.toast or {}
+        local maxWidth = math.max(8, stepWidth - innerMargin * 2)
+        local maxHeight = math.max(3, stepHeight - innerMargin * 2)
+
+        local toastWidth = math.max(12, math.min(toastDefaults.width or toastWidget.width, maxWidth))
+        local toastHeight = math.max(3, math.min(toastDefaults.height or toastWidget.height, maxHeight))
+        toastWidget:setSize(toastWidth, toastHeight)
+        toastWidget:refreshAnchor(false)
+
+        local targetX, targetY = toastWidget:getAnchorTargetPosition()
+        if not targetX then
+            targetX = innerMargin
+        end
+        if not targetY then
+            targetY = innerMargin
+        end
+        local toastRight = targetX + toastWidth - 1
+        local toastBottom = targetY + toastHeight - 1
+
+        local leftAvailable = math.max(0, targetX - innerMargin - 1)
+        local bottomSpace = math.max(0, innerMargin + stepHeight - toastBottom - 1)
+        local columnLayout = leftAvailable >= 14
+
+        local instructionsHeight = 0
+        if instructions then
+            if columnLayout then
+                local instWidth = math.max(10, math.min(instructionsDefaults.width or instructions.width, leftAvailable))
+                local instHeightLimit = math.max(2, stepHeight - innerMargin * 2)
+                local instHeight = math.max(2, math.min(instructionsDefaults.height or instructions.height, instHeightLimit))
+                instructions:setSize(instWidth, instHeight)
+                instructions:setPosition(innerMargin, innerMargin)
+                instructionsHeight = instHeight
+            else
+                local instWidth = math.max(12, math.min(instructionsDefaults.width or instructions.width, maxWidth))
+                local instHeightLimit = math.max(2, bottomSpace > 0 and bottomSpace or stepHeight - toastHeight - innerMargin)
+                local instHeight = math.max(2, math.min(instructionsDefaults.height or instructions.height, instHeightLimit))
+                instructions:setSize(instWidth, instHeight)
+                local instX = math.floor((toastStep.width - instWidth) / 2) + 1
+                local instY = toastBottom + 1
+                local bottomLimit = innerMargin + stepHeight - 1
+                if instY + instHeight - 1 > bottomLimit then
+                    instY = math.max(innerMargin, bottomLimit - instHeight + 1)
+                end
+                instructions:setPosition(instX, instY)
+                instructionsHeight = instHeight
+                bottomSpace = math.max(0, bottomLimit - instY - instHeight + 1)
+            end
+        end
+
+        if #buttonList > 0 then
+            if columnLayout then
+                local columnWidth = math.max(10, math.min(leftAvailable, maxWidth))
+                local cursorY = innerMargin + instructionsHeight + 1
+                if cursorY < innerMargin then
+                    cursorY = innerMargin
+                end
+                for index = 1, #buttonList do
+                    local button = buttonList[index]
+                    if button then
+                        local defaultsEntry = buttonDefaults[index] or {}
+                        local width = math.max(8, math.min(defaultsEntry.width or button.width, columnWidth))
+                        local height = math.max(1, defaultsEntry.height or button.height)
+                        if cursorY + height - 1 > innerMargin + stepHeight - 1 then
+                            cursorY = innerMargin + stepHeight - height
+                        end
+                        button:setSize(width, height)
+                        button:setPosition(innerMargin, cursorY)
+                        cursorY = math.min(innerMargin + stepHeight - 1, cursorY + height + 1)
+                    end
+                end
+            else
+                local buttonSpacing = 2
+                local widths = {}
+                local buttonHeight = 0
+                local totalWidth = -buttonSpacing
+                local baseWidth = math.max(8, math.floor((maxWidth - (#buttonList - 1) * buttonSpacing) / #buttonList))
+                for index = 1, #buttonList do
+                    local button = buttonList[index]
+                    if button then
+                        local defaultsEntry = buttonDefaults[index] or {}
+                        local width = math.max(8, math.min(defaultsEntry.width or button.width, baseWidth))
+                        local height = math.max(1, defaultsEntry.height or button.height)
+                        button:setSize(width, height)
+                        widths[index] = width
+                        buttonHeight = math.max(buttonHeight, height)
+                        totalWidth = totalWidth + width + buttonSpacing
+                    end
+                end
+                totalWidth = math.max(0, totalWidth)
+                local rowX = math.floor((toastStep.width - totalWidth) / 2) + 1
+                if rowX < innerMargin then
+                    rowX = innerMargin
+                end
+                local rowY = innerMargin + stepHeight - buttonHeight
+                if rowY <= toastBottom then
+                    rowY = toastBottom + instructionsHeight + 1
+                    if rowY + buttonHeight - 1 > innerMargin + stepHeight - 1 then
+                        rowY = innerMargin + stepHeight - buttonHeight
+                    end
+                end
+                for index = 1, #buttonList do
+                    local button = buttonList[index]
+                    if button then
+                        local width = widths[index] or button.width
+                        button:setPosition(rowX, rowY)
+                        rowX = rowX + width + buttonSpacing
+                    end
+                end
+            end
+        end
     end
 
     local threadDemo = state.threadDemo
