@@ -22,7 +22,45 @@ export default defineConfig({
       {
         text: 'API Reference',
         items: [
-          { text: 'API Documentation', link: '/api' },
+          { text: 'Overview', link: '/api' },
+        ]
+      },
+      {
+        text: 'Core Classes',
+        collapsed: false,
+        items: [
+          { text: 'App', link: '/api/app' },
+          { text: 'Widget', link: '/api/widget' },
+          { text: 'Frame', link: '/api/frame' },
+        ]
+      },
+      {
+        text: 'Widgets',
+        collapsed: false,
+        items: [
+          { text: 'Button', link: '/api/button' },
+          { text: 'Label', link: '/api/label' },
+          { text: 'CheckBox', link: '/api/checkbox' },
+          { text: 'Toggle', link: '/api/toggle' },
+          { text: 'TextBox', link: '/api/textbox' },
+          { text: 'ComboBox', link: '/api/combobox' },
+          { text: 'List', link: '/api/list' },
+          { text: 'Table', link: '/api/table' },
+          { text: 'TreeView', link: '/api/treeview' },
+          { text: 'Chart', link: '/api/chart' },
+          { text: 'RadioButton', link: '/api/radiobutton' },
+          { text: 'ProgressBar', link: '/api/progressbar' },
+          { text: 'Slider', link: '/api/slider' },
+          { text: 'NotificationToast', link: '/api/notificationtoast' },
+          { text: 'LoadingRing', link: '/api/loadingring' },
+        ]
+      },
+      {
+        text: 'Reference',
+        collapsed: true,
+        items: [
+          { text: 'Configuration', link: '/api/configuration' },
+          { text: 'Types', link: '/api/types' },
         ]
       }
     ],
