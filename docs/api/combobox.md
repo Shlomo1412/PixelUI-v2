@@ -2,17 +2,19 @@
 
 *Extends: PixelUI.Widget*
 
+A dropdown selection widget (combo box) for choosing from a list of options. Opens a dropdown menu when clicked.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| items | `string[]` |  |
-| selectedIndex | `integer` |  |
-| dropdownBg | `PixelUI.Color` |  |
-| dropdownFg | `PixelUI.Color` |  |
-| highlightBg | `PixelUI.Color` |  |
-| highlightFg | `PixelUI.Color` |  |
-| placeholder | `string?` |  |
+| items | `string[]` | Array of selectable items |
+| selectedIndex | `integer` | Index of currently selected item |
+| dropdownBg | `PixelUI.Color` | Background color for dropdown menu |
+| dropdownFg | `PixelUI.Color` | Foreground color for dropdown menu |
+| highlightBg | `PixelUI.Color` | Background color for highlighted item |
+| highlightFg | `PixelUI.Color` | Foreground color for highlighted item |
+| placeholder | `string?` | Text shown when no item is selected |
 | onChange | `fun(self:PixelUI.ComboBox,` |  |
 
 ## Methods

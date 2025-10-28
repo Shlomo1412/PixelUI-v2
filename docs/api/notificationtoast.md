@@ -2,16 +2,18 @@
 
 *Extends: PixelUI.Widget*
 
+A notification toast widget for displaying temporary messages. Supports different severity levels and auto-hide functionality.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| title | `string?` |  |
-| message | `string` |  |
-| severity | `string` |  |
-| autoHide | `boolean` |  |
-| duration | `number` |  |
-| dismissOnClick | `boolean` |  |
+| title | `string?` | Optional title text |
+| message | `string` | The notification message content |
+| severity | `string` | Severity level (e.g., "info", "success", "warning", "error") |
+| autoHide | `boolean` | Whether to automatically hide after duration |
+| duration | `number` | Duration in seconds before auto-hiding |
+| dismissOnClick | `boolean` | Whether clicking dismisses the notification |
 
 ## Methods
 

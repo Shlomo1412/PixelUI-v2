@@ -1,27 +1,29 @@
 # PixelUI.Widget
 
+Base class for all UI widgets. Provides common properties and behavior for positioning, sizing, styling, and event handling.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| app | `PixelUI.App` |  |
-| parent | `PixelUI.Frame?` |  |
-| x | `integer` |  |
-| y | `integer` |  |
-| width | `integer` |  |
-| height | `integer` |  |
-| bg | `PixelUI.Color` |  |
-| fg | `PixelUI.Color` |  |
-| _orderIndex | `integer?` |  |
-| visible | `boolean` |  |
-| z | `number` |  |
-| border | `PixelUI.NormalizedBorderConfig?` |  |
-| id | `string?` |  |
-| focusable | `boolean` |  |
+| app | `PixelUI.App` | The application instance that owns this widget |
+| parent | `PixelUI.Frame?` | The parent frame containing this widget |
+| x | `integer` | X position relative to parent |
+| y | `integer` | Y position relative to parent |
+| width | `integer` | Width in characters |
+| height | `integer` | Height in characters |
+| bg | `PixelUI.Color` | Background color |
+| fg | `PixelUI.Color` | Foreground/text color |
+| _orderIndex | `integer?` | Internal ordering index |
+| visible | `boolean` | Whether the widget is visible |
+| z | `number` | Z-order for layering (higher values appear on top) |
+| border | `PixelUI.NormalizedBorderConfig?` | Border configuration |
+| id | `string?` | Optional unique identifier |
+| focusable | `boolean` | Whether the widget can receive focus |
 | draw | `fun(self:PixelUI.Widget,` |  |
 | handleEvent | `fun(self:PixelUI.Widget,` |  |
 | setFocused | `fun(self:PixelUI.Widget,` |  |
-| isFocused | `fun(self:PixelUI.Widget):boolean` |  |
+| isFocused | `fun(self:PixelUI.Widget):boolean` | Check if widget has focus |
 
 ## Methods
 

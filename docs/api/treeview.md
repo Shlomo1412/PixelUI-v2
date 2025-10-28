@@ -2,14 +2,16 @@
 
 *Extends: PixelUI.Widget*
 
+A hierarchical tree view widget for displaying nested data. Supports expand/collapse and selection of nodes.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| indentWidth | `integer` |  |
-| highlightBg | `PixelUI.Color` |  |
-| highlightFg | `PixelUI.Color` |  |
-| placeholder | `string?` |  |
+| indentWidth | `integer` | Width of indentation per level |
+| highlightBg | `PixelUI.Color` | Background color for selected node |
+| highlightFg | `PixelUI.Color` | Foreground color for selected node |
+| placeholder | `string?` | Text shown when tree is empty |
 | onSelect | `fun(self:PixelUI.TreeView,` |  |
 | onToggle | `fun(self:PixelUI.TreeView,` |  |
 

@@ -2,15 +2,17 @@
 
 *Extends: PixelUI.Widget*
 
+A scrollable list widget for displaying and selecting items. Supports keyboard and mouse navigation.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| items | `string[]` |  |
-| selectedIndex | `integer` |  |
-| highlightBg | `PixelUI.Color` |  |
-| highlightFg | `PixelUI.Color` |  |
-| placeholder | `string?` |  |
+| items | `string[]` | Array of items to display |
+| selectedIndex | `integer` | Index of currently selected item |
+| highlightBg | `PixelUI.Color` | Background color for selected item |
+| highlightFg | `PixelUI.Color` | Foreground color for selected item |
+| placeholder | `string?` | Text shown when list is empty |
 | onSelect | `fun(self:PixelUI.List,` |  |
 
 ## Methods

@@ -2,18 +2,20 @@
 
 *Extends: PixelUI.Widget*
 
+A data table widget with sorting and selection capabilities. Displays tabular data with customizable columns and row selection.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| columns | `PixelUI.TableColumn[]` |  |
-| data | `table[]` |  |
-| sortColumn | `string?` |  |
-| sortDirection | `"asc"\|"desc"` |  |
-| allowRowSelection | `boolean` |  |
-| highlightBg | `PixelUI.Color` |  |
-| highlightFg | `PixelUI.Color` |  |
-| placeholder | `string` |  |
+| columns | `PixelUI.TableColumn[]` | Array of column definitions |
+| data | `table[]` | Array of row data objects |
+| sortColumn | `string?` | ID of currently sorted column |
+| sortDirection | `"asc"\|"desc"` | Sort direction (ascending or descending) |
+| allowRowSelection | `boolean` | Whether rows can be selected |
+| highlightBg | `PixelUI.Color` | Background color for selected row |
+| highlightFg | `PixelUI.Color` | Foreground color for selected row |
+| placeholder | `string` | Text shown when table is empty |
 | onSelect | `fun(self:PixelUI.Table,` |  |
 | onSort | `fun(self:PixelUI.Table,` |  |
 

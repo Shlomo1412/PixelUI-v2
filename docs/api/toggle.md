@@ -2,22 +2,24 @@
 
 *Extends: PixelUI.Widget*
 
+A toggle switch widget with on/off states and customizable appearance. Features a sliding thumb animation and optional labels.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| value | `boolean` |  |
-| labelOn | `string` |  |
-| labelOff | `string` |  |
-| trackColorOn | `PixelUI.Color` |  |
-| trackColorOff | `PixelUI.Color` |  |
-| thumbColor | `PixelUI.Color` |  |
-| onLabelColor | `PixelUI.Color?` |  |
-| offLabelColor | `PixelUI.Color?` |  |
-| focusBg | `PixelUI.Color?` |  |
-| focusFg | `PixelUI.Color?` |  |
-| showLabel | `boolean` |  |
-| disabled | `boolean` |  |
+| value | `boolean` | Current toggle state (true = on, false = off) |
+| labelOn | `string` | Label text when toggle is on |
+| labelOff | `string` | Label text when toggle is off |
+| trackColorOn | `PixelUI.Color` | Track color when on |
+| trackColorOff | `PixelUI.Color` | Track color when off |
+| thumbColor | `PixelUI.Color` | Color of the sliding thumb |
+| onLabelColor | `PixelUI.Color?` | Text color for "on" label |
+| offLabelColor | `PixelUI.Color?` | Text color for "off" label |
+| focusBg | `PixelUI.Color?` | Background color when focused |
+| focusFg | `PixelUI.Color?` | Foreground color when focused |
+| showLabel | `boolean` | Whether to show the label text |
+| disabled | `boolean` | Whether the toggle is disabled |
 | onChange | `fun(self:PixelUI.Toggle,` |  |
 
 ## Methods

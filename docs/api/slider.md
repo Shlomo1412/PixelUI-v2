@@ -2,18 +2,20 @@
 
 *Extends: PixelUI.Widget*
 
+A slider widget for selecting numeric values within a range. Supports single value or range selection mode.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| min | `number` |  |
-| max | `number` |  |
-| value | `number` |  |
-| range | `boolean` |  |
-| lowerValue | `number?` |  |
-| upperValue | `number?` |  |
-| step | `number` |  |
-| showValue | `boolean` |  |
+| min | `number` | Minimum value |
+| max | `number` | Maximum value |
+| value | `number` | Current value (single mode) |
+| range | `boolean` | Whether in range selection mode |
+| lowerValue | `number?` | Lower bound value (range mode) |
+| upperValue | `number?` | Upper bound value (range mode) |
+| step | `number` | Step increment for value changes |
+| showValue | `boolean` | Whether to display the current value |
 | onChange | `fun(self:PixelUI.Slider,` |  |
 | formatValue | `fun(self:PixelUI.Slider,` |  |
 

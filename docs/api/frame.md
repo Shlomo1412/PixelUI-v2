@@ -2,13 +2,15 @@
 
 *Extends: PixelUI.Widget*
 
+A container widget that can hold child widgets. Serves as the base for layout organization and hierarchy.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
 | private | `_children` |  |
 | private | `_orderCounter` |  |
-| title | `string?` |  |
+| title | `string?` | Optional frame title |
 
 ## Methods
 

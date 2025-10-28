@@ -2,15 +2,17 @@
 
 *Extends: PixelUI.Widget*
 
+A clickable button widget with press effects and event callbacks. Supports click, press, and release events with visual feedback.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| label | `string` |  |
+| label | `string` | The text displayed on the button |
 | onPress | `fun(self:PixelUI.Button,` |  |
 | onRelease | `fun(self:PixelUI.Button,` |  |
 | onClick | `fun(self:PixelUI.Button,` |  |
-| clickEffect | `boolean` |  |
+| clickEffect | `boolean` | Whether to show a visual press effect |
 | private | `_pressed` |  |
 
 ## Methods

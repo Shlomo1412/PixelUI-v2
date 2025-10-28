@@ -2,19 +2,21 @@
 
 *Extends: PixelUI.Widget*
 
+A progress indicator widget showing completion status. Supports determinate and indeterminate modes with optional labels.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| value | `number` |  |
-| min | `number` |  |
-| max | `number` |  |
-| indeterminate | `boolean` |  |
-| label | `string?` |  |
-| showPercent | `boolean` |  |
-| trackColor | `PixelUI.Color` |  |
-| fillColor | `PixelUI.Color` |  |
-| textColor | `PixelUI.Color` |  |
+| value | `number` | Current progress value |
+| min | `number` | Minimum progress value |
+| max | `number` | Maximum progress value |
+| indeterminate | `boolean` | Whether to show an animated indeterminate state |
+| label | `string?` | Optional label text to display |
+| showPercent | `boolean` | Whether to show percentage text |
+| trackColor | `PixelUI.Color` | Background track color |
+| fillColor | `PixelUI.Color` | Foreground fill color |
+| textColor | `PixelUI.Color` | Color for text (label and percentage) |
 
 ## Methods
 

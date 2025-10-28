@@ -2,14 +2,16 @@
 
 *Extends: PixelUI.Widget*
 
+A text display widget with support for wrapping and alignment. Can display static or dynamic text with customizable alignment options.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| text | `string` |  |
-| wrap | `boolean` |  |
-| align | `"left"\|"center"\|"right"` |  |
-| verticalAlign | `"top"\|"middle"\|"bottom"` |  |
+| text | `string` | The text content to display |
+| wrap | `boolean` | Whether to wrap text to fit within the widget bounds |
+| align | `"left"\|"center"\|"right"` | Horizontal text alignment |
+| verticalAlign | `"top"\|"middle"\|"bottom"` | Vertical text alignment |
 
 ## Methods
 

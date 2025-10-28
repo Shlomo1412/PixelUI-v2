@@ -2,24 +2,26 @@
 
 *Extends: PixelUI.Widget*
 
+A data visualization widget supporting bar and line charts. Displays numeric data with optional labels and interactive selection.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| data | `number[]` |  |
-| labels | `string[]` |  |
-| chartType | `"bar"\|"line"` |  |
-| minValue | `number?` |  |
-| maxValue | `number?` |  |
-| showAxis | `boolean` |  |
-| showLabels | `boolean` |  |
-| placeholder | `string?` |  |
-| barColor | `PixelUI.Color` |  |
-| highlightColor | `PixelUI.Color` |  |
-| axisColor | `PixelUI.Color` |  |
-| lineColor | `PixelUI.Color` |  |
-| rangePadding | `number` |  |
-| selectedIndex | `integer?` |  |
+| data | `number[]` | Array of numeric values to display |
+| labels | `string[]` | Labels for each data point |
+| chartType | `"bar"\|"line"` | Type of chart visualization |
+| minValue | `number?` | Minimum value for the Y axis (auto-calculated if not set) |
+| maxValue | `number?` | Maximum value for the Y axis (auto-calculated if not set) |
+| showAxis | `boolean` | Whether to show axis lines |
+| showLabels | `boolean` | Whether to show data point labels |
+| placeholder | `string?` | Text to show when no data is available |
+| barColor | `PixelUI.Color` | Color for bars or line |
+| highlightColor | `PixelUI.Color` | Color for highlighted/selected elements |
+| axisColor | `PixelUI.Color` | Color for axis lines |
+| lineColor | `PixelUI.Color` | Color for line charts |
+| rangePadding | `number` | Padding percentage for the value range |
+| selectedIndex | `integer?` | Currently selected data point index |
 | onSelect | `fun(self:PixelUI.Chart,` |  |
 
 ## Methods

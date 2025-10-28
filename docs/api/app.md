@@ -1,24 +1,26 @@
 # PixelUI.App
 
+Main application class managing the UI and event loop. Handles rendering, events, animations, and threading.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| window | `table` |  |
-| box | `ShrekBox` |  |
-| layer | `Layer` |  |
-| pixelLayer | `Layer` |  |
-| background | `PixelUI.Color` |  |
-| root | `PixelUI.Frame` |  |
-| running | `boolean` |  |
-| _autoWindow | `boolean` |  |
-| _parentTerminal | `table?` |  |
-| _focusWidget | `PixelUI.Widget?` |  |
-| _popupWidgets | `PixelUI.Widget[]` |  |
+| window | `table` | The terminal window object |
+| box | `ShrekBox` | ShrekBox rendering instance |
+| layer | `Layer` | Text rendering layer |
+| pixelLayer | `Layer` | Pixel rendering layer |
+| background | `PixelUI.Color` | Root background color |
+| root | `PixelUI.Frame` | Root frame container |
+| running | `boolean` | Whether the application is running |
+| _autoWindow | `boolean` | Whether window was auto-created |
+| _parentTerminal | `table?` | Original terminal before window creation |
+| _focusWidget | `PixelUI.Widget?` | Currently focused widget |
+| _popupWidgets | `PixelUI.Widget[]` | Active popup widgets |
 | _popupLookup | `table&lt;PixelUI.Widget,` |  |
-| _animations | `table` |  |
-| _animationTimer | `integer?` |  |
-| _animationInterval | `number` |  |
+| _animations | `table` | Active animations |
+| _animationTimer | `integer?` | Animation timer ID |
+| _animationInterval | `number` | Animation update interval |
 | _radioGroups | `table&lt;string,` |  |
 
 ## Methods

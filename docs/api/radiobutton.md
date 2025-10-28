@@ -2,16 +2,18 @@
 
 *Extends: PixelUI.Widget*
 
+A radio button widget for exclusive selection within a group. Only one radio button in a group can be selected at a time.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| label | `string` |  |
-| value | `any` |  |
-| group | `string?` |  |
-| selected | `boolean` |  |
-| focusBg | `PixelUI.Color?` |  |
-| focusFg | `PixelUI.Color?` |  |
+| label | `string` | Label text displayed next to the radio button |
+| value | `any` | Value associated with this radio button |
+| group | `string?` | Group identifier for exclusive selection |
+| selected | `boolean` | Whether this radio button is selected |
+| focusBg | `PixelUI.Color?` | Background color when focused |
+| focusFg | `PixelUI.Color?` | Foreground color when focused |
 | onChange | `fun(self:PixelUI.RadioButton,` |  |
 
 ## Methods

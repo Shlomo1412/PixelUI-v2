@@ -2,17 +2,19 @@
 
 *Extends: PixelUI.Widget*
 
+A text input widget supporting single and multi-line input. Features syntax highlighting, autocomplete, and find/replace.
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| text | `string` |  |
-| placeholder | `string` |  |
+| text | `string` | Current text content |
+| placeholder | `string` | Placeholder text shown when empty |
 | onChange | `fun(self:PixelUI.TextBox,` |  |
-| maxLength | `integer?` |  |
-| multiline | `boolean` |  |
-| autocomplete | `string[]?` |  |
-| syntax | `table?` |  |
+| maxLength | `integer?` | Maximum allowed text length |
+| multiline | `boolean` | Whether to support multiple lines |
+| autocomplete | `string[]?` | Array of autocomplete suggestions |
+| syntax | `table?` | Syntax highlighting configuration |
 
 ## Methods
 
