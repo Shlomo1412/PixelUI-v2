@@ -189,6 +189,27 @@
 | duration | `number` |  |
 | dismissOnClick | `boolean` |  |
 
+#### PixelUI.LoadingRing
+
+*Extends: PixelUI.Widget*
+
+**Fields:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| segmentCount | `integer` |  |
+| thickness | `integer` |  |
+| color | `PixelUI.Color` |  |
+| secondaryColor | `PixelUI.Color?` |  |
+| trailColor | `PixelUI.Color?` |  |
+| tertiaryColor | `PixelUI.Color?` |  |
+| speed | `number` |  |
+| direction | `integer` |  |
+| radiusPixels | `integer?` |  |
+| trailPalette | `PixelUI.Color[]?` |  |
+| fadeSteps | `integer` |  |
+| autoStart | `boolean?` |  |
+
 #### PixelUI.Slider
 
 *Extends: PixelUI.Widget*
@@ -808,8 +829,6 @@ Widget:getAbsoluteRect()
 
 #### containsPoint
 
-*Since: 0.1.0*
-
 ```lua
 Widget:containsPoint(px, py)
 ```
@@ -882,8 +901,6 @@ Frame:addChild(child)
 
 #### removeChild
 
-*Since: 0.1.0*
-
 ```lua
 Frame:removeChild(child)
 ```
@@ -921,8 +938,6 @@ Frame:setTitle(title)
 | title | `string?` |  |
 
 #### draw
-
-*Since: 0.1.0*
 
 ```lua
 Frame:draw(textLayer, pixelLayer)
@@ -3135,6 +3150,22 @@ App:createNotificationToast(config)
 **Returns:**
 
 - `PixelUI.NotificationToast`
+
+#### createLoadingRing
+
+```lua
+App:createLoadingRing(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.LoadingRing`
 
 #### createSlider
 
