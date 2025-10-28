@@ -187,8 +187,9 @@ local checkbox = app:createCheckBox({
 Now that you understand the basics, explore:
 
 - [Widget Reference](/api) - Learn about all available widgets
+- [Animations Guide](/guides/animations) - Create smooth animations
+- [Threading Guide](/guides/threading) - Run background tasks
 - [Core Classes](/api/app) - Understand the App and Widget classes
-- [Advanced Features](#) - Animations, threading, and more
 
 ## Tips
 
