@@ -2,35 +2,41 @@
 layout: home
 
 hero:
-  name: "PixelUI"
+  name: "PixelUI v2"
   text: "A Modern UI Framework"
-  tagline: "Build beautiful user interfaces for ComputerCraft with ease"
+  tagline: "Build beautiful, responsive user interfaces for ComputerCraft with ease"
   actions:
     - theme: brand
       text: Get Started
-      link: /api
+      link: /guides/getting-started
     - theme: alt
       text: View on GitHub
       link: https://github.com/Shlomo1412/PixelUI-v2
 
 features:
-  - title: Rich Widget Library
-    details: Comprehensive collection of pre-built widgets including buttons, labels, checkboxes, toggles, text boxes, lists, tables, charts, and more.
+  - icon: 🎨
+    title: Rich Widget Library
+    details: Comprehensive collection of 15+ pre-built widgets including buttons, labels, checkboxes, toggles, text boxes, lists, tables, charts, sliders, and more.
   
-  - title: Flexible Layout System
+  - icon: 📐
+    title: Flexible Layout System
     details: Powerful frame-based layout system with support for borders, positioning, and z-ordering for complex UI hierarchies.
   
-  - title: Smooth Animations
+  - icon: ✨
+    title: Smooth Animations
     details: Built-in animation system with various easing functions to create fluid, responsive user interfaces.
   
-  - title: Event Handling
-    details: Comprehensive event system with focus management, mouse and keyboard input handling.
+  - icon: 🎯
+    title: Event Handling
+    details: Comprehensive event system with focus management, mouse and keyboard input handling, and intuitive callbacks.
   
-  - title: Thread Management
-    details: Advanced threading capabilities for background tasks with status tracking and cancellation support.
+  - icon: ⚡
+    title: Thread Management
+    details: Advanced threading capabilities for background tasks with status tracking, cancellation support, and progress reporting.
   
-  - title: Type-Safe
-    details: Fully annotated with LuaDoc type hints for better development experience and IDE support.
+  - icon: 🔒
+    title: Type-Safe
+    details: Fully annotated with LuaDoc type hints for better development experience, IDE support, and autocomplete.
 ---
 
 ## Quick Start
@@ -116,9 +122,46 @@ local handle = app:spawnThread(function(ctx)
 end, { name = "Background Task" })
 ```
 
-## Documentation
+## About This Project
+
+PixelUI v2 is a complete rewrite of the original PixelUI framework, designed to provide a modern, feature-rich UI framework for ComputerCraft. Building on the lessons learned from v1, this version offers improved performance, better type safety, and a more comprehensive widget collection.
+
+### Links
+
+- **[GitHub Repository](https://github.com/Shlomo1412/PixelUI-v2)** - Current version (v2)
+- **[PixelUI v1 (Archived)](https://github.com/Shlomo1412/PixelUI)** - Original version
+
+### Documentation
 
 For detailed API documentation, see the [API Reference](/api).
+
+## Key Features Explained
+
+### 🎨 Widget Variety
+
+PixelUI v2 includes widgets for virtually every use case:
+
+- **Interactive Controls**: Buttons, CheckBoxes, RadioButtons, Toggles
+- **Data Display**: Labels, ProgressBars, Charts (bar & line)
+- **Data Input**: TextBox (with multiline support), ComboBox, Slider
+- **Data Structures**: List, Table (with sorting), TreeView
+- **Notifications**: NotificationToast with multiple severity levels
+
+### 📐 Layout Management
+
+Create complex layouts using nested frames with:
+- Absolute positioning for precise control
+- Z-ordering for layer management
+- Customizable borders on any widget
+- Popup support for overlays and dialogs
+
+### ✨ Animation System
+
+Built-in easing functions for smooth transitions:
+- Linear, Quad, Cubic, Quart, Quint
+- Sine, Expo, Circ, Back, Elastic, Bounce
+- Both "in" and "out" variants
+- Custom easing function support
 
 ## License
 

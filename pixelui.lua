@@ -25,276 +25,325 @@ local shrekbox = require("shrekbox")
 ---@field rootBorder PixelUI.BorderConfig? # Border applied to the root frame
 ---@field animationInterval number? # Animation tick interval in seconds (defaults to 0.05)
 
+--- Base class for all UI widgets.
+--- Provides common properties and behavior for positioning, sizing, styling, and event handling.
 ---@class PixelUI.Widget
----@field app PixelUI.App
----@field parent PixelUI.Frame?
----@field x integer
----@field y integer
----@field width integer
----@field height integer
----@field bg PixelUI.Color
----@field fg PixelUI.Color
----@field _orderIndex integer?
----@field visible boolean
----@field z number
----@field border PixelUI.NormalizedBorderConfig?
----@field id string?
----@field focusable boolean
----@field draw fun(self:PixelUI.Widget, textLayer:Layer, pixelLayer:Layer)
----@field handleEvent fun(self:PixelUI.Widget, event:string, ...:any):boolean
----@field setFocused fun(self:PixelUI.Widget, focused:boolean)
----@field isFocused fun(self:PixelUI.Widget):boolean
+---@field app PixelUI.App # The application instance that owns this widget
+---@field parent PixelUI.Frame? # The parent frame containing this widget
+---@field x integer # X position relative to parent
+---@field y integer # Y position relative to parent
+---@field width integer # Width in characters
+---@field height integer # Height in characters
+---@field bg PixelUI.Color # Background color
+---@field fg PixelUI.Color # Foreground/text color
+---@field _orderIndex integer? # Internal ordering index
+---@field visible boolean # Whether the widget is visible
+---@field z number # Z-order for layering (higher values appear on top)
+---@field border PixelUI.NormalizedBorderConfig? # Border configuration
+---@field id string? # Optional unique identifier
+---@field focusable boolean # Whether the widget can receive focus
+---@field draw fun(self:PixelUI.Widget, textLayer:Layer, pixelLayer:Layer) # Render the widget
+---@field handleEvent fun(self:PixelUI.Widget, event:string, ...:any):boolean # Handle input events
+---@field setFocused fun(self:PixelUI.Widget, focused:boolean) # Set focus state
+---@field isFocused fun(self:PixelUI.Widget):boolean # Check if widget has focus
 
+--- Internal normalized border configuration.
 ---@class PixelUI.NormalizedBorderConfig
----@field color PixelUI.Color
----@field top boolean
----@field right boolean
----@field bottom boolean
----@field left boolean
----@field thickness integer
+---@field color PixelUI.Color # Border color
+---@field top boolean # Show top border
+---@field right boolean # Show right border
+---@field bottom boolean # Show bottom border
+---@field left boolean # Show left border
+---@field thickness integer # Border thickness in pixels
 
+--- Main application class managing the UI and event loop.
+--- Handles rendering, events, animations, and threading.
 ---@class PixelUI.App
----@field window table
----@field box ShrekBox
----@field layer Layer
----@field pixelLayer Layer
----@field background PixelUI.Color
----@field root PixelUI.Frame
----@field running boolean
----@field _autoWindow boolean
----@field _parentTerminal table?
----@field _focusWidget PixelUI.Widget?
----@field _popupWidgets PixelUI.Widget[]
----@field _popupLookup table<PixelUI.Widget, boolean>
----@field _animations table
----@field _animationTimer integer?
----@field _animationInterval number
----@field _radioGroups table<string, { buttons: PixelUI.RadioButton[], lookup: table<PixelUI.RadioButton, boolean>, selected: PixelUI.RadioButton? }>
+---@field window table # The terminal window object
+---@field box ShrekBox # ShrekBox rendering instance
+---@field layer Layer # Text rendering layer
+---@field pixelLayer Layer # Pixel rendering layer
+---@field background PixelUI.Color # Root background color
+---@field root PixelUI.Frame # Root frame container
+---@field running boolean # Whether the application is running
+---@field _autoWindow boolean # Whether window was auto-created
+---@field _parentTerminal table? # Original terminal before window creation
+---@field _focusWidget PixelUI.Widget? # Currently focused widget
+---@field _popupWidgets PixelUI.Widget[] # Active popup widgets
+---@field _popupLookup table<PixelUI.Widget, boolean> # Popup lookup table
+---@field _animations table # Active animations
+---@field _animationTimer integer? # Animation timer ID
+---@field _animationInterval number # Animation update interval
+---@field _radioGroups table<string, { buttons: PixelUI.RadioButton[], lookup: table<PixelUI.RadioButton, boolean>, selected: PixelUI.RadioButton? }> # Radio button groups
 
+--- A container widget that can hold child widgets.
+--- Serves as the base for layout organization and hierarchy.
 ---@class PixelUI.Frame : PixelUI.Widget
----@field private _children PixelUI.Widget[]
----@field private _orderCounter integer
----@field title string?
+---@field private _children PixelUI.Widget[] # Child widgets
+---@field private _orderCounter integer # Counter for child ordering
+---@field title string? # Optional frame title
 
+--- A clickable button widget with press effects and event callbacks.
+--- Supports click, press, and release events with visual feedback.
 ---@class PixelUI.Button : PixelUI.Widget
----@field label string
----@field onPress fun(self:PixelUI.Button, button:integer, x:integer, y:integer)?
----@field onRelease fun(self:PixelUI.Button, button:integer, x:integer, y:integer)?
----@field onClick fun(self:PixelUI.Button, button:integer, x:integer, y:integer)?
----@field clickEffect boolean
+---@field label string # The text displayed on the button
+---@field onPress fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is pressed
+---@field onRelease fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is released
+---@field onClick fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is clicked (press + release)
+---@field clickEffect boolean # Whether to show a visual press effect
 ---@field private _pressed boolean
 
+--- A text display widget with support for wrapping and alignment.
+--- Can display static or dynamic text with customizable alignment options.
 ---@class PixelUI.Label : PixelUI.Widget
----@field text string
----@field wrap boolean
----@field align "left"|"center"|"right"
----@field verticalAlign "top"|"middle"|"bottom"
+---@field text string # The text content to display
+---@field wrap boolean # Whether to wrap text to fit within the widget bounds
+---@field align "left"|"center"|"right" # Horizontal text alignment
+---@field verticalAlign "top"|"middle"|"bottom" # Vertical text alignment
 
+--- A checkbox widget with support for checked, unchecked, and indeterminate states.
+--- Provides visual feedback and change callbacks.
 ---@class PixelUI.CheckBox : PixelUI.Widget
----@field label string
----@field checked boolean
----@field indeterminate boolean
----@field allowIndeterminate boolean
----@field focusBg PixelUI.Color?
----@field focusFg PixelUI.Color?
----@field onChange fun(self:PixelUI.CheckBox, checked:boolean, indeterminate:boolean)?
+---@field label string # Label text displayed next to the checkbox
+---@field checked boolean # Whether the checkbox is checked
+---@field indeterminate boolean # Whether the checkbox is in an indeterminate state
+---@field allowIndeterminate boolean # Whether the indeterminate state is allowed
+---@field focusBg PixelUI.Color? # Background color when focused
+---@field focusFg PixelUI.Color? # Foreground color when focused
+---@field onChange fun(self:PixelUI.CheckBox, checked:boolean, indeterminate:boolean)? # Callback fired when state changes
 
+--- A toggle switch widget with on/off states and customizable appearance.
+--- Features a sliding thumb animation and optional labels.
 ---@class PixelUI.Toggle : PixelUI.Widget
----@field value boolean
----@field labelOn string
----@field labelOff string
----@field trackColorOn PixelUI.Color
----@field trackColorOff PixelUI.Color
----@field thumbColor PixelUI.Color
----@field onLabelColor PixelUI.Color?
----@field offLabelColor PixelUI.Color?
----@field focusBg PixelUI.Color?
----@field focusFg PixelUI.Color?
----@field showLabel boolean
----@field disabled boolean
----@field onChange fun(self:PixelUI.Toggle, value:boolean)?
+---@field value boolean # Current toggle state (true = on, false = off)
+---@field labelOn string # Label text when toggle is on
+---@field labelOff string # Label text when toggle is off
+---@field trackColorOn PixelUI.Color # Track color when on
+---@field trackColorOff PixelUI.Color # Track color when off
+---@field thumbColor PixelUI.Color # Color of the sliding thumb
+---@field onLabelColor PixelUI.Color? # Text color for "on" label
+---@field offLabelColor PixelUI.Color? # Text color for "off" label
+---@field focusBg PixelUI.Color? # Background color when focused
+---@field focusFg PixelUI.Color? # Foreground color when focused
+---@field showLabel boolean # Whether to show the label text
+---@field disabled boolean # Whether the toggle is disabled
+---@field onChange fun(self:PixelUI.Toggle, value:boolean)? # Callback fired when value changes
 
+--- A data visualization widget supporting bar and line charts.
+--- Displays numeric data with optional labels and interactive selection.
 ---@class PixelUI.Chart : PixelUI.Widget
----@field data number[]
----@field labels string[]
----@field chartType "bar"|"line"
----@field minValue number?
----@field maxValue number?
----@field showAxis boolean
----@field showLabels boolean
----@field placeholder string?
----@field barColor PixelUI.Color
----@field highlightColor PixelUI.Color
----@field axisColor PixelUI.Color
----@field lineColor PixelUI.Color
----@field rangePadding number
----@field selectedIndex integer?
----@field onSelect fun(self:PixelUI.Chart, index:integer?, value:number?)?
+---@field data number[] # Array of numeric values to display
+---@field labels string[] # Labels for each data point
+---@field chartType "bar"|"line" # Type of chart visualization
+---@field minValue number? # Minimum value for the Y axis (auto-calculated if not set)
+---@field maxValue number? # Maximum value for the Y axis (auto-calculated if not set)
+---@field showAxis boolean # Whether to show axis lines
+---@field showLabels boolean # Whether to show data point labels
+---@field placeholder string? # Text to show when no data is available
+---@field barColor PixelUI.Color # Color for bars or line
+---@field highlightColor PixelUI.Color # Color for highlighted/selected elements
+---@field axisColor PixelUI.Color # Color for axis lines
+---@field lineColor PixelUI.Color # Color for line charts
+---@field rangePadding number # Padding percentage for the value range
+---@field selectedIndex integer? # Currently selected data point index
+---@field onSelect fun(self:PixelUI.Chart, index:integer?, value:number?)? # Callback fired when a data point is selected
 
+--- A progress indicator widget showing completion status.
+--- Supports determinate and indeterminate modes with optional labels.
 ---@class PixelUI.ProgressBar : PixelUI.Widget
----@field value number
----@field min number
----@field max number
----@field indeterminate boolean
----@field label string?
----@field showPercent boolean
----@field trackColor PixelUI.Color
----@field fillColor PixelUI.Color
----@field textColor PixelUI.Color
+---@field value number # Current progress value
+---@field min number # Minimum progress value
+---@field max number # Maximum progress value
+---@field indeterminate boolean # Whether to show an animated indeterminate state
+---@field label string? # Optional label text to display
+---@field showPercent boolean # Whether to show percentage text
+---@field trackColor PixelUI.Color # Background track color
+---@field fillColor PixelUI.Color # Foreground fill color
+---@field textColor PixelUI.Color # Color for text (label and percentage)
 
+--- A notification toast widget for displaying temporary messages.
+--- Supports different severity levels and auto-hide functionality.
 ---@class PixelUI.NotificationToast : PixelUI.Widget
----@field title string?
----@field message string
----@field severity string
----@field autoHide boolean
----@field duration number
----@field dismissOnClick boolean
+---@field title string? # Optional title text
+---@field message string # The notification message content
+---@field severity string # Severity level (e.g., "info", "success", "warning", "error")
+---@field autoHide boolean # Whether to automatically hide after duration
+---@field duration number # Duration in seconds before auto-hiding
+---@field dismissOnClick boolean # Whether clicking dismisses the notification
 
+--- An animated loading ring indicator widget.
+--- Displays a rotating segmented ring for loading states.
 ---@class PixelUI.LoadingRing : PixelUI.Widget
----@field segmentCount integer
----@field thickness integer
----@field color PixelUI.Color
----@field secondaryColor PixelUI.Color?
----@field trailColor PixelUI.Color?
----@field tertiaryColor PixelUI.Color?
----@field speed number
----@field direction integer
----@field radiusPixels integer?
----@field trailPalette PixelUI.Color[]?
----@field fadeSteps integer
----@field autoStart boolean?
+---@field segmentCount integer # Number of segments in the ring
+---@field thickness integer # Thickness of the ring in pixels
+---@field color PixelUI.Color # Primary color of the ring
+---@field secondaryColor PixelUI.Color? # Optional secondary color for gradient effect
+---@field trailColor PixelUI.Color? # Color for the trailing segments
+---@field tertiaryColor PixelUI.Color? # Optional tertiary color
+---@field speed number # Rotation speed multiplier
+---@field direction integer # Rotation direction (1 or -1)
+---@field radiusPixels integer? # Radius in pixels (auto-calculated if not set)
+---@field trailPalette PixelUI.Color[]? # Array of colors for trail gradient
+---@field fadeSteps integer # Number of fade steps for the trail
+---@field autoStart boolean? # Whether to start animating automatically
 
+--- A slider widget for selecting numeric values within a range.
+--- Supports single value or range selection mode.
 ---@class PixelUI.Slider : PixelUI.Widget
----@field min number
----@field max number
----@field value number
----@field range boolean
----@field lowerValue number?
----@field upperValue number?
----@field step number
----@field showValue boolean
----@field onChange fun(self:PixelUI.Slider, ...:number)?
----@field formatValue fun(self:PixelUI.Slider, ...:number):string?
+---@field min number # Minimum value
+---@field max number # Maximum value
+---@field value number # Current value (single mode)
+---@field range boolean # Whether in range selection mode
+---@field lowerValue number? # Lower bound value (range mode)
+---@field upperValue number? # Upper bound value (range mode)
+---@field step number # Step increment for value changes
+---@field showValue boolean # Whether to display the current value
+---@field onChange fun(self:PixelUI.Slider, ...:number)? # Callback fired when value changes
+---@field formatValue fun(self:PixelUI.Slider, ...:number):string? # Custom value formatter function
 
+--- A tree node representing an item in a TreeView.
+--- Can have children nodes for hierarchical structures.
 ---@class PixelUI.TreeNode
----@field label string
----@field data any
----@field children PixelUI.TreeNode[]
----@field expanded boolean
+---@field label string # Display text for the node
+---@field data any # Custom data associated with the node
+---@field children PixelUI.TreeNode[] # Child nodes
+---@field expanded boolean # Whether the node is expanded to show children
 
+--- A hierarchical tree view widget for displaying nested data.
+--- Supports expand/collapse and selection of nodes.
 ---@class PixelUI.TreeView : PixelUI.Widget
----@field indentWidth integer
----@field highlightBg PixelUI.Color
----@field highlightFg PixelUI.Color
----@field placeholder string?
----@field onSelect fun(self:PixelUI.TreeView, node:PixelUI.TreeNode?, index:integer)?
----@field onToggle fun(self:PixelUI.TreeView, node:PixelUI.TreeNode, expanded:boolean)?
+---@field indentWidth integer # Width of indentation per level
+---@field highlightBg PixelUI.Color # Background color for selected node
+---@field highlightFg PixelUI.Color # Foreground color for selected node
+---@field placeholder string? # Text shown when tree is empty
+---@field onSelect fun(self:PixelUI.TreeView, node:PixelUI.TreeNode?, index:integer)? # Callback fired when node is selected
+---@field onToggle fun(self:PixelUI.TreeView, node:PixelUI.TreeNode, expanded:boolean)? # Callback fired when node is expanded/collapsed
 
+--- A scrollable list widget for displaying and selecting items.
+--- Supports keyboard and mouse navigation.
 ---@class PixelUI.List : PixelUI.Widget
----@field items string[]
----@field selectedIndex integer
----@field highlightBg PixelUI.Color
----@field highlightFg PixelUI.Color
----@field placeholder string?
----@field onSelect fun(self:PixelUI.List, item:string?, index:integer)?
+---@field items string[] # Array of items to display
+---@field selectedIndex integer # Index of currently selected item
+---@field highlightBg PixelUI.Color # Background color for selected item
+---@field highlightFg PixelUI.Color # Foreground color for selected item
+---@field placeholder string? # Text shown when list is empty
+---@field onSelect fun(self:PixelUI.List, item:string?, index:integer)? # Callback fired when selection changes
 
+--- A radio button widget for exclusive selection within a group.
+--- Only one radio button in a group can be selected at a time.
 ---@class PixelUI.RadioButton : PixelUI.Widget
----@field label string
----@field value any
----@field group string?
----@field selected boolean
----@field focusBg PixelUI.Color?
----@field focusFg PixelUI.Color?
----@field onChange fun(self:PixelUI.RadioButton, selected:boolean, value:any)?
+---@field label string # Label text displayed next to the radio button
+---@field value any # Value associated with this radio button
+---@field group string? # Group identifier for exclusive selection
+---@field selected boolean # Whether this radio button is selected
+---@field focusBg PixelUI.Color? # Background color when focused
+---@field focusFg PixelUI.Color? # Foreground color when focused
+---@field onChange fun(self:PixelUI.RadioButton, selected:boolean, value:any)? # Callback fired when selection changes
 
+--- A dropdown selection widget (combo box) for choosing from a list of options.
+--- Opens a dropdown menu when clicked.
 ---@class PixelUI.ComboBox : PixelUI.Widget
----@field items string[]
----@field selectedIndex integer
----@field dropdownBg PixelUI.Color
----@field dropdownFg PixelUI.Color
----@field highlightBg PixelUI.Color
----@field highlightFg PixelUI.Color
----@field placeholder string?
----@field onChange fun(self:PixelUI.ComboBox, item:string?, index:integer)?
+---@field items string[] # Array of selectable items
+---@field selectedIndex integer # Index of currently selected item
+---@field dropdownBg PixelUI.Color # Background color for dropdown menu
+---@field dropdownFg PixelUI.Color # Foreground color for dropdown menu
+---@field highlightBg PixelUI.Color # Background color for highlighted item
+---@field highlightFg PixelUI.Color # Foreground color for highlighted item
+---@field placeholder string? # Text shown when no item is selected
+---@field onChange fun(self:PixelUI.ComboBox, item:string?, index:integer)? # Callback fired when selection changes
 
+--- A text input widget supporting single and multi-line input.
+--- Features syntax highlighting, autocomplete, and find/replace.
 ---@class PixelUI.TextBox : PixelUI.Widget
----@field text string
----@field placeholder string
----@field onChange fun(self:PixelUI.TextBox, value:string)?
----@field maxLength integer?
----@field multiline boolean
----@field autocomplete string[]?
----@field syntax table?
+---@field text string # Current text content
+---@field placeholder string # Placeholder text shown when empty
+---@field onChange fun(self:PixelUI.TextBox, value:string)? # Callback fired when text changes
+---@field maxLength integer? # Maximum allowed text length
+---@field multiline boolean # Whether to support multiple lines
+---@field autocomplete string[]? # Array of autocomplete suggestions
+---@field syntax table? # Syntax highlighting configuration
 
+--- A table column definition for the Table widget.
+--- Defines how data is accessed, displayed, and sorted.
 ---@class PixelUI.TableColumn
----@field id string
----@field title string
----@field key string?
----@field accessor fun(row:any):any
----@field width integer?
----@field align "left"|"center"|"right"?
----@field sortable boolean?
----@field format fun(value:any, row:any, column:PixelUI.TableColumn):string?
----@field comparator fun(a:any, b:any, aRow:any, bRow:any, column:PixelUI.TableColumn):number?
+---@field id string # Unique identifier for the column
+---@field title string # Display title in the header
+---@field key string? # Key to access data from row objects
+---@field accessor fun(row:any):any # Function to extract cell value from row
+---@field width integer? # Fixed width in characters (auto-sized if not set)
+---@field align "left"|"center"|"right"? # Cell text alignment
+---@field sortable boolean? # Whether this column can be sorted
+---@field format fun(value:any, row:any, column:PixelUI.TableColumn):string? # Custom cell formatter
+---@field comparator fun(a:any, b:any, aRow:any, bRow:any, column:PixelUI.TableColumn):number? # Custom sort comparator
 
+--- A data table widget with sorting and selection capabilities.
+--- Displays tabular data with customizable columns and row selection.
 ---@class PixelUI.Table : PixelUI.Widget
----@field columns PixelUI.TableColumn[]
----@field data table[]
----@field sortColumn string?
----@field sortDirection "asc"|"desc"
----@field allowRowSelection boolean
----@field highlightBg PixelUI.Color
----@field highlightFg PixelUI.Color
----@field placeholder string
----@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)?
----@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")?
+---@field columns PixelUI.TableColumn[] # Array of column definitions
+---@field data table[] # Array of row data objects
+---@field sortColumn string? # ID of currently sorted column
+---@field sortDirection "asc"|"desc" # Sort direction (ascending or descending)
+---@field allowRowSelection boolean # Whether rows can be selected
+---@field highlightBg PixelUI.Color # Background color for selected row
+---@field highlightFg PixelUI.Color # Foreground color for selected row
+---@field placeholder string # Text shown when table is empty
+---@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)? # Callback fired when row is selected
+---@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")? # Callback fired when sort changes
 
+--- Status of a background thread.
 ---@alias PixelUI.ThreadStatus "running"|"completed"|"error"|"cancelled"
 
+--- Configuration options for spawning a background thread.
 ---@class PixelUI.ThreadOptions
----@field name string?
----@field onStatus fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus)?
----@field onMetadata fun(handle:PixelUI.ThreadHandle, key:string, value:any)?
+---@field name string? # Display name for the thread
+---@field onStatus fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus)? # Callback fired on status changes
+---@field onMetadata fun(handle:PixelUI.ThreadHandle, key:string, value:any)? # Callback fired on metadata changes
 
+--- Handle for controlling and monitoring a background thread.
+--- Provides methods to check status, cancel execution, and retrieve results.
 ---@class PixelUI.ThreadHandle
----@field app PixelUI.App
----@field getId fun(self:PixelUI.ThreadHandle):integer
----@field getName fun(self:PixelUI.ThreadHandle):string
----@field setName fun(self:PixelUI.ThreadHandle, name:string)
----@field getStatus fun(self:PixelUI.ThreadHandle):PixelUI.ThreadStatus
----@field isRunning fun(self:PixelUI.ThreadHandle):boolean
----@field isFinished fun(self:PixelUI.ThreadHandle):boolean
----@field cancel fun(self:PixelUI.ThreadHandle):boolean
----@field isCancelled fun(self:PixelUI.ThreadHandle):boolean
----@field getResult fun(self:PixelUI.ThreadHandle):...
----@field getResults fun(self:PixelUI.ThreadHandle):any[]?
----@field getError fun(self:PixelUI.ThreadHandle):any
----@field setMetadata fun(self:PixelUI.ThreadHandle, key:string, value:any)
----@field getMetadata fun(self:PixelUI.ThreadHandle, key:string):any
----@field getAllMetadata fun(self:PixelUI.ThreadHandle):table<string, any>
----@field onStatusChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus))
----@field onMetadataChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, key:string, value:any))
+---@field app PixelUI.App # The application instance
+---@field getId fun(self:PixelUI.ThreadHandle):integer # Get thread ID
+---@field getName fun(self:PixelUI.ThreadHandle):string # Get thread name
+---@field setName fun(self:PixelUI.ThreadHandle, name:string) # Set thread name
+---@field getStatus fun(self:PixelUI.ThreadHandle):PixelUI.ThreadStatus # Get current status
+---@field isRunning fun(self:PixelUI.ThreadHandle):boolean # Check if thread is running
+---@field isFinished fun(self:PixelUI.ThreadHandle):boolean # Check if thread has finished
+---@field cancel fun(self:PixelUI.ThreadHandle):boolean # Request thread cancellation
+---@field isCancelled fun(self:PixelUI.ThreadHandle):boolean # Check if thread was cancelled
+---@field getResult fun(self:PixelUI.ThreadHandle):... # Get thread results (blocks until complete)
+---@field getResults fun(self:PixelUI.ThreadHandle):any[]? # Get results as array
+---@field getError fun(self:PixelUI.ThreadHandle):any # Get error if thread failed
+---@field setMetadata fun(self:PixelUI.ThreadHandle, key:string, value:any) # Set metadata value
+---@field getMetadata fun(self:PixelUI.ThreadHandle, key:string):any # Get metadata value
+---@field getAllMetadata fun(self:PixelUI.ThreadHandle):table<string, any> # Get all metadata
+---@field onStatusChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, status:PixelUI.ThreadStatus)) # Register status change callback
+---@field onMetadataChange fun(self:PixelUI.ThreadHandle, callback:fun(handle:PixelUI.ThreadHandle, key:string, value:any)) # Register metadata change callback
 
+--- Context object provided to background thread functions.
+--- Provides utilities for sleeping, yielding, and reporting progress.
 ---@class PixelUI.ThreadContext
----@field sleep fun(self:PixelUI.ThreadContext, seconds:number|nil)
----@field yield fun(self:PixelUI.ThreadContext)
----@field checkCancelled fun(self:PixelUI.ThreadContext)
----@field isCancelled fun(self:PixelUI.ThreadContext):boolean
----@field setMetadata fun(self:PixelUI.ThreadContext, key:string, value:any)
----@field setStatus fun(self:PixelUI.ThreadContext, text:string)
----@field setDetail fun(self:PixelUI.ThreadContext, text:string)
----@field setProgress fun(self:PixelUI.ThreadContext, value:number)
----@field getHandle fun(self:PixelUI.ThreadContext):PixelUI.ThreadHandle
+---@field sleep fun(self:PixelUI.ThreadContext, seconds:number|nil) # Sleep for specified seconds
+---@field yield fun(self:PixelUI.ThreadContext) # Yield control to other threads
+---@field checkCancelled fun(self:PixelUI.ThreadContext) # Throw error if cancelled
+---@field isCancelled fun(self:PixelUI.ThreadContext):boolean # Check if cancelled
+---@field setMetadata fun(self:PixelUI.ThreadContext, key:string, value:any) # Set metadata value
+---@field setStatus fun(self:PixelUI.ThreadContext, text:string) # Set status text
+---@field setDetail fun(self:PixelUI.ThreadContext, text:string) # Set detail text
+---@field setProgress fun(self:PixelUI.ThreadContext, value:number) # Set progress value (0-1)
+---@field getHandle fun(self:PixelUI.ThreadContext):PixelUI.ThreadHandle # Get thread handle
 
+--- Configuration options for creating an animation.
 ---@class PixelUI.AnimationOptions
----@field duration number?
----@field easing (fun(t:number):number)|string?
----@field update fun(progress:number, rawProgress:number, handle:PixelUI.AnimationHandle?)?
----@field onComplete fun(handle:PixelUI.AnimationHandle?)?
----@field onCancel fun(handle:PixelUI.AnimationHandle?)?
+---@field duration number? # Duration in seconds (default: 1.0)
+---@field easing (fun(t:number):number)|string? # Easing function or name (default: "linear")
+---@field update fun(progress:number, rawProgress:number, handle:PixelUI.AnimationHandle?)? # Update callback (progress is eased, rawProgress is linear)
+---@field onComplete fun(handle:PixelUI.AnimationHandle?)? # Callback fired when animation completes
+---@field onCancel fun(handle:PixelUI.AnimationHandle?)? # Callback fired when animation is cancelled
 
+--- Handle for controlling a running animation.
 ---@class PixelUI.AnimationHandle
----@field cancel fun(self:PixelUI.AnimationHandle)
+---@field cancel fun(self:PixelUI.AnimationHandle) # Cancel the animation
 
 ---@alias PixelUI.WidgetConfig table
 

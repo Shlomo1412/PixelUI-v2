@@ -58,6 +58,23 @@ class AnnotationParser {
       fields: []
     };
 
+    // Look backwards for description comments
+    let descLines = [];
+    let j = startIndex - 1;
+    while (j >= 0 && this.lines[j].startsWith('---')) {
+      const line = this.lines[j];
+      if (!line.match(/^---@/)) {
+        const desc = line.substring(3).trim();
+        if (desc) {
+          descLines.unshift(desc);
+        }
+      } else {
+        break;
+      }
+      j--;
+    }
+    classData.description = descLines.join(' ');
+
     // Parse fields that follow
     let i = startIndex + 1;
     while (i < this.lines.length) {
