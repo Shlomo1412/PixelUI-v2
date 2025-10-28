@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /api
+      link: /guides/getting-started
     - theme: alt
       text: View on GitHub
       link: https://github.com/Shlomo1412/PixelUI-v2

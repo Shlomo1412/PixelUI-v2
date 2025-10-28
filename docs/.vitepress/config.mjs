@@ -8,6 +8,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Guides', link: '/guides/getting-started' },
       { text: 'API Reference', link: '/api' },
       { text: 'GitHub', link: 'https://github.com/Shlomo1412/PixelUI-v2' }
     ],
@@ -16,7 +17,16 @@ export default defineConfig({
       {
         text: 'Introduction',
         items: [
-          { text: 'Getting Started', link: '/' },
+          { text: 'Home', link: '/' },
+        ]
+      },
+      {
+        text: 'Guides',
+        collapsed: false,
+        items: [
+          { text: 'Getting Started', link: '/guides/getting-started' },
+          { text: 'Animations', link: '/guides/animations' },
+          { text: 'Threading', link: '/guides/threading' },
         ]
       },
       {
