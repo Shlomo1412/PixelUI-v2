@@ -56,6 +56,26 @@ local shrekbox = require("shrekbox")
 ---@field left boolean # Show left border
 ---@field thickness integer # Border thickness in pixels
 
+---@class PixelUI.ScrollbarConfig
+---@field enabled boolean? # Whether the scrollbar is enabled
+---@field alwaysVisible boolean? # Force rendering even when content fits
+---@field width integer? # Width in characters (defaults to 1)
+---@field trackColor PixelUI.Color? # Track background color
+---@field thumbColor PixelUI.Color? # Thumb color
+---@field arrowColor PixelUI.Color? # Arrow glyph color
+---@field background PixelUI.Color? # Fill color for unused areas
+---@field minThumbSize integer? # Minimum thumb height in characters
+
+---@class PixelUI.NormalizedScrollbarConfig
+---@field enabled boolean # Whether the scrollbar is enabled
+---@field alwaysVisible boolean # Whether the scrollbar renders when content fits
+---@field width integer # Width in characters
+---@field trackColor PixelUI.Color # Track background color
+---@field thumbColor PixelUI.Color # Thumb color
+---@field arrowColor PixelUI.Color # Arrow glyph color
+---@field background PixelUI.Color # Fill color for unused areas
+---@field minThumbSize integer # Minimum thumb height in characters
+
 --- Main application class managing the UI and event loop.
 --- Handles rendering, events, animations, and threading.
 ---@class PixelUI.App
@@ -218,6 +238,7 @@ local shrekbox = require("shrekbox")
 ---@field placeholder string? # Text shown when tree is empty
 ---@field onSelect fun(self:PixelUI.TreeView, node:PixelUI.TreeNode?, index:integer)? # Callback fired when node is selected
 ---@field onToggle fun(self:PixelUI.TreeView, node:PixelUI.TreeNode, expanded:boolean)? # Callback fired when node is expanded/collapsed
+---@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
 
 --- A scrollable list widget for displaying and selecting items.
 --- Supports keyboard and mouse navigation.
@@ -228,6 +249,7 @@ local shrekbox = require("shrekbox")
 ---@field highlightFg PixelUI.Color # Foreground color for selected item
 ---@field placeholder string? # Text shown when list is empty
 ---@field onSelect fun(self:PixelUI.List, item:string?, index:integer)? # Callback fired when selection changes
+---@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
 
 --- A radio button widget for exclusive selection within a group.
 --- Only one radio button in a group can be selected at a time.
@@ -262,6 +284,7 @@ local shrekbox = require("shrekbox")
 ---@field multiline boolean # Whether to support multiple lines
 ---@field autocomplete string[]? # Array of autocomplete suggestions
 ---@field syntax table? # Syntax highlighting configuration
+---@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
 
 --- A table column definition for the Table widget.
 --- Defines how data is accessed, displayed, and sorted.
@@ -289,6 +312,7 @@ local shrekbox = require("shrekbox")
 ---@field placeholder string # Text shown when table is empty
 ---@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)? # Callback fired when row is selected
 ---@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")? # Callback fired when sort changes
+---@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
 
 --- Status of a background thread.
 ---@alias PixelUI.ThreadStatus "running"|"completed"|"error"|"cancelled"
@@ -731,6 +755,165 @@ local function normalize_border(config)
 	end
 
 	return normalized
+end
+
+local SCROLLBAR_ARROW_UP = string.char(30)
+local SCROLLBAR_ARROW_DOWN = string.char(31)
+
+local function normalize_scrollbar(config, fallbackBg, fallbackFg)
+	if config == false then
+		return nil
+	end
+
+	local source
+	if config == nil or config == true then
+		source = {}
+	elseif type(config) == "table" then
+		source = config
+		if source.enabled == false then
+			return nil
+		end
+	else
+		expect(1, config, "table")
+		source = config
+		if source.enabled == false then
+			return nil
+		end
+	end
+
+	local trackColor = source.trackColor or colors.gray
+	local thumbColor = source.thumbColor or colors.lightGray
+	local arrowColor = source.arrowColor or fallbackFg or colors.white
+	local background = source.background or fallbackBg or colors.black
+	local width = math.max(1, math.floor(source.width or 1))
+	local minThumbSize = math.max(1, math.floor(source.minThumbSize or 1))
+	return {
+		enabled = true,
+		alwaysVisible = not not source.alwaysVisible,
+		width = width,
+		trackColor = trackColor,
+		thumbColor = thumbColor,
+		arrowColor = arrowColor,
+		background = background,
+		minThumbSize = minThumbSize
+	}
+end
+
+local function clamp01(value)
+	if value < 0 then
+		return 0
+	end
+	if value > 1 then
+		return 1
+	end
+	return value
+end
+
+local function resolve_scrollbar(style, totalItems, visibleItems, availableWidth)
+	if not style or style.enabled == false then
+		return 0, nil
+	end
+	totalItems = math.max(0, totalItems or 0)
+	visibleItems = math.max(0, visibleItems or 0)
+	availableWidth = math.max(0, availableWidth or 0)
+	if availableWidth <= 1 or visibleItems <= 0 then
+		return 0, nil
+	end
+	if not style.alwaysVisible and totalItems <= visibleItems then
+		return 0, nil
+	end
+	local maxWidth = math.max(1, availableWidth - 1)
+	local width = math.max(1, math.floor(style.width or 1))
+	if width > maxWidth then
+		width = maxWidth
+	end
+	if width <= 0 then
+		return 0, nil
+	end
+	return width, style
+end
+
+local function draw_vertical_scrollbar(textLayer, x, y, height, totalItems, visibleItems, zeroOffset, style)
+	if not style or height <= 0 then
+		return
+	end
+	local width = math.max(1, math.floor(style.width or 1))
+	local trackColor = style.trackColor
+	local arrowColor = style.arrowColor
+	local thumbColor = style.thumbColor
+	local minThumbSize = math.max(1, math.floor(style.minThumbSize or 1))
+	local arrowPadding = math.max(0, width - 1)
+	local topArrowLine = SCROLLBAR_ARROW_UP .. string.rep(" ", arrowPadding)
+	textLayer.text(x, y, topArrowLine, arrowColor, trackColor)
+	if height >= 2 then
+		local bottomArrowLine = SCROLLBAR_ARROW_DOWN .. string.rep(" ", arrowPadding)
+		textLayer.text(x, y + height - 1, bottomArrowLine, arrowColor, trackColor)
+	end
+	local trackStart = y + 1
+	local trackHeight = math.max(0, height - 2)
+	local trackFill = string.rep(" ", width)
+	for row = 0, trackHeight - 1 do
+		textLayer.text(x, trackStart + row, trackFill, trackColor, trackColor)
+	end
+	local maxZeroOffset = math.max(0, (totalItems or 0) - (visibleItems or 0))
+	if maxZeroOffset <= 0 or trackHeight <= 0 then
+		return
+	end
+	local sanitizedOffset = math.max(0, math.min(maxZeroOffset, math.floor((zeroOffset or 0) + 0.5)))
+	local lengthRatio = visibleItems / totalItems
+	local thumbHeight = math.max(minThumbSize, math.floor(trackHeight * lengthRatio + 0.5))
+	if thumbHeight > trackHeight then
+		thumbHeight = trackHeight
+	end
+	if thumbHeight < 1 then
+		thumbHeight = 1
+	end
+	local thumbRange = trackHeight - thumbHeight
+	local thumbStart = trackStart
+	if thumbRange > 0 then
+		local positionRatio = clamp01(maxZeroOffset == 0 and 0 or (sanitizedOffset / maxZeroOffset))
+		thumbStart = trackStart + math.floor(positionRatio * thumbRange + 0.5)
+		if thumbStart > trackStart + thumbRange then
+			thumbStart = trackStart + thumbRange
+		end
+	end
+	local thumbFill = string.rep(" ", width)
+	for row = 0, thumbHeight - 1 do
+		textLayer.text(x, thumbStart + row, thumbFill, thumbColor, thumbColor)
+	end
+end
+
+local function scrollbar_click_to_offset(relativeY, height, totalItems, visibleItems, currentZeroOffset)
+	if height <= 0 then
+		return currentZeroOffset or 0
+	end
+	local maxZeroOffset = math.max(0, (totalItems or 0) - (visibleItems or 0))
+	if maxZeroOffset <= 0 then
+		return 0
+	end
+	local offset = math.max(0, math.min(maxZeroOffset, math.floor((currentZeroOffset or 0) + 0.5)))
+	if relativeY <= 0 then
+		return math.max(0, offset - 1)
+	elseif relativeY >= height - 1 then
+		return math.min(maxZeroOffset, offset + 1)
+	end
+	local trackHeight = height - 2
+	if trackHeight <= 0 then
+		return offset
+	end
+	local trackPos = relativeY - 1
+	if trackPos < 0 then
+		trackPos = 0
+	elseif trackPos > trackHeight then
+		trackPos = trackHeight
+	end
+	local target = math.floor((trackPos / trackHeight) * maxZeroOffset + 0.5)
+	if target < 0 then
+		target = 0
+	elseif target > maxZeroOffset then
+		target = maxZeroOffset
+	end
+	return target
 end
 
 ---@param layer Layer
@@ -3613,27 +3796,32 @@ function Slider:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
 	baseConfig.focusable = true
-	baseConfig.height = math.max(1, math.floor(baseConfig.height or 3))
-	baseConfig.width = math.max(1, math.floor(baseConfig.width or 12))
+	baseConfig.width = baseConfig.width or 12
+	if baseConfig.height == nil then
+		baseConfig.height = config.showValue and 2 or 1
+	end
 	local instance = setmetatable({}, Slider)
 	instance:_init_base(app, baseConfig)
 	instance.focusable = true
 	instance.min = type(config.min) == "number" and config.min or 0
-	instance.max = type(config.max) == "number" and config.max or 100
+	instance.max = type(config.max) == "number" and config.max or 1
 	if instance.max <= instance.min then
 		instance.max = instance.min + 1
 	end
-	if config and type(config.step) == "number" and config.step > 0 then
-		instance.step = config.step
+	if config.step ~= nil then
+		if type(config.step) ~= "number" then
+			error("Slider step must be a number", 2)
+		end
+		instance.step = config.step > 0 and config.step or 0
 	else
 		instance.step = 0
 	end
-	instance.range = not not (config and config.range)
-	instance.trackColor = (config and config.trackColor) or colors.gray
-	instance.fillColor = (config and config.fillColor) or colors.lightBlue
-	instance.handleColor = (config and config.handleColor) or colors.white
-	instance.showValue = not not (config and config.showValue)
-	if config and config.formatValue ~= nil then
+	instance.range = not not config.range
+	instance.showValue = not not config.showValue
+	instance.trackColor = config.trackColor or colors.gray
+	instance.fillColor = config.fillColor or colors.lightBlue
+	instance.handleColor = config.handleColor or colors.white
+	if config.formatValue ~= nil then
 		if type(config.formatValue) ~= "function" then
 			error("Slider formatValue must be a function", 2)
 		end
@@ -3641,7 +3829,7 @@ function Slider:new(app, config)
 	else
 		instance.formatValue = nil
 	end
-	instance.onChange = config and config.onChange or nil
+	instance.onChange = config.onChange
 	instance._activeHandle = nil
 	instance._focusedHandle = instance.range and "lower" or "single"
 	instance._dragging = false
@@ -3649,7 +3837,7 @@ function Slider:new(app, config)
 	if instance.range then
 		local startValue
 		local endValue
-		if config and type(config.value) == "table" then
+		if type(config.value) == "table" then
 			startValue = config.value[1]
 			endValue = config.value[2]
 		end
@@ -3674,7 +3862,7 @@ function Slider:new(app, config)
 			instance.lowerValue, instance.upperValue = instance.upperValue, instance.lowerValue
 		end
 	else
-		local value = config and config.value
+		local value = config.value
 		if type(value) ~= "number" then
 			value = instance.min
 		end
@@ -4328,6 +4516,7 @@ function Table:new(app, config)
 	if not instance.border then
 		instance.border = normalize_border(true)
 	end
+	instance.scrollbar = normalize_scrollbar(config.scrollbar, instance.bg or colors.black, instance.fg or colors.white)
 	instance:_ensureSelectionVisible()
 	return instance
 end
@@ -4593,6 +4782,11 @@ function Table:setOnSort(handler)
 	self.onSort = handler
 end
 
+function Table:setScrollbar(scrollbar)
+	self.scrollbar = normalize_scrollbar(scrollbar, self.bg or colors.black, self.fg or colors.white)
+	self:_clampScroll()
+end
+
 function Table:setOnSelect(handler)
 	if handler ~= nil then
 		expect(1, handler, "function")
@@ -4656,12 +4850,58 @@ function Table:_getInnerMetrics()
 	return innerX, innerY, innerWidth, innerHeight
 end
 
-function Table:_getRowsVisible()
-	local _, _, innerWidth, innerHeight = self:_getInnerMetrics()
+function Table:_computeLayoutMetrics()
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
 	if innerWidth <= 0 or innerHeight <= 0 then
+		return {
+			innerX = innerX,
+			innerY = innerY,
+			innerWidth = innerWidth,
+			innerHeight = innerHeight,
+			headerHeight = 0,
+			rowsHeight = 0,
+			contentWidth = 0,
+			scrollbarWidth = 0,
+			scrollbarStyle = nil,
+			scrollbarX = innerX
+		}
+	end
+	local headerHeight = innerHeight >= 1 and 1 or 0
+	local rowsHeight = math.max(0, innerHeight - headerHeight)
+	local scrollbarWidth, scrollbarStyle = resolve_scrollbar(self.scrollbar, #self._rows, rowsHeight, innerWidth)
+	if scrollbarWidth > 0 and innerWidth - scrollbarWidth < 1 then
+		scrollbarWidth = math.max(0, innerWidth - 1)
+		if scrollbarWidth <= 0 then
+			scrollbarWidth = 0
+			scrollbarStyle = nil
+		end
+	end
+	local contentWidth = innerWidth - scrollbarWidth
+	if contentWidth < 1 then
+		contentWidth = innerWidth
+		scrollbarWidth = 0
+		scrollbarStyle = nil
+	end
+	return {
+		innerX = innerX,
+		innerY = innerY,
+		innerWidth = innerWidth,
+		innerHeight = innerHeight,
+		headerHeight = headerHeight,
+		rowsHeight = rowsHeight,
+		contentWidth = contentWidth,
+		scrollbarWidth = scrollbarWidth,
+		scrollbarStyle = scrollbarStyle,
+		scrollbarX = innerX + contentWidth
+	}
+end
+
+function Table:_getRowsVisible()
+	local metrics = self:_computeLayoutMetrics()
+	if metrics.innerWidth <= 0 or metrics.innerHeight <= 0 or metrics.contentWidth <= 0 then
 		return 0
 	end
-	local rows = innerHeight - 1
+	local rows = metrics.rowsHeight
 	if rows < 0 then
 		rows = 0
 	end
@@ -4703,19 +4943,19 @@ function Table:_rowFromPoint(x, y)
 	if not self:containsPoint(x, y) then
 		return nil
 	end
-	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	if metrics.innerWidth <= 0 or metrics.innerHeight <= 0 or metrics.contentWidth <= 0 then
 		return nil
 	end
-	if y <= innerY then
+	local rowStartY = metrics.innerY + metrics.headerHeight
+	if y < rowStartY or y >= rowStartY + metrics.rowsHeight then
 		return nil
 	end
-	local rowsVisible = self:_getRowsVisible()
-	if rowsVisible <= 0 then
+	if x < metrics.innerX or x >= metrics.innerX + metrics.contentWidth then
 		return nil
 	end
-	local relativeRow = y - innerY - 1
-	if relativeRow < 0 or relativeRow >= rowsVisible then
+	local relativeRow = y - rowStartY
+	if relativeRow < 0 or relativeRow >= metrics.rowsHeight then
 		return nil
 	end
 	local index = self.scrollOffset + relativeRow
@@ -4729,19 +4969,22 @@ function Table:_columnFromPoint(x, y)
 	if not self:containsPoint(x, y) then
 		return nil
 	end
-	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	if metrics.innerWidth <= 0 or metrics.innerHeight <= 0 or metrics.contentWidth <= 0 then
 		return nil
 	end
-	if y ~= innerY then
+	if metrics.headerHeight <= 0 or y ~= metrics.innerY then
 		return nil
 	end
-	local remaining = innerWidth
-	local cursor = innerX
+	if x < metrics.innerX or x >= metrics.innerX + metrics.contentWidth then
+		return nil
+	end
+	local remaining = metrics.contentWidth
+	local cursor = metrics.innerX
 	for i = 1, #self.columns do
 		local width = math.max(1, math.min(self.columns[i].width, remaining))
 		if i == #self.columns then
-			width = innerX + innerWidth - cursor
+			width = metrics.innerX + metrics.contentWidth - cursor
 		end
 		if width <= 0 then
 			break
@@ -4750,7 +4993,7 @@ function Table:_columnFromPoint(x, y)
 			return self.columns[i], i
 		end
 		cursor = cursor + width
-		remaining = innerWidth - (cursor - innerX)
+		remaining = metrics.contentWidth - (cursor - metrics.innerX)
 		if remaining <= 0 then
 			break
 		end
@@ -4792,98 +5035,126 @@ function Table:draw(textLayer, pixelLayer)
 	local ax, ay, width, height = self:getAbsoluteRect()
 	local bg = self.bg or colors.black
 	local fg = self.fg or colors.white
+
 	fill_rect(textLayer, ax, ay, width, height, bg, bg)
 	clear_border_characters(textLayer, ax, ay, width, height)
-	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+
+	local metrics = self:_computeLayoutMetrics()
+	local innerWidth = metrics.innerWidth
+	local innerHeight = metrics.innerHeight
+	local contentWidth = metrics.contentWidth
+	if innerWidth <= 0 or innerHeight <= 0 or contentWidth <= 0 then
 		if self.border then
 			draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 		end
 		return
 	end
+
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
+	local headerHeight = metrics.headerHeight
+	local rowsHeight = metrics.rowsHeight
+	local scrollbarWidth = metrics.scrollbarWidth
+	local scrollbarStyle = metrics.scrollbarStyle
+
 	local headerBg = self.headerBg or bg
 	local headerFg = self.headerFg or fg
-	local cursorX = innerX
-	local remaining = innerWidth
-	for index = 1, #self.columns do
-		local column = self.columns[index]
-		local colWidth = math.max(1, math.min(column.width, remaining))
-		if index == #self.columns then
-			colWidth = innerX + innerWidth - cursorX
-		end
-		if colWidth <= 0 then
-			break
-		end
-		local title = column.title or column.id
-		local indicator = ""
-		if self.sortColumn == column.id then
-			indicator = self.sortDirection == "desc" and "v" or "^"
-		end
-		if indicator ~= "" and colWidth >= 2 then
-			if #title >= colWidth then
-				title = title:sub(1, colWidth - 1)
+	if headerHeight > 0 then
+		textLayer.text(innerX, innerY, string.rep(" ", contentWidth), headerBg, headerBg)
+		local cursorX = innerX
+		local remaining = contentWidth
+		for index = 1, #self.columns do
+			local column = self.columns[index]
+			local colWidth = math.max(1, math.min(column.width, remaining))
+			if index == #self.columns then
+				colWidth = math.max(1, remaining)
 			end
-			title = title .. indicator
-		elseif colWidth > #title then
-			title = title .. string.rep(" ", colWidth - #title)
-		else
-			title = title:sub(1, colWidth)
-		end
-		textLayer.text(cursorX, innerY, title, headerFg, headerBg)
-		cursorX = cursorX + colWidth
-		remaining = innerWidth - (cursorX - innerX)
-		if remaining <= 0 then
-			break
+			if colWidth <= 0 then
+				break
+			end
+			local title = column.title or column.id
+			local indicator = ""
+			if self.sortColumn == column.id then
+				indicator = self.sortDirection == "desc" and "v" or "^"
+			end
+			if indicator ~= "" and colWidth >= 2 then
+				if #title >= colWidth then
+					title = title:sub(1, colWidth - 1)
+				end
+				title = title .. indicator
+			elseif colWidth > #title then
+				title = title .. string.rep(" ", colWidth - #title)
+			else
+				title = title:sub(1, colWidth)
+			end
+			textLayer.text(cursorX, innerY, title, headerFg, headerBg)
+			cursorX = cursorX + colWidth
+			remaining = contentWidth - (cursorX - innerX)
+			if remaining <= 0 then
+				break
+			end
 		end
 	end
-	local rowsVisible = self:_getRowsVisible()
+
+	local rowStartY = innerY + headerHeight
+	local rowsVisible = rowsHeight
+	local baseRowBg = self.rowBg or bg
+	local baseRowFg = self.rowFg or fg
+
 	if rowsVisible <= 0 then
+		if scrollbarWidth > 0 then
+			local sbBg = (scrollbarStyle and scrollbarStyle.background) or bg
+			fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
+		end
 		if self.border then
 			draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 		end
 		return
 	end
+
 	if #self._rows == 0 then
-		for i = 1, rowsVisible do
-			textLayer.text(innerX, innerY + i, string.rep(" ", innerWidth), fg, self.rowBg)
+		for rowOffset = 0, rowsVisible - 1 do
+			local drawY = rowStartY + rowOffset
+			textLayer.text(innerX, drawY, string.rep(" ", contentWidth), baseRowFg, baseRowBg)
 		end
 		if self.placeholder and self.placeholder ~= "" then
 			local message = self.placeholder
-			if #message > innerWidth then
-				message = message:sub(1, innerWidth)
+			if #message > contentWidth then
+				message = message:sub(1, contentWidth)
 			end
-			local messageY = innerY + math.min(rowsVisible, math.floor(rowsVisible / 2) + 1)
-			local messageX = innerX + math.floor((innerWidth - #message) / 2)
+			local centerRow = rowsVisible > 0 and math.min(rowsVisible - 1, math.floor(rowsVisible / 2)) or 0
+			local messageY = rowStartY + centerRow
+			local messageX = innerX + math.floor((contentWidth - #message) / 2)
 			if messageX < innerX then
 				messageX = innerX
 			end
-			textLayer.text(messageX, messageY, message, colors.lightGray, self.rowBg)
+			textLayer.text(messageX, messageY, message, colors.lightGray, baseRowBg)
 		end
 	else
 		for rowOffset = 0, rowsVisible - 1 do
 			local dataIndex = self.scrollOffset + rowOffset
-			local drawY = innerY + 1 + rowOffset
+			local drawY = rowStartY + rowOffset
 			if dataIndex > #self._rows then
-				textLayer.text(innerX, drawY, string.rep(" ", innerWidth), fg, self.rowBg)
+				textLayer.text(innerX, drawY, string.rep(" ", contentWidth), baseRowFg, baseRowBg)
 			else
 				local absoluteIndex = self._rows[dataIndex]
 				local row = self.data[absoluteIndex]
 				local isSelected = self.allowRowSelection and dataIndex == self.selectedIndex
-				local rowBg = self.rowBg
-				local rowFg = self.rowFg
+				local rowBg = baseRowBg
+				local rowFg = baseRowFg
 				if isSelected then
-					rowBg = self.highlightBg
-					rowFg = self.highlightFg
+					rowBg = self.highlightBg or colors.lightGray
+					rowFg = self.highlightFg or colors.black
 				elseif self.zebra and (dataIndex % 2 == 0) then
-					rowBg = self.zebraBg
+					rowBg = self.zebraBg or rowBg
 				end
 				local drawX = innerX
-				local remainingWidth = innerWidth
+				local remainingWidth = contentWidth
 				for colIndex = 1, #self.columns do
 					local column = self.columns[colIndex]
 					local colWidth = math.max(1, math.min(column.width, remainingWidth))
 					if colIndex == #self.columns then
-						colWidth = innerX + innerWidth - drawX
+						colWidth = math.max(1, remainingWidth)
 					end
 					if colWidth <= 0 then
 						break
@@ -4920,7 +5191,7 @@ function Table:draw(textLayer, pixelLayer)
 					end
 					textLayer.text(drawX, drawY, value, cellFg, rowBg)
 					drawX = drawX + colWidth
-					remainingWidth = innerWidth - (drawX - innerX)
+					remainingWidth = contentWidth - (drawX - innerX)
 					if remainingWidth <= 0 then
 						break
 					end
@@ -4928,6 +5199,16 @@ function Table:draw(textLayer, pixelLayer)
 			end
 		end
 	end
+
+	if scrollbarWidth > 0 then
+		local sbBg = (scrollbarStyle and scrollbarStyle.background) or bg
+		fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
+		if scrollbarStyle and rowsVisible > 0 then
+			local zeroOffset = math.max(0, self.scrollOffset - 1)
+			draw_vertical_scrollbar(textLayer, metrics.scrollbarX, rowStartY, rowsVisible, #self._rows, rowsVisible, zeroOffset, scrollbarStyle)
+		end
+	end
+
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
@@ -4984,29 +5265,54 @@ function Table:handleEvent(event, ...)
 	if not self.visible then
 		return false
 	end
-	if event == "mouse_click" then
-		local button, x, y = ...
-		if self:containsPoint(x, y) then
-			self.app:setFocus(self)
-			local column = self:_columnFromPoint(x, y)
-			if column then
-				local direction = self.sortDirection
-				if self.sortColumn == column.id then
-					direction = direction == "asc" and "desc" or "asc"
-				else
-					direction = "asc"
+
+	local function handlePointer(x, y)
+		if not self:containsPoint(x, y) then
+			return false
+		end
+		self.app:setFocus(self)
+		local metrics = self:_computeLayoutMetrics()
+		if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 and metrics.rowsHeight > 0 then
+			local sbX = metrics.scrollbarX
+			local rowStartY = metrics.innerY + metrics.headerHeight
+			if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= rowStartY and y < rowStartY + metrics.rowsHeight then
+				local relativeY = y - rowStartY
+				local zeroOffset = math.max(0, self.scrollOffset - 1)
+				local newOffset = scrollbar_click_to_offset(relativeY, metrics.rowsHeight, #self._rows, metrics.rowsHeight, zeroOffset)
+				if newOffset ~= zeroOffset then
+					self.scrollOffset = newOffset + 1
+					self:_clampScroll()
 				end
-				if column.sortable ~= false then
-					self:setSort(column.id, direction)
-				end
-				return true
-			end
-			local index = self:_rowFromPoint(x, y)
-			if index then
-				self:setSelectedIndex(index)
 				return true
 			end
 		end
+		local column = self:_columnFromPoint(x, y)
+		if column then
+			local direction = self.sortDirection
+			if self.sortColumn == column.id then
+				direction = direction == "asc" and "desc" or "asc"
+			else
+				direction = "asc"
+			end
+			if column.sortable ~= false then
+				self:setSort(column.id, direction)
+			end
+			return true
+		end
+		local index = self:_rowFromPoint(x, y)
+		if index then
+			self:setSelectedIndex(index)
+			return true
+		end
+		return false
+	end
+
+	if event == "mouse_click" then
+		local _, x, y = ...
+		return handlePointer(x, y)
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		return handlePointer(x, y)
 	elseif event == "mouse_scroll" then
 		local direction, x, y = ...
 		if self:containsPoint(x, y) then
@@ -5079,16 +5385,6 @@ function Table:handleEvent(event, ...)
 			end
 			return true
 		end
-	elseif event == "monitor_touch" then
-		local _, x, y = ...
-		if self:containsPoint(x, y) then
-			self.app:setFocus(self)
-			local index = self:_rowFromPoint(x, y)
-			if index then
-				self:setSelectedIndex(index)
-			end
-			return true
-		end
 	end
 	return false
 end
@@ -5124,6 +5420,7 @@ function TreeView:new(app, config)
 	if not instance.border then
 		instance.border = normalize_border(true)
 	end
+	instance.scrollbar = normalize_scrollbar(config and config.scrollbar, instance.bg or colors.black, instance.fg or colors.white)
 	instance:setNodes((config and config.nodes) or {})
 	return instance
 end
@@ -5140,6 +5437,11 @@ function TreeView:setOnToggle(handler)
 		expect(1, handler, "function")
 	end
 	self.onToggle = handler
+end
+
+function TreeView:setScrollbar(scrollbar)
+	self.scrollbar = normalize_scrollbar(scrollbar, self.bg or colors.black, self.fg or colors.white)
+	self:_ensureSelectionVisible()
 end
 
 function TreeView:_copyNodes(source, parent)
@@ -5288,6 +5590,49 @@ function TreeView:_getInnerHeight()
 	return innerHeight
 end
 
+function TreeView:_computeLayoutMetrics()
+	local ax, ay = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return {
+			innerX = innerX,
+			innerY = innerY,
+			innerWidth = innerWidth,
+			innerHeight = innerHeight,
+			contentWidth = 0,
+			scrollbarWidth = 0,
+			scrollbarStyle = nil,
+			scrollbarX = innerX
+		}
+	end
+	local scrollbarWidth, scrollbarStyle = resolve_scrollbar(self.scrollbar, #self._flatNodes, innerHeight, innerWidth)
+	if scrollbarWidth > 0 and innerWidth - scrollbarWidth < 1 then
+		scrollbarWidth = math.max(0, innerWidth - 1)
+		if scrollbarWidth <= 0 then
+			scrollbarWidth = 0
+			scrollbarStyle = nil
+		end
+	end
+	local contentWidth = innerWidth - scrollbarWidth
+	if contentWidth < 1 then
+		contentWidth = innerWidth
+		scrollbarWidth = 0
+		scrollbarStyle = nil
+	end
+	return {
+		innerX = innerX,
+		innerY = innerY,
+		innerWidth = innerWidth,
+		innerHeight = innerHeight,
+		contentWidth = contentWidth,
+		scrollbarWidth = scrollbarWidth,
+		scrollbarStyle = scrollbarStyle,
+		scrollbarX = innerX + contentWidth
+	}
+end
+
 function TreeView:_ensureSelectionVisible()
 	local count = #self._flatNodes
 	local innerHeight = self:_getInnerHeight()
@@ -5398,17 +5743,16 @@ function TreeView:_rowFromPoint(x, y)
 	if not self:containsPoint(x, y) then
 		return nil
 	end
-	local ax, ay = self:getAbsoluteRect()
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	if metrics.innerWidth <= 0 or metrics.innerHeight <= 0 or metrics.contentWidth <= 0 then
 		return nil
 	end
-	local innerX = ax + leftPad
-	local innerY = ay + topPad
-	if x < innerX or x >= innerX + innerWidth then
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
+	if x < innerX or x >= innerX + metrics.contentWidth then
 		return nil
 	end
-	if y < innerY or y >= innerY + innerHeight then
+	if y < innerY or y >= innerY + metrics.innerHeight then
 		return nil
 	end
 	local row = y - innerY
@@ -5416,7 +5760,7 @@ function TreeView:_rowFromPoint(x, y)
 	if index < 1 or index > #self._flatNodes then
 		return nil
 	end
-	return index, innerX, innerWidth
+	return index, innerX, metrics.contentWidth
 end
 
 function TreeView:_toggleNode(node, expand)
@@ -5508,31 +5852,43 @@ function TreeView:draw(textLayer, pixelLayer)
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
 
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	local innerWidth = metrics.innerWidth
+	local innerHeight = metrics.innerHeight
+	local contentWidth = metrics.contentWidth
+	local scrollbarWidth = metrics.scrollbarWidth
+	local scrollbarStyle = metrics.scrollbarStyle
+	if innerWidth <= 0 or innerHeight <= 0 or contentWidth <= 0 then
 		return
 	end
 
-	local innerX = ax + leftPad
-	local innerY = ay + topPad
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
 	local flat = self._flatNodes
 	local count = #flat
 
 	if count == 0 then
 		for row = 0, innerHeight - 1 do
-			textLayer.text(innerX, innerY + row, string.rep(" ", innerWidth), fg, bg)
+			textLayer.text(innerX, innerY + row, string.rep(" ", contentWidth), fg, bg)
 		end
 		local placeholder = self.placeholder
 		if type(placeholder) == "string" and #placeholder > 0 then
 			local display = placeholder
-			if #display > innerWidth then
-				display = display:sub(1, innerWidth)
+			if #display > contentWidth then
+				display = display:sub(1, contentWidth)
 			end
-			local startX = innerX + math.floor((innerWidth - #display) / 2)
+			local startX = innerX + math.floor((contentWidth - #display) / 2)
 			if startX < innerX then
 				startX = innerX
 			end
 			textLayer.text(startX, innerY, display, colors.lightGray, bg)
+		end
+		if scrollbarWidth > 0 then
+			local sbBg = (scrollbarStyle and scrollbarStyle.background) or bg
+			fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
+			if scrollbarStyle then
+				draw_vertical_scrollbar(textLayer, metrics.scrollbarX, innerY, innerHeight, 0, innerHeight, 0, scrollbarStyle)
+			end
 		end
 		return
 	end
@@ -5541,14 +5897,14 @@ function TreeView:draw(textLayer, pixelLayer)
 		local lineY = innerY + row
 		local index = self.scrollOffset + row
 		if index > count then
-			textLayer.text(innerX, lineY, string.rep(" ", innerWidth), fg, bg)
+			textLayer.text(innerX, lineY, string.rep(" ", contentWidth), fg, bg)
 		else
 			local entry = flat[index]
 			local node = entry.node
 			local depth = entry.depth or 0
 			local indent = depth * self.indentWidth
-			if indent > innerWidth - 1 then
-				indent = innerWidth - 1
+			if indent > contentWidth - 1 then
+				indent = contentWidth - 1
 			end
 			if indent < 0 then
 				indent = 0
@@ -5561,7 +5917,7 @@ function TreeView:draw(textLayer, pixelLayer)
 				symbol = self.toggleSymbols.leaf
 			end
 			symbol = tostring(symbol or " ")
-			local remaining = innerWidth - indent
+			local remaining = contentWidth - indent
 			local line = spaces
 			if remaining > 0 then
 				local glyph = symbol:sub(1, 1)
@@ -5582,8 +5938,8 @@ function TreeView:draw(textLayer, pixelLayer)
 			end
 			if remaining > 0 then
 				line = line .. string.rep(" ", remaining)
-			elseif #line > innerWidth then
-				line = line:sub(1, innerWidth)
+			elseif #line > contentWidth then
+				line = line:sub(1, contentWidth)
 			end
 			local drawBg = bg
 			local drawFg = fg
@@ -5592,6 +5948,14 @@ function TreeView:draw(textLayer, pixelLayer)
 				drawFg = self.highlightFg or colors.black
 			end
 			textLayer.text(innerX, lineY, line, drawFg, drawBg)
+		end
+	end
+
+	if scrollbarWidth > 0 then
+		local sbBg = (scrollbarStyle and scrollbarStyle.background) or bg
+		fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
+		if scrollbarStyle then
+			draw_vertical_scrollbar(textLayer, metrics.scrollbarX, innerY, innerHeight, #self._flatNodes, innerHeight, math.max(0, self.scrollOffset - 1), scrollbarStyle)
 		end
 	end
 end
@@ -5603,19 +5967,33 @@ function TreeView:handleEvent(event, ...)
 
 	if event == "mouse_click" then
 		local _, x, y = ...
-		local index, innerX, innerWidth = self:_rowFromPoint(x, y)
+		local index, contentX, contentWidth = self:_rowFromPoint(x, y)
 		if index then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.innerHeight then
+					local relativeY = y - metrics.innerY
+					local zeroOffset = math.max(0, self.scrollOffset - 1)
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.innerHeight, #self._flatNodes, metrics.innerHeight, zeroOffset)
+					if newOffset ~= zeroOffset then
+						self.scrollOffset = newOffset + 1
+						self:_ensureSelectionVisible()
+					end
+					return true
+				end
+			end
 			local entry = self._flatNodes[index]
 			if entry then
 				local indent = entry.depth * self.indentWidth
 				if indent < 0 then
 					indent = 0
 				end
-				if indent > innerWidth - 1 then
-					indent = innerWidth - 1
+				if indent > contentWidth - 1 then
+					indent = contentWidth - 1
 				end
-				local toggleX = innerX + indent
+				local toggleX = contentX + indent
 				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
 					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
 					if symbolWidth < 1 then
@@ -5632,19 +6010,33 @@ function TreeView:handleEvent(event, ...)
 		end
 	elseif event == "monitor_touch" then
 		local _, x, y = ...
-		local index, innerX, innerWidth = self:_rowFromPoint(x, y)
+		local index, contentX, contentWidth = self:_rowFromPoint(x, y)
 		if index then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.innerHeight then
+					local relativeY = y - metrics.innerY
+					local zeroOffset = math.max(0, self.scrollOffset - 1)
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.innerHeight, #self._flatNodes, metrics.innerHeight, zeroOffset)
+					if newOffset ~= zeroOffset then
+						self.scrollOffset = newOffset + 1
+						self:_ensureSelectionVisible()
+					end
+					return true
+				end
+			end
 			local entry = self._flatNodes[index]
 			if entry then
 				local indent = entry.depth * self.indentWidth
 				if indent < 0 then
 					indent = 0
 				end
-				if indent > innerWidth - 1 then
-					indent = innerWidth - 1
+				if indent > contentWidth - 1 then
+					indent = contentWidth - 1
 				end
-				local toggleX = innerX + indent
+				local toggleX = contentX + indent
 				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
 					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
 					if symbolWidth < 1 then
@@ -6407,6 +6799,7 @@ function List:new(app, config)
 	if not instance.border then
 		instance.border = normalize_border(true)
 	end
+	instance.scrollbar = normalize_scrollbar(config and config.scrollbar, instance.bg or colors.black, instance.fg or colors.white)
 	instance:_normalizeSelection(true)
 	return instance
 end
@@ -6428,6 +6821,49 @@ function List:_getInnerHeight()
 		innerHeight = 1
 	end
 	return innerHeight
+end
+
+function List:_computeLayoutMetrics()
+	local ax, ay = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return {
+			innerX = innerX,
+			innerY = innerY,
+			innerWidth = innerWidth,
+			innerHeight = innerHeight,
+			contentWidth = 0,
+			scrollbarWidth = 0,
+			scrollbarStyle = nil,
+			scrollbarX = innerX
+		}
+	end
+	local scrollbarWidth, scrollbarStyle = resolve_scrollbar(self.scrollbar, #self.items, innerHeight, innerWidth)
+	if scrollbarWidth > 0 and innerWidth - scrollbarWidth < 1 then
+		scrollbarWidth = math.max(0, innerWidth - 1)
+		if scrollbarWidth <= 0 then
+			scrollbarWidth = 0
+			scrollbarStyle = nil
+		end
+	end
+	local contentWidth = innerWidth - scrollbarWidth
+	if contentWidth < 1 then
+		contentWidth = innerWidth
+		scrollbarWidth = 0
+		scrollbarStyle = nil
+	end
+	return {
+		innerX = innerX,
+		innerY = innerY,
+		innerWidth = innerWidth,
+		innerHeight = innerHeight,
+		contentWidth = contentWidth,
+		scrollbarWidth = scrollbarWidth,
+		scrollbarStyle = scrollbarStyle,
+		scrollbarX = innerX + contentWidth
+	}
 end
 
 function List:_clampScroll()
@@ -6567,6 +7003,11 @@ function List:setHighlightColors(bg, fg)
 	end
 end
 
+function List:setScrollbar(scrollbar)
+	self.scrollbar = normalize_scrollbar(scrollbar, self.bg or colors.black, self.fg or colors.white)
+	self:_clampScroll()
+end
+
 function List:_notifySelect()
 	if self.onSelect then
 		self.onSelect(self, self:getSelectedItem(), self.selectedIndex)
@@ -6584,17 +7025,16 @@ function List:_itemIndexFromPoint(x, y)
 	if not self:containsPoint(x, y) then
 		return nil
 	end
-	local ax, ay = self:getAbsoluteRect()
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	if metrics.innerWidth <= 0 or metrics.innerHeight <= 0 or metrics.contentWidth <= 0 then
 		return nil
 	end
-	local innerX = ax + leftPad
-	local innerY = ay + topPad
-	if x < innerX or x >= innerX + innerWidth then
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
+	if x < innerX or x >= innerX + metrics.contentWidth then
 		return nil
 	end
-	if y < innerY or y >= innerY + innerHeight then
+	if y < innerY or y >= innerY + metrics.innerHeight then
 		return nil
 	end
 	local row = y - innerY
@@ -6683,12 +7123,17 @@ function List:draw(textLayer, pixelLayer)
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
 
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
+	local metrics = self:_computeLayoutMetrics()
+	local innerWidth = metrics.innerWidth
+	local innerHeight = metrics.innerHeight
+	local contentWidth = metrics.contentWidth
+	if innerWidth <= 0 or innerHeight <= 0 or contentWidth <= 0 then
 		return
 	end
-	local innerX = ax + leftPad
-	local innerY = ay + topPad
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
+	local scrollbarWidth = metrics.scrollbarWidth
+	local scrollbarStyle = metrics.scrollbarStyle
 
 	local count = #self.items
 	local baseBg = bg
@@ -6697,19 +7142,26 @@ function List:draw(textLayer, pixelLayer)
 
 	if count == 0 then
 		for row = 0, innerHeight - 1 do
-			textLayer.text(innerX, innerY + row, string.rep(" ", innerWidth), fg, baseBg)
+			textLayer.text(innerX, innerY + row, string.rep(" ", contentWidth), fg, baseBg)
+		end
+		if scrollbarWidth > 0 then
+			local sbBg = (scrollbarStyle and scrollbarStyle.background) or baseBg
+			fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
 		end
 		local placeholder = self.placeholder
 		if type(placeholder) == "string" and #placeholder > 0 then
 			local display = placeholder
-			if #display > innerWidth then
-				display = display:sub(1, innerWidth)
+			if #display > contentWidth then
+				display = display:sub(1, contentWidth)
 			end
-			local startX = innerX + math.floor((innerWidth - #display) / 2)
+			local startX = innerX + math.floor((contentWidth - #display) / 2)
 			if startX < innerX then
 				startX = innerX
 			end
 			textLayer.text(startX, innerY, display, colors.lightGray, baseBg)
+		end
+		if scrollbarStyle then
+			draw_vertical_scrollbar(textLayer, metrics.scrollbarX, innerY, innerHeight, 0, innerHeight, 0, scrollbarStyle)
 		end
 		return
 	end
@@ -6718,15 +7170,15 @@ function List:draw(textLayer, pixelLayer)
 		local lineY = innerY + row
 		local index = self.scrollOffset + row
 		if index > count then
-			textLayer.text(innerX, lineY, string.rep(" ", innerWidth), fg, baseBg)
+			textLayer.text(innerX, lineY, string.rep(" ", contentWidth), fg, baseBg)
 		else
 			local item = self.items[index] or ""
-			if #item > innerWidth then
-				item = item:sub(1, innerWidth)
+			if #item > contentWidth then
+				item = item:sub(1, contentWidth)
 			end
 			local padded = item
-			if #padded < innerWidth then
-				padded = padded .. string.rep(" ", innerWidth - #padded)
+			if #padded < contentWidth then
+				padded = padded .. string.rep(" ", contentWidth - #padded)
 			end
 			local drawBg = baseBg
 			local drawFg = fg
@@ -6735,6 +7187,14 @@ function List:draw(textLayer, pixelLayer)
 				drawFg = highlightFg
 			end
 			textLayer.text(innerX, lineY, padded, drawFg, drawBg)
+		end
+	end
+
+	if scrollbarWidth > 0 then
+		local sbBg = (scrollbarStyle and scrollbarStyle.background) or baseBg
+		fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, innerHeight, sbBg, sbBg)
+		if scrollbarStyle then
+			draw_vertical_scrollbar(textLayer, metrics.scrollbarX, innerY, innerHeight, #self.items, innerHeight, math.max(0, self.scrollOffset - 1), scrollbarStyle)
 		end
 	end
 end
@@ -6748,6 +7208,20 @@ function List:handleEvent(event, ...)
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.innerHeight then
+					local relativeY = y - metrics.innerY
+					local zeroOffset = math.max(0, self.scrollOffset - 1)
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.innerHeight, #self.items, metrics.innerHeight, zeroOffset)
+					if newOffset ~= zeroOffset then
+						self.scrollOffset = newOffset + 1
+						self:_clampScroll()
+					end
+					return true
+				end
+			end
 			local index = self:_itemIndexFromPoint(x, y)
 			if index then
 				self:setSelectedIndex(index)
@@ -6758,6 +7232,20 @@ function List:handleEvent(event, ...)
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.innerHeight then
+					local relativeY = y - metrics.innerY
+					local zeroOffset = math.max(0, self.scrollOffset - 1)
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.innerHeight, #self.items, metrics.innerHeight, zeroOffset)
+					if newOffset ~= zeroOffset then
+						self.scrollOffset = newOffset + 1
+						self:_clampScroll()
+					end
+					return true
+				end
+			end
 			local index = self:_itemIndexFromPoint(x, y)
 			if index then
 				self:setSelectedIndex(index)
@@ -7454,6 +7942,7 @@ function TextBox:new(app, config)
 	if not instance.border then
 		instance.border = normalize_border(true)
 	end
+	instance.scrollbar = normalize_scrollbar(config.scrollbar, instance.bg or colors.black, instance.fg or colors.white)
 	instance:_setTextInternal(config.text or "", true, true)
 	if config.cursorPos then
 		instance:_moveCursorToIndex(config.cursorPos)
@@ -7467,6 +7956,10 @@ function TextBox:setOnCursorMove(handler)
 		expect(1, handler, "function")
 	end
 	self.onCursorMove = handler
+end
+
+function TextBox:setScrollbar(scrollbar)
+	self.scrollbar = normalize_scrollbar(scrollbar, self.bg or colors.black, self.fg or colors.white)
 end
 
 function TextBox:onFocusChanged(_focused)
@@ -7559,14 +8052,53 @@ function TextBox:_getOverlayHeight(innerHeight)
 	return math.min(2, innerHeight)
 end
 
-function TextBox:_getContentSize()
-	local _, _, innerWidth, innerHeight = self:_getInnerMetrics()
+function TextBox:_computeLayoutMetrics()
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
 	if innerWidth <= 0 or innerHeight <= 0 then
-		return math.max(1, self.width), math.max(1, self.height)
+		innerX = ax
+		innerY = ay
+		innerWidth = math.max(1, width)
+		innerHeight = math.max(1, height)
 	end
 	local overlayHeight = self:_getOverlayHeight(innerHeight)
 	local contentHeight = math.max(1, innerHeight - overlayHeight)
-	return math.max(1, innerWidth), contentHeight
+	local scrollbarWidth, scrollbarStyle = resolve_scrollbar(self.scrollbar, #self._lines, contentHeight, innerWidth)
+	if scrollbarWidth > 0 and innerWidth - scrollbarWidth < 1 then
+		if scrollbarStyle and (scrollbarStyle.alwaysVisible or #self._lines > contentHeight) then
+			scrollbarWidth = math.max(0, innerWidth - 1)
+		else
+			scrollbarWidth = 0
+			scrollbarStyle = nil
+		end
+	end
+	if scrollbarWidth <= 0 then
+		scrollbarWidth = 0
+		scrollbarStyle = nil
+	end
+	local contentWidth = innerWidth - scrollbarWidth
+	if contentWidth < 1 then
+		contentWidth = innerWidth
+		scrollbarWidth = 0
+		scrollbarStyle = nil
+	end
+	return {
+		innerX = innerX,
+		innerY = innerY,
+		innerWidth = innerWidth,
+		innerHeight = innerHeight,
+		contentWidth = contentWidth,
+		contentHeight = contentHeight,
+		overlayHeight = overlayHeight,
+		scrollbarWidth = scrollbarWidth,
+		scrollbarStyle = scrollbarStyle,
+		scrollbarX = innerX + contentWidth
+	}
+end
+
+function TextBox:_getContentSize()
+	local metrics = self:_computeLayoutMetrics()
+	return math.max(1, metrics.contentWidth), math.max(1, metrics.contentHeight)
 end
 
 function TextBox:_ensureCursorVisible()
@@ -7944,13 +8476,12 @@ function TextBox:_scrollColumns(delta)
 end
 
 function TextBox:_cursorFromPoint(x, y)
-	local ax, ay = self:getAbsoluteRect()
-	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
-	local overlayHeight = self:_getOverlayHeight(innerHeight)
-	local contentHeight = math.max(1, innerHeight - overlayHeight)
-	local contentX = innerWidth > 0 and innerX or ax
-	local contentY = innerHeight > 0 and innerY or ay
-	local relX = clampi(x - contentX, 0, math.max(0, (innerWidth > 0 and innerWidth or self.width) - 1))
+	local metrics = self:_computeLayoutMetrics()
+	local contentX = metrics.innerX
+	local contentY = metrics.innerY
+	local contentWidth = math.max(1, metrics.contentWidth)
+	local contentHeight = math.max(1, metrics.contentHeight)
+	local relX = clampi(x - contentX, 0, contentWidth - 1)
 	local relY = clampi(y - contentY, 0, contentHeight - 1)
 	local line = clampi(self._scrollY + relY + 1, 1, #self._lines)
 	local lineText = self._lines[line] or ""
@@ -8078,7 +8609,7 @@ function TextBox:_drawSegments(textLayer, x, y, segments)
 	end
 end
 
-function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHeight)
+function TextBox:_drawFindOverlay(textLayer, innerX, innerY, contentWidth, innerHeight)
 	if not self._find.visible then
 		return
 	end
@@ -8092,7 +8623,7 @@ function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHe
 	local activeFg = self.overlayActiveFg or colors.black
 	local overlayY = innerY + innerHeight - overlayHeight
 	for row = 0, overlayHeight - 1 do
-		textLayer.text(innerX, overlayY + row, string.rep(" ", innerWidth), fg, bg)
+		textLayer.text(innerX, overlayY + row, string.rep(" ", contentWidth), fg, bg)
 	end
 	local find = self._find
 	local matches = #find.matches
@@ -8101,15 +8632,15 @@ function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHe
 	local findLabel = string.format("Find: %s  %s  %s", find.findText, indexDisplay, caseDisplay)
 	local replaceLabel = "Replace: " .. find.replaceText
 	local truncFind = findLabel
-	if #truncFind > innerWidth then
-		truncFind = truncFind:sub(1, innerWidth)
+	if #truncFind > contentWidth then
+		truncFind = truncFind:sub(1, contentWidth)
 	end
 	local truncReplace = replaceLabel
-	if #truncReplace > innerWidth then
-		truncReplace = truncReplace:sub(1, innerWidth)
+	if #truncReplace > contentWidth then
+		truncReplace = truncReplace:sub(1, contentWidth)
 	end
-	textLayer.text(innerX, overlayY, truncFind .. string.rep(" ", math.max(0, innerWidth - #truncFind)), fg, bg)
-	textLayer.text(innerX, overlayY + math.max(overlayHeight - 1, 0), truncReplace .. string.rep(" ", math.max(0, innerWidth - #truncReplace)), fg, bg)
+	textLayer.text(innerX, overlayY, truncFind .. string.rep(" ", math.max(0, contentWidth - #truncFind)), fg, bg)
+	textLayer.text(innerX, overlayY + math.max(overlayHeight - 1, 0), truncReplace .. string.rep(" ", math.max(0, contentWidth - #truncReplace)), fg, bg)
 	local activeX, activeY, activeText
 	if find.activeField == "find" then
 		activeX = innerX + 6
@@ -8121,16 +8652,16 @@ function TextBox:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHe
 		activeText = find.replaceText
 	end
 	local display = activeText
-	if #display > innerWidth - (activeX - innerX) then
-		display = display:sub(1, innerWidth - (activeX - innerX))
+	if #display > contentWidth - (activeX - innerX) then
+		display = display:sub(1, contentWidth - (activeX - innerX))
 	end
-	textLayer.text(activeX, activeY, display .. string.rep(" ", math.max(0, innerWidth - (activeX - innerX) - #display)), activeFg, activeBg)
+	textLayer.text(activeX, activeY, display .. string.rep(" ", math.max(0, contentWidth - (activeX - innerX) - #display)), activeFg, activeBg)
 	if overlayHeight >= 2 then
 		local info = "Ctrl+G next | Ctrl+Shift+G prev | Tab switch | Enter apply | Esc close"
-		if #info > innerWidth then
-			info = info:sub(1, innerWidth)
+		if #info > contentWidth then
+			info = info:sub(1, contentWidth)
 		end
-		textLayer.text(innerX, overlayY + overlayHeight - 1, info .. string.rep(" ", math.max(0, innerWidth - #info)), fg, bg)
+		textLayer.text(innerX, overlayY + overlayHeight - 1, info .. string.rep(" ", math.max(0, contentWidth - #info)), fg, bg)
 	end
 end
 
@@ -8589,15 +9120,16 @@ function TextBox:draw(textLayer, pixelLayer)
 	local fg = self.fg or colors.white
 	fill_rect(textLayer, ax, ay, width, height, bg, bg)
 	clear_border_characters(textLayer, ax, ay, width, height)
-	local innerX, innerY, innerWidth, innerHeight = self:_getInnerMetrics()
-	if innerWidth <= 0 or innerHeight <= 0 then
-		innerX = ax
-		innerY = ay
-		innerWidth = width
-		innerHeight = height
-	end
-	local overlayHeight = self:_getOverlayHeight(innerHeight)
-	local contentHeight = math.max(1, innerHeight - overlayHeight)
+	local metrics = self:_computeLayoutMetrics()
+	local innerX = metrics.innerX
+	local innerY = metrics.innerY
+	local innerWidth = metrics.innerWidth
+	local innerHeight = metrics.innerHeight
+	local contentWidth = metrics.contentWidth
+	local contentHeight = metrics.contentHeight
+	local overlayHeight = metrics.overlayHeight
+	local scrollbarWidth = metrics.scrollbarWidth
+	local scrollbarStyle = metrics.scrollbarStyle
 	local selectionRange
 	local hasSelection = false
 	if self:_hasSelection() then
@@ -8616,13 +9148,13 @@ function TextBox:draw(textLayer, pixelLayer)
 		local lineIndex = self._scrollY + row + 1
 		local drawY = innerY + row
 		if lineIndex > #self._lines then
-			textLayer.text(innerX, drawY, string.rep(" ", innerWidth), fg, baseBg)
+			textLayer.text(innerX, drawY, string.rep(" ", contentWidth), fg, baseBg)
 		else
-			local segments, lineText, colorMap = self:_buildLineSegments(lineIndex, innerWidth, fg, baseBg, selectionRange)
+			local segments, lineText, colorMap = self:_buildLineSegments(lineIndex, contentWidth, fg, baseBg, selectionRange)
 			self:_drawSegments(textLayer, innerX, drawY, segments)
 			if self:isFocused() and lineIndex == self._cursorLine then
 				local cursorCol = self._cursorCol - self._scrollX - 1
-				if cursorCol >= 0 and cursorCol < innerWidth then
+				if cursorCol >= 0 and cursorCol < contentWidth then
 					local ch
 					if self._cursorCol <= #lineText then
 						ch = lineText:sub(self._cursorCol, self._cursorCol)
@@ -8637,7 +9169,7 @@ function TextBox:draw(textLayer, pixelLayer)
 			if self:isFocused() and ac.visible and ac.ghost ~= "" and not hasSelection and lineIndex == ac.anchorLine then
 				local ghostStartCol = ac.anchorCol + #ac.prefix
 				local ghostOffset = ghostStartCol - self._scrollX - 1
-				if ghostOffset < innerWidth then
+				if ghostOffset < contentWidth then
 					local ghostText = ac.ghost
 					local lineLength = #lineText
 					if ghostStartCol <= lineLength then
@@ -8659,8 +9191,8 @@ function TextBox:draw(textLayer, pixelLayer)
 								ghostOffset = 0
 							end
 						end
-						if ghostText ~= "" and ghostOffset < innerWidth then
-							local available = innerWidth - ghostOffset
+						if ghostText ~= "" and ghostOffset < contentWidth then
+							local available = contentWidth - ghostOffset
 							if available > 0 then
 								if #ghostText > available then
 									ghostText = ghostText:sub(1, available)
@@ -8677,12 +9209,23 @@ function TextBox:draw(textLayer, pixelLayer)
 	end
 	if self.text == "" and not self:isFocused() and self.placeholder ~= "" then
 		local placeholder = self.placeholder
-		if #placeholder > innerWidth then
-			placeholder = placeholder:sub(1, innerWidth)
+		if #placeholder > contentWidth then
+			placeholder = placeholder:sub(1, contentWidth)
 		end
-		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, innerWidth - #placeholder)), colors.lightGray, baseBg)
+		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, contentWidth - #placeholder)), colors.lightGray, baseBg)
 	end
-	self:_drawFindOverlay(textLayer, innerX, innerY, innerWidth, innerHeight)
+	self:_drawFindOverlay(textLayer, innerX, innerY, contentWidth, innerHeight)
+	if scrollbarStyle then
+		local sbX = metrics.scrollbarX
+		local sbBg = scrollbarStyle.background or bg
+		fill_rect(textLayer, sbX, innerY, scrollbarWidth, contentHeight, sbBg, sbBg)
+		draw_vertical_scrollbar(textLayer, sbX, innerY, contentHeight, #self._lines, contentHeight, self._scrollY, scrollbarStyle)
+		if overlayHeight > 0 then
+			fill_rect(textLayer, sbX, innerY + contentHeight, scrollbarWidth, overlayHeight, sbBg, sbBg)
+		end
+	elseif scrollbarWidth > 0 then
+		fill_rect(textLayer, metrics.scrollbarX, innerY, scrollbarWidth, contentHeight + overlayHeight, bg, bg)
+	end
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
@@ -8696,6 +9239,18 @@ function TextBox:handleEvent(event, ...)
 		local button, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.contentHeight then
+					local relativeY = y - metrics.innerY
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.contentHeight, #self._lines, metrics.contentHeight, self._scrollY)
+					if newOffset ~= self._scrollY then
+						self._scrollY = newOffset
+					end
+					return true
+				end
+			end
 			local line, col = self:_cursorFromPoint(x, y)
 			if button == 1 then
 				self:_setCursorPosition(line, col)
@@ -8729,6 +9284,18 @@ function TextBox:handleEvent(event, ...)
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
+			local metrics = self:_computeLayoutMetrics()
+			if metrics.scrollbarStyle and metrics.scrollbarWidth > 0 then
+				local sbX = metrics.scrollbarX
+				if x >= sbX and x < sbX + metrics.scrollbarWidth and y >= metrics.innerY and y < metrics.innerY + metrics.contentHeight then
+					local relativeY = y - metrics.innerY
+					local newOffset = scrollbar_click_to_offset(relativeY, metrics.contentHeight, #self._lines, metrics.contentHeight, self._scrollY)
+					if newOffset ~= self._scrollY then
+						self._scrollY = newOffset
+					end
+					return true
+				end
+			end
 			local line, col = self:_cursorFromPoint(x, y)
 			self:_setCursorPosition(line, col)
 			return true
