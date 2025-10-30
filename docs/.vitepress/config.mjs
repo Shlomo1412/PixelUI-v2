@@ -26,6 +26,8 @@ export default defineConfig({
         items: [
           { text: 'Getting Started', link: '/guides/getting-started' },
           { text: 'Animations', link: '/guides/animations' },
+          { text: 'Constraints', link: '/guides/constraints' },
+          { text: 'FreeDraw Canvas', link: '/guides/freedraw' },
           { text: 'Threading', link: '/guides/threading' },
         ]
       },

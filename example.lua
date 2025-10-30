@@ -141,6 +141,20 @@ local threadDemo = {
     defaults = {}
 }
 
+local constraintState = {
+    defaults = {},
+    presets = {},
+    buttons = {},
+    buttonDefaults = {},
+    activePresetIndex = 1,
+    currentSummary = ""
+}
+
+local freeDrawState = {
+    defaults = {},
+    patternIndex = 1
+}
+
 local randomSeeded = false
 local function seedRandom()
     if randomSeeded then
@@ -1584,6 +1598,340 @@ end, function()
     app:setFocus(nil)
 end)
 
+-- Step 17: Constraints showcase
+local constraintStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(constraintStep)
+
+constraintState.frame = constraintStep
+
+constraintState.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Apply presets to see widthPercent, parent matching, and centered offsets in action.",
+    bg = colors.gray,
+    fg = colors.white
+})
+constraintStep:addChild(constraintState.instructions)
+constraintState.defaults.instructions = {
+    width = constraintState.instructions.width,
+    height = constraintState.instructions.height
+}
+
+constraintState.surface = app:createFrame({
+    width = 26,
+    height = 5,
+    bg = colors.gray,
+    fg = colors.white
+})
+constraintStep:addChild(constraintState.surface)
+constraintState.defaults.surface = {
+    width = constraintState.surface.width,
+    height = constraintState.surface.height
+}
+
+constraintState.box = app:createFrame({
+    width = 16,
+    height = 5,
+    bg = colors.lightGray,
+    fg = colors.black,
+    border = { color = colors.white },
+    constraints = {
+        widthPercent = 0.6,
+        heightPercent = 0.5,
+        centerX = true,
+        centerY = { offset = 2 },
+        minWidth = 8,
+        minHeight = 3
+    }
+})
+constraintState.surface:addChild(constraintState.box)
+constraintState.defaults.box = {
+    width = constraintState.box.width,
+    height = constraintState.box.height
+}
+
+constraintState.infoLabel = app:createLabel({
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+constraintStep:addChild(constraintState.infoLabel)
+constraintState.defaults.info = {
+    width = constraintState.infoLabel.width,
+    height = constraintState.infoLabel.height
+}
+
+local constraintPresets = {
+    {
+        label = "60% Width",
+        description = "widthPercent = 60%, heightPercent = 40%, centered with offset",
+        constraints = {
+            widthPercent = 0.6,
+            heightPercent = 0.4,
+            centerX = true,
+            centerY = { offset = 2 },
+            minWidth = 8,
+            minHeight = 3
+        }
+    },
+    {
+        label = "Match Parent",
+        description = "width = parent.width, heightPercent = 60%, centered with offset",
+        constraints = {
+            width = "parent.width",
+            heightPercent = 0.6,
+            centerX = true,
+            centerY = { offset = 2 }
+        }
+    },
+    {
+        label = "Offset Center",
+        description = "width = 45% -1, centerX offset -2, centerY offset +2",
+        constraints = {
+            width = { percent = 0.45, of = "parent.width", offset = -1 },
+            height = { percent = 0.45, of = "parent.height" },
+            centerX = { offset = -2 },
+            centerY = { reference = "parent.centerY", offset = 2 }
+        }
+    }
+}
+
+constraintState.presets = constraintPresets
+
+local function formatConstraintSummary(preset)
+    local box = constraintState.box
+    if not box then
+        return preset.description or preset.label
+    end
+    local summary = preset.description or preset.label
+    return string.format("%s\nActual size: %dx%d", summary, box.width, box.height)
+end
+
+local function applyConstraintPreset(index)
+    local preset = constraintState.presets[index]
+    if not preset then
+        return
+    end
+    constraintState.activePresetIndex = index
+    local box = constraintState.box
+    if box then
+        box:setConstraints(preset.constraints)
+    end
+    if layout then
+        layout()
+    end
+    if constraintState.infoLabel then
+        constraintState.infoLabel:setText(formatConstraintSummary(preset))
+    end
+    constraintState.currentSummary = preset.description or preset.label
+end
+
+constraintState.buttons = {}
+constraintState.buttonDefaults = {}
+
+for index = 1, #constraintState.presets do
+    local preset = constraintState.presets[index]
+    local button = app:createButton({
+        width = 11,
+        height = 2,
+        label = preset.label,
+        bg = colors.lightGray,
+        fg = colors.black
+    })
+    constraintStep:addChild(button)
+    constraintState.buttons[index] = button
+    constraintState.buttonDefaults[index] = { width = button.width, height = button.height }
+    button:setOnClick(function()
+        applyConstraintPreset(index)
+    end)
+end
+
+applyConstraintPreset(1)
+
+addStep(constraintStep, function()
+    applyConstraintPreset(constraintState.activePresetIndex or 1)
+    local firstButton = constraintState.buttons and constraintState.buttons[1]
+    if firstButton then
+        app:setFocus(firstButton)
+    else
+        app:setFocus(nil)
+    end
+end, function()
+    app:setFocus(nil)
+end)
+
+-- Step 18: FreeDraw showcase
+local freeDrawStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(freeDrawStep)
+
+freeDrawState.frame = freeDrawStep
+
+freeDrawState.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "FreeDraw lets you render directly into the text and pixel layers. Cycle patterns to see custom drawing with ctx.fill, ctx.write, and ctx.pixel.",
+    bg = colors.gray,
+    fg = colors.white
+})
+freeDrawStep:addChild(freeDrawState.instructions)
+freeDrawState.defaults.instructions = {
+    width = freeDrawState.instructions.width,
+    height = freeDrawState.instructions.height
+}
+
+freeDrawState.widget = app:createFreeDraw({
+    width = 22,
+    height = 8,
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.white }
+})
+freeDrawStep:addChild(freeDrawState.widget)
+freeDrawState.defaults.canvas = {
+    width = freeDrawState.widget.width,
+    height = freeDrawState.widget.height
+}
+
+freeDrawState.patternLabel = app:createLabel({
+    width = 26,
+    height = 1,
+    align = "center",
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+freeDrawStep:addChild(freeDrawState.patternLabel)
+freeDrawState.defaults.pattern = {
+    width = freeDrawState.patternLabel.width,
+    height = freeDrawState.patternLabel.height
+}
+
+freeDrawState.nextButton = app:createButton({
+    width = 14,
+    height = 3,
+    label = "Next Pattern",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+freeDrawStep:addChild(freeDrawState.nextButton)
+freeDrawState.defaults.button = {
+    width = freeDrawState.nextButton.width,
+    height = freeDrawState.nextButton.height
+}
+
+local freeDrawPatterns = {
+    {
+        name = "Grid",
+        draw = function(ctx)
+            ctx.fill(colors.black)
+            for y = 1, ctx.height, 2 do
+                for x = 1, ctx.width do
+                    ctx.pixel(x, y, colors.gray)
+                end
+            end
+            for x = 1, ctx.width, 2 do
+                for y = 1, ctx.height do
+                    ctx.pixel(x, y, colors.lightGray)
+                end
+            end
+            if ctx.width >= 6 and ctx.height >= 3 then
+                ctx.write(2, 2, "GRID", colors.white, colors.black)
+            end
+        end
+    },
+    {
+        name = "Wave",
+        draw = function(ctx)
+            ctx.fill(colors.black)
+            local centerY = math.floor(ctx.height / 2)
+            local amplitude = math.max(1, math.floor(ctx.height / 3))
+            for x = 1, ctx.width do
+                local angle = (x / ctx.width) * math.pi * 2
+                local y = centerY + math.floor(math.sin(angle) * amplitude)
+                y = clamp(y, 1, ctx.height)
+                ctx.pixel(x, y, colors.cyan)
+            end
+            if ctx.height >= 2 then
+                ctx.write(2, ctx.height - 1, "wave", colors.lightBlue, colors.black)
+            end
+        end
+    },
+    {
+        name = "Spark",
+        draw = function(ctx)
+            ctx.fill(colors.black)
+            seedRandom()
+            local total = math.min(40, ctx.width * ctx.height)
+            for i = 1, total do
+                local px = math.random(1, ctx.width)
+                local py = math.random(1, ctx.height)
+                local color = (i % 3 == 0) and colors.orange or ((i % 2 == 0) and colors.yellow or colors.white)
+                ctx.pixel(px, py, color)
+            end
+            ctx.write(2, 2, "spark", colors.orange, colors.black)
+        end
+    }
+}
+
+local function applyFreeDrawPattern(index)
+    if #freeDrawPatterns == 0 then
+        return
+    end
+    local normalized = ((index - 1) % #freeDrawPatterns) + 1
+    freeDrawState.patternIndex = normalized
+    local entry = freeDrawPatterns[normalized]
+    if freeDrawState.widget then
+        freeDrawState.widget:setOnDraw(function(_, ctx)
+            entry.draw(ctx)
+        end)
+    end
+    if freeDrawState.patternLabel then
+        freeDrawState.patternLabel:setText("Pattern: " .. entry.name)
+    end
+    if app.running then
+        app:render()
+    end
+end
+
+freeDrawState.nextButton:setOnClick(function()
+    applyFreeDrawPattern(freeDrawState.patternIndex + 1)
+end)
+
+applyFreeDrawPattern(freeDrawState.patternIndex)
+
+addStep(freeDrawStep, function()
+    applyFreeDrawPattern(freeDrawState.patternIndex)
+    app:setFocus(nil)
+end, function()
+    app:setFocus(nil)
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -1747,6 +2095,10 @@ local layoutState = {
     progressIndeterminate = progressIndeterminate,
     progressDefaults = progressDefaults,
     progressStep = progressStep,
+    constraintState = constraintState,
+    constraintStep = constraintStep,
+    freeDrawState = freeDrawState,
+    freeDrawStep = freeDrawStep,
     toastState = toastState,
     toastStep = toastStep,
     threadDemo = threadDemo,
@@ -2207,6 +2559,175 @@ local function layout()
         progressIndeterminate:setSize(indWidth, indHeight)
         local indX = math.floor((progressStep.width - indWidth) / 2) + 1
         progressIndeterminate:setPosition(indX, secondY)
+    end
+
+    local constraintLayout = state.constraintState
+    if constraintLayout and constraintLayout.frame and constraintLayout.box then
+        local constraintStep = constraintLayout.frame
+        local defaults = constraintLayout.defaults or {}
+    local instructions = constraintLayout.instructions
+    local infoLabel = constraintLayout.infoLabel
+    local surface = constraintLayout.surface
+    local surfaceDefaults = defaults.surface or { width = surface and surface.width, height = surface and surface.height }
+    local buttons = constraintLayout.buttons or {}
+    local buttonDefaults = constraintLayout.buttonDefaults or {}
+        local maxWidth = math.max(8, stepWidth - innerMargin * 2)
+        local topCursor = innerMargin
+        local bottomCursor = innerMargin + stepHeight - 1
+
+        if instructions then
+            local instDefaults = defaults.instructions or { width = instructions.width, height = instructions.height }
+            local instWidth = math.max(10, math.min(instDefaults.width or instructions.width, maxWidth))
+            local instHeight = math.max(1, math.min(instDefaults.height or instructions.height, math.max(1, math.floor(stepHeight / 4))))
+            instructions:setSize(instWidth, instHeight)
+            local instX = math.floor((constraintStep.width - instWidth) / 2) + 1
+            instructions:setPosition(instX, topCursor)
+            topCursor = math.min(bottomCursor, topCursor + instHeight + 1)
+        end
+
+        if infoLabel then
+            local infoDefaults = defaults.info or { width = infoLabel.width, height = infoLabel.height }
+            local infoWidth = math.max(10, math.min(infoDefaults.width or infoLabel.width, maxWidth))
+            local availableHeight = math.max(1, bottomCursor - topCursor + 1)
+            local infoHeight = math.max(1, math.min(infoDefaults.height or infoLabel.height, availableHeight))
+            infoLabel:setSize(infoWidth, infoHeight)
+            local infoX = math.floor((constraintStep.width - infoWidth) / 2) + 1
+            infoLabel:setPosition(infoX, topCursor)
+            local presets = constraintLayout.presets
+            if presets then
+                local activePreset = presets[constraintLayout.activePresetIndex or 1]
+                if activePreset then
+                    infoLabel:setText(formatConstraintSummary(activePreset))
+                end
+            end
+            topCursor = math.min(bottomCursor, topCursor + infoHeight + 1)
+        end
+
+        local buttonCount = #buttons
+        local buttonSpacing = 2
+        local buttonWidths = {}
+        local buttonHeight = 0
+        local buttonTotalWidth = -buttonSpacing
+        if buttonCount > 0 then
+            for index = 1, buttonCount do
+                local button = buttons[index]
+                if button then
+                    local defaultsEntry = buttonDefaults[index] or { width = button.width, height = button.height }
+                    local widthLimit = math.max(8, math.floor((maxWidth - buttonSpacing * (buttonCount - 1)) / buttonCount))
+                    local widthValue = math.max(8, math.min(defaultsEntry.width or button.width, widthLimit))
+                    local heightValue = math.max(1, defaultsEntry.height or button.height)
+                    button:setSize(widthValue, heightValue)
+                    buttonWidths[index] = widthValue
+                    buttonHeight = math.max(buttonHeight, heightValue)
+                    buttonTotalWidth = buttonTotalWidth + widthValue + buttonSpacing
+                end
+            end
+            buttonTotalWidth = math.max(0, buttonTotalWidth)
+        end
+
+        local reservedBottom = bottomCursor
+        if buttonCount > 0 then
+            reservedBottom = reservedBottom - buttonHeight - 1
+            if reservedBottom < topCursor then
+                reservedBottom = topCursor
+            end
+        end
+
+        if surface then
+            local surfaceWidth = math.max(8, math.min(surfaceDefaults.width or surface.width, maxWidth))
+            local surfaceHeightLimit = math.max(3, reservedBottom - topCursor + 1)
+            local surfaceHeight = math.max(3, math.min(surfaceDefaults.height or surface.height, surfaceHeightLimit))
+            surface:setSize(surfaceWidth, surfaceHeight)
+            local surfaceX = math.floor((constraintStep.width - surfaceWidth) / 2) + 1
+            local surfaceY = topCursor
+            surface:setPosition(surfaceX, surfaceY)
+            topCursor = math.min(bottomCursor, surfaceY + surfaceHeight + 1)
+        end
+
+        if buttonCount > 0 then
+            local buttonY = bottomCursor - buttonHeight + 1
+            if buttonY < topCursor then
+                buttonY = topCursor
+            end
+            local buttonX = math.floor((constraintStep.width - buttonTotalWidth) / 2) + 1
+            for index = 1, buttonCount do
+                local button = buttons[index]
+                if button then
+                    local widthValue = buttonWidths[index] or button.width
+                    button:setPosition(buttonX, buttonY)
+                    buttonX = buttonX + widthValue + buttonSpacing
+                end
+            end
+            bottomCursor = math.max(topCursor, buttonY - 1)
+        end
+    end
+
+    local freeDrawLayout = state.freeDrawState
+    if freeDrawLayout and freeDrawLayout.frame and freeDrawLayout.widget then
+        local freeDrawStep = freeDrawLayout.frame
+        local defaults = freeDrawLayout.defaults or {}
+        local instructions = freeDrawLayout.instructions
+        local patternLabel = freeDrawLayout.patternLabel
+        local nextButton = freeDrawLayout.nextButton
+        local canvas = freeDrawLayout.widget
+        local maxWidth = math.max(10, stepWidth - innerMargin * 2)
+        local topCursor = innerMargin
+        local bottomCursor = innerMargin + stepHeight - 1
+
+        if instructions then
+            local instDefaults = defaults.instructions or { width = instructions.width, height = instructions.height }
+            local instWidth = math.max(12, math.min(instDefaults.width or instructions.width, maxWidth))
+            local instHeight = math.max(2, math.min(instDefaults.height or instructions.height, math.max(2, math.floor(stepHeight / 3))))
+            instructions:setSize(instWidth, instHeight)
+            local instX = math.floor((freeDrawStep.width - instWidth) / 2) + 1
+            instructions:setPosition(instX, topCursor)
+            topCursor = math.min(bottomCursor, topCursor + instHeight + 1)
+        end
+
+        if nextButton then
+            local buttonDefaults = defaults.button or { width = nextButton.width, height = nextButton.height }
+            local buttonWidth = math.max(10, math.min(buttonDefaults.width or nextButton.width, maxWidth))
+            local buttonHeight = math.max(1, buttonDefaults.height or nextButton.height)
+            nextButton:setSize(buttonWidth, buttonHeight)
+            local buttonX = math.floor((freeDrawStep.width - buttonWidth) / 2) + 1
+            local buttonY = bottomCursor - buttonHeight + 1
+            if buttonY < topCursor then
+                buttonY = topCursor
+            end
+            nextButton:setPosition(buttonX, buttonY)
+            bottomCursor = math.max(topCursor, buttonY - 1)
+        end
+
+        if patternLabel then
+            local patternDefaults = defaults.pattern or { width = patternLabel.width, height = patternLabel.height }
+            local patternWidth = math.max(10, math.min(patternDefaults.width or patternLabel.width, maxWidth))
+            local patternHeight = math.max(1, math.min(patternDefaults.height or patternLabel.height, math.max(1, bottomCursor - topCursor + 1)))
+            patternLabel:setSize(patternWidth, patternHeight)
+            local patternX = math.floor((freeDrawStep.width - patternWidth) / 2) + 1
+            local patternY = bottomCursor - patternHeight + 1
+            if patternY < topCursor then
+                patternY = topCursor
+            end
+            patternLabel:setPosition(patternX, patternY)
+            bottomCursor = math.max(topCursor, patternY - 1)
+        end
+
+        if canvas then
+            local canvasDefaults = defaults.canvas or { width = canvas.width, height = canvas.height }
+            local canvasWidth = math.max(10, math.min(canvasDefaults.width or canvas.width, maxWidth))
+            local availableHeight = math.max(4, bottomCursor - topCursor + 1)
+            local canvasHeight = math.max(4, math.min(canvasDefaults.height or canvas.height, availableHeight))
+            canvas:setSize(canvasWidth, canvasHeight)
+            local canvasX = math.floor((freeDrawStep.width - canvasWidth) / 2) + 1
+            local canvasY = topCursor + math.floor((availableHeight - canvasHeight) / 2)
+            if canvasY < topCursor then
+                canvasY = topCursor
+            end
+            if canvasY + canvasHeight - 1 > topCursor + availableHeight - 1 then
+                canvasY = math.max(topCursor, topCursor + availableHeight - canvasHeight)
+            end
+            canvas:setPosition(canvasX, canvasY)
+        end
     end
 
     local toastLayoutState = state.toastState

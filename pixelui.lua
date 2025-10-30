@@ -42,6 +42,7 @@ local shrekbox = require("shrekbox")
 ---@field border PixelUI.NormalizedBorderConfig? # Border configuration
 ---@field id string? # Optional unique identifier
 ---@field focusable boolean # Whether the widget can receive focus
+---@field constraints PixelUI.NormalizedConstraintConfig? # Optional size constraints
 ---@field draw fun(self:PixelUI.Widget, textLayer:Layer, pixelLayer:Layer) # Render the widget
 ---@field handleEvent fun(self:PixelUI.Widget, event:string, ...:any):boolean # Handle input events
 ---@field setFocused fun(self:PixelUI.Widget, focused:boolean) # Set focus state
@@ -67,6 +68,43 @@ local shrekbox = require("shrekbox")
 ---@field minThumbSize integer? # Minimum thumb height in characters
 
 ---@class PixelUI.NormalizedScrollbarConfig
+---@class PixelUI.DimensionConstraint
+---@field percent number? # Percentage (0-1) of the referenced metric
+---@field of string? # Reference string such as "parent.width"
+---@field offset integer? # Offset applied after evaluation
+
+---@class PixelUI.AlignmentConstraint
+---@field reference string? # Reference string such as "parent.centerX"
+---@field offset integer? # Offset applied relative to the reference
+
+---@class PixelUI.ConstraintConfig
+---@field minWidth integer? # Minimum allowed width (in characters)
+---@field maxWidth integer? # Maximum allowed width (in characters)
+---@field minHeight integer? # Minimum allowed height (in characters)
+---@field maxHeight integer? # Maximum allowed height (in characters)
+---@field width (number|string|PixelUI.DimensionConstraint|boolean)? # Explicit width rule
+---@field height (number|string|PixelUI.DimensionConstraint|boolean)? # Explicit height rule
+---@field widthPercent number? # Width as a percentage (0-1 or 0-100) of the parent width
+---@field heightPercent number? # Height as a percentage (0-1 or 0-100) of the parent height
+---@field centerX (boolean|string|PixelUI.AlignmentConstraint)? # Horizontal alignment rule
+---@field centerY (boolean|string|PixelUI.AlignmentConstraint)? # Vertical alignment rule
+---@field offsetX integer? # X offset applied after alignment rules
+---@field offsetY integer? # Y offset applied after alignment rules
+
+---@class PixelUI.NormalizedConstraintConfig
+---@field minWidth integer? # Minimum allowed width (in characters)
+---@field maxWidth integer? # Maximum allowed width (in characters)
+---@field minHeight integer? # Minimum allowed height (in characters)
+---@field maxHeight integer? # Maximum allowed height (in characters)
+---@field width table? # Internal descriptor for width rules
+---@field height table? # Internal descriptor for height rules
+---@field widthPercent number? # Normalized width percentage (0-1)
+---@field heightPercent number? # Normalized height percentage (0-1)
+---@field centerX table? # Internal descriptor for horizontal alignment
+---@field centerY table? # Internal descriptor for vertical alignment
+---@field offsetX integer? # Horizontal offset applied after alignment
+---@field offsetY integer? # Vertical offset applied after alignment
+
 ---@field enabled boolean # Whether the scrollbar is enabled
 ---@field alwaysVisible boolean # Whether the scrollbar renders when content fits
 ---@field width integer # Width in characters
@@ -206,6 +244,25 @@ local shrekbox = require("shrekbox")
 ---@field trailPalette PixelUI.Color[]? # Array of colors for trail gradient
 ---@field fadeSteps integer # Number of fade steps for the trail
 ---@field autoStart boolean? # Whether to start animating automatically
+
+--- A raw drawing surface that exposes ShrekBox layers for custom rendering.
+--- Useful for advanced visualisations or integrating bespoke ASCII art.
+---@class PixelUI.FreeDraw : PixelUI.Widget
+---@field onDraw fun(self:PixelUI.FreeDraw, ctx:PixelUI.FreeDrawContext)? # Callback invoked every render
+---@field clear boolean # Whether to clear the region before drawing
+
+---@class PixelUI.FreeDrawContext
+---@field app PixelUI.App # Owning application instance
+---@field box ShrekBox # Underlying ShrekBox instance
+---@field textLayer Layer # Shared text layer used by PixelUI
+---@field pixelLayer Layer # Shared pixel layer used by PixelUI
+---@field x integer # Absolute X coordinate of the widget region
+---@field y integer # Absolute Y coordinate of the widget region
+---@field width integer # Width of the widget region
+---@field height integer # Height of the widget region
+---@field write fun(x:integer, y:integer, text:string, fg:PixelUI.Color?, bg:PixelUI.Color?) # Write clipped text relative to the region (1-based)
+---@field pixel fun(x:integer, y:integer, color:PixelUI.Color) # Set a pixel relative to the region (1-based)
+---@field fill fun(color:PixelUI.Color) # Fill the region with a colour
 
 --- A slider widget for selecting numeric values within a range.
 --- Supports single value or range selection mode.
@@ -468,6 +525,10 @@ setmetatable(NotificationToast, { __index = Widget })
 local LoadingRing = {}
 LoadingRing.__index = LoadingRing
 setmetatable(LoadingRing, { __index = Widget })
+
+local FreeDraw = {}
+FreeDraw.__index = FreeDraw
+setmetatable(FreeDraw, { __index = Widget })
 
 local App = {}
 App.__index = App
@@ -754,6 +815,222 @@ local function normalize_border(config)
 		normalized.thickness = 1
 	end
 
+	return normalized
+end
+
+local RELATIVE_REF_PATTERN = "^(%a[%w_]*)%.([%a_][%w_]*)$"
+
+local function parse_relative_reference(value)
+	if type(value) ~= "string" then
+		return nil, nil
+	end
+	local target, property = value:match(RELATIVE_REF_PATTERN)
+	return target, property
+end
+
+local function normalize_percent_value(value, key)
+	local percent = tonumber(value)
+	if not percent then
+		error("constraints." .. key .. " must be numeric", 3)
+	end
+	if percent > 1 then
+		percent = percent / 100
+	end
+	if percent < 0 then
+		percent = 0
+	elseif percent > 1 then
+		percent = 1
+	end
+	return percent
+end
+
+local function normalize_dimension_value(value, axis)
+	if value == nil then
+		return nil
+	end
+	local valueType = type(value)
+	if valueType == "number" then
+		return { kind = "absolute", value = math.max(1, math.floor(value)) }
+	end
+	if valueType == "boolean" then
+		if value then
+			return { kind = "relative", target = "parent", property = axis }
+		end
+		return nil
+	end
+	if valueType == "string" then
+		local target, property = parse_relative_reference(value)
+		if not target then
+			error("constraints." .. axis .. " string references must look like 'parent.<property>'", 3)
+		end
+		if target ~= "parent" then
+			error("constraints." .. axis .. " currently only supports references to the parent", 3)
+		end
+		return { kind = "relative", target = target, property = property, offset = 0 }
+	end
+	if valueType == "table" then
+		if value.reference or value.of then
+			local reference = value.reference or value.of
+			local target, property = parse_relative_reference(reference)
+			if not target then
+				error("constraints." .. axis .. " reference tables must include 'reference' or 'of' matching 'parent.<property>'", 3)
+			end
+			if target ~= "parent" then
+				error("constraints." .. axis .. " references currently only support the parent", 3)
+			end
+			local offset = value.offset and math.floor(value.offset) or 0
+			return { kind = "relative", target = target, property = property, offset = offset }
+		end
+		if value.percent ~= nil then
+			local percent = normalize_percent_value(value.percent, axis .. ".percent")
+			local reference = value.of or ("parent." .. axis)
+			local target, property = parse_relative_reference(reference)
+			if not target then
+				error("constraints." .. axis .. ".percent requires an 'of' reference such as 'parent.width'", 3)
+			end
+			if target ~= "parent" then
+				error("constraints." .. axis .. ".percent currently only supports the parent", 3)
+			end
+			local offset = value.offset and math.floor(value.offset) or 0
+			return {
+				kind = "percent",
+				percent = percent,
+				target = target,
+				property = property,
+				offset = offset
+			}
+		end
+		if value.match ~= nil then
+			return normalize_dimension_value(value.match, axis)
+		end
+		if value.value ~= nil then
+			return normalize_dimension_value(value.value, axis)
+		end
+		error("constraints." .. axis .. " table must include percent, reference/of, match, or value fields", 3)
+	end
+	return nil
+end
+
+local function normalize_alignment_value(value, axis)
+	if value == nil then
+		return nil
+	end
+	local valueType = type(value)
+	if valueType == "boolean" then
+		if not value then
+			return nil
+		end
+		return {
+			kind = "center",
+			target = "parent",
+			property = axis == "x" and "centerX" or "centerY",
+			offset = 0
+		}
+	end
+	if valueType == "string" then
+		local target, property = parse_relative_reference(value)
+		if not target then
+			error("constraints.center" .. (axis == "x" and "X" or "Y") .. " string references must look like 'parent.<property>'", 3)
+		end
+		if target ~= "parent" then
+			error("constraints.center" .. (axis == "x" and "X" or "Y") .. " currently only supports the parent", 3)
+		end
+		return { kind = "center", target = target, property = property, offset = 0 }
+	end
+	if valueType == "table" then
+		local reference = value.reference or value.of or value.target or value.align
+		local offset = value.offset and math.floor(value.offset) or 0
+		if reference then
+			local target, property = parse_relative_reference(reference)
+			if not target then
+				error("constraints.center" .. (axis == "x" and "X" or "Y") .. " reference tables must use 'parent.<property>'", 3)
+			end
+			if target ~= "parent" then
+				error("constraints.center" .. (axis == "x" and "X" or "Y") .. " currently only supports the parent", 3)
+			end
+			return { kind = "center", target = target, property = property, offset = offset }
+		end
+		return {
+			kind = "center",
+			target = "parent",
+			property = axis == "x" and "centerX" or "centerY",
+			offset = offset
+		}
+	end
+	return nil
+end
+
+local function normalize_constraints(config)
+	if config == nil then
+		return nil
+	end
+	if type(config) ~= "table" then
+		error("constraints must be a table if provided", 3)
+	end
+	local normalized = {}
+	if config.minWidth ~= nil then
+		if type(config.minWidth) ~= "number" then
+			error("constraints.minWidth must be a number", 3)
+		end
+		normalized.minWidth = math.max(1, math.floor(config.minWidth))
+	end
+	if config.maxWidth ~= nil then
+		if type(config.maxWidth) ~= "number" then
+			error("constraints.maxWidth must be a number", 3)
+		end
+		normalized.maxWidth = math.max(1, math.floor(config.maxWidth))
+	end
+	if config.minHeight ~= nil then
+		if type(config.minHeight) ~= "number" then
+			error("constraints.minHeight must be a number", 3)
+		end
+		normalized.minHeight = math.max(1, math.floor(config.minHeight))
+	end
+	if config.maxHeight ~= nil then
+		if type(config.maxHeight) ~= "number" then
+			error("constraints.maxHeight must be a number", 3)
+		end
+		normalized.maxHeight = math.max(1, math.floor(config.maxHeight))
+	end
+	if normalized.minWidth and normalized.maxWidth and normalized.maxWidth < normalized.minWidth then
+		normalized.maxWidth = normalized.minWidth
+	end
+	if normalized.minHeight and normalized.maxHeight and normalized.maxHeight < normalized.minHeight then
+		normalized.maxHeight = normalized.minHeight
+	end
+	if config.width ~= nil then
+		normalized.width = normalize_dimension_value(config.width, "width")
+	end
+	if config.height ~= nil then
+		normalized.height = normalize_dimension_value(config.height, "height")
+	end
+	if config.widthPercent ~= nil then
+		normalized.widthPercent = normalize_percent_value(config.widthPercent, "widthPercent")
+	end
+	if config.heightPercent ~= nil then
+		normalized.heightPercent = normalize_percent_value(config.heightPercent, "heightPercent")
+	end
+	if config.centerX ~= nil then
+		normalized.centerX = normalize_alignment_value(config.centerX, "x")
+	end
+	if config.centerY ~= nil then
+		normalized.centerY = normalize_alignment_value(config.centerY, "y")
+	end
+	if config.offsetX ~= nil then
+		if type(config.offsetX) ~= "number" then
+			error("constraints.offsetX must be numeric", 3)
+		end
+		normalized.offsetX = math.floor(config.offsetX)
+	end
+	if config.offsetY ~= nil then
+		if type(config.offsetY) ~= "number" then
+			error("constraints.offsetY must be numeric", 3)
+		end
+		normalized.offsetY = math.floor(config.offsetY)
+	end
+	if not next(normalized) then
+		return nil
+	end
 	return normalized
 end
 
@@ -2096,16 +2373,290 @@ function Widget:_init_base(app, config)
 	self.border = normalize_border(config.border)
 	self.focusable = config.focusable == true
 	self._focused = false
+	self.constraints = nil
 
 	assert_positive_integer("width", self.width)
 	assert_positive_integer("height", self.height)
+	if config.constraints ~= nil then
+		self.constraints = normalize_constraints(config.constraints)
+		local constrainedWidth, constrainedHeight = self:_applySizeConstraints(self.width, self.height)
+		self.width = constrainedWidth
+		self.height = constrainedHeight
+	end
 end
 
 function Widget:setSize(width, height)
 	assert_positive_integer("width", width)
 	assert_positive_integer("height", height)
-	self.width = width
-	self.height = height
+	local constrainedWidth, constrainedHeight = self:_applySizeConstraints(width, height)
+	self.width = constrainedWidth
+	self.height = constrainedHeight
+end
+
+function Widget:_applyConstraintLayout()
+	local constraints = self.constraints
+	if not constraints then
+		return
+	end
+
+	local parent = self.parent
+	local function resolve_parent_metric(property)
+		if not parent then
+			return nil
+		end
+		if property == "width" then
+			return parent.width
+		elseif property == "height" then
+			return parent.height
+		elseif property == "centerX" then
+			if parent.width then
+				return (parent.width - 1) / 2 + 1
+			end
+		elseif property == "centerY" then
+			if parent.height then
+				return (parent.height - 1) / 2 + 1
+			end
+		elseif property == "right" then
+			return parent.width
+		elseif property == "bottom" then
+			return parent.height
+		elseif property == "left" or property == "x" then
+			return 1
+		elseif property == "top" or property == "y" then
+			return 1
+		end
+		return nil
+	end
+
+	local function resolve_dimension(descriptor, axis)
+		if not descriptor then
+			return nil
+		end
+		if descriptor.kind == "absolute" then
+			return descriptor.value
+		end
+		if descriptor.kind == "relative" then
+			local base = resolve_parent_metric(descriptor.property)
+			if base == nil then
+				return nil
+			end
+			local offset = descriptor.offset or 0
+			local value = math.floor(base + offset)
+			return math.max(1, value)
+		end
+		if descriptor.kind == "percent" then
+			local base = resolve_parent_metric(descriptor.property)
+			if base == nil then
+				return nil
+			end
+			local offset = descriptor.offset or 0
+			local value = math.floor(base * descriptor.percent + 0.5) + offset
+			return math.max(1, value)
+		end
+		return nil
+	end
+
+	local widthCandidate = resolve_dimension(constraints.width, "width")
+	local heightCandidate = resolve_dimension(constraints.height, "height")
+
+	local parentWidth = parent and parent.width or nil
+	local parentHeight = parent and parent.height or nil
+
+	if not widthCandidate and constraints.widthPercent and parentWidth then
+		widthCandidate = math.max(1, math.floor(parentWidth * constraints.widthPercent + 0.5))
+	end
+	if not heightCandidate and constraints.heightPercent and parentHeight then
+		heightCandidate = math.max(1, math.floor(parentHeight * constraints.heightPercent + 0.5))
+	end
+
+	local targetWidth = widthCandidate or self.width
+	local targetHeight = heightCandidate or self.height
+	local clampedWidth, clampedHeight = self:_applySizeConstraints(targetWidth, targetHeight)
+	if clampedWidth ~= self.width or clampedHeight ~= self.height then
+		self:setSize(clampedWidth, clampedHeight)
+	end
+
+	parentWidth = parent and parent.width or nil
+	parentHeight = parent and parent.height or nil
+
+	local function compute_alignment(descriptor, axis, parentSize, childSize, baseOffset)
+		if not descriptor then
+			return nil
+		end
+		if not parent or not parentSize or parentSize <= 0 then
+			return nil
+		end
+		local property = descriptor.property or (axis == "x" and "centerX" or "centerY")
+		local base
+		if property == "centerX" or property == "centerY" then
+			base = math.floor((parentSize - childSize) / 2) + 1
+		elseif property == "right" or property == "bottom" or property == "width" or property == "height" then
+			base = parentSize - childSize + 1
+		elseif property == "left" or property == "top" or property == "x" or property == "y" then
+			base = 1
+		else
+			local metric = resolve_parent_metric(property)
+			if metric then
+				base = math.floor(metric - math.floor(childSize / 2))
+			else
+				base = math.floor((parentSize - childSize) / 2) + 1
+			end
+		end
+		local offset = (descriptor.offset or 0) + baseOffset
+		base = math.floor(base + offset)
+		if base < 1 then
+			base = 1
+		end
+		local maxPos = math.max(1, parentSize - childSize + 1)
+		if base > maxPos then
+			base = maxPos
+		end
+		return base
+	end
+
+	local offsetX = math.floor(constraints.offsetX or 0)
+	local offsetY = math.floor(constraints.offsetY or 0)
+	local newX = self.x
+	local newY = self.y
+
+	local alignedX = compute_alignment(constraints.centerX, "x", parentWidth, self.width, offsetX)
+	if alignedX then
+		newX = alignedX
+	end
+	local alignedY = compute_alignment(constraints.centerY, "y", parentHeight, self.height, offsetY)
+	if alignedY then
+		newY = alignedY
+	end
+
+	if newX ~= self.x or newY ~= self.y then
+		self:setPosition(newX, newY)
+	end
+end
+
+function Widget:_applySizeConstraints(width, height)
+	local w = math.floor(width)
+	local h = math.floor(height)
+	if w < 1 then
+		w = 1
+	end
+	if h < 1 then
+		h = 1
+	end
+	local constraints = self.constraints
+	if constraints then
+		if constraints.minWidth and w < constraints.minWidth then
+			w = constraints.minWidth
+		end
+		if constraints.maxWidth and w > constraints.maxWidth then
+			w = constraints.maxWidth
+		end
+		if constraints.minHeight and h < constraints.minHeight then
+			h = constraints.minHeight
+		end
+		if constraints.maxHeight and h > constraints.maxHeight then
+			h = constraints.maxHeight
+		end
+	end
+	return w, h
+end
+
+function Widget:setConstraints(constraints)
+	if constraints == nil or constraints == false then
+		self.constraints = nil
+	else
+		self.constraints = normalize_constraints(constraints)
+	end
+	local newWidth, newHeight = self:_applySizeConstraints(self.width, self.height)
+	if newWidth ~= self.width or newHeight ~= self.height then
+		self:setSize(newWidth, newHeight)
+	end
+	self:_applyConstraintLayout()
+end
+
+local function export_dimension_descriptor(descriptor)
+	if not descriptor then
+		return nil
+	end
+	if descriptor.kind == "absolute" then
+		return descriptor.value
+	elseif descriptor.kind == "relative" then
+		local reference = string.format("%s.%s", descriptor.target or "parent", descriptor.property or "width")
+		if descriptor.offset and descriptor.offset ~= 0 then
+			return { reference = reference, offset = descriptor.offset }
+		end
+		return reference
+	elseif descriptor.kind == "percent" then
+		local reference = string.format("%s.%s", descriptor.target or "parent", descriptor.property or "width")
+		local output = { percent = descriptor.percent, of = reference }
+		if descriptor.offset and descriptor.offset ~= 0 then
+			output.offset = descriptor.offset
+		end
+		return output
+	end
+	return nil
+end
+
+local function export_alignment_descriptor(descriptor)
+	if not descriptor then
+		return nil
+	end
+	local reference = string.format("%s.%s", descriptor.target or "parent", descriptor.property or "center")
+	if descriptor.offset and descriptor.offset ~= 0 then
+		return { reference = reference, offset = descriptor.offset }
+	end
+	return reference
+end
+
+function Widget:getConstraints()
+	if not self.constraints then
+		return nil
+	end
+	local normalized = self.constraints
+	local result = {}
+	if normalized.minWidth then
+		result.minWidth = normalized.minWidth
+	end
+	if normalized.maxWidth then
+		result.maxWidth = normalized.maxWidth
+	end
+	if normalized.minHeight then
+		result.minHeight = normalized.minHeight
+	end
+	if normalized.maxHeight then
+		result.maxHeight = normalized.maxHeight
+	end
+	local widthDescriptor = export_dimension_descriptor(normalized.width)
+	if widthDescriptor ~= nil then
+		result.width = widthDescriptor
+	end
+	local heightDescriptor = export_dimension_descriptor(normalized.height)
+	if heightDescriptor ~= nil then
+		result.height = heightDescriptor
+	end
+	if normalized.widthPercent then
+		result.widthPercent = normalized.widthPercent
+	end
+	if normalized.heightPercent then
+		result.heightPercent = normalized.heightPercent
+	end
+	local centerXDescriptor = export_alignment_descriptor(normalized.centerX)
+	if centerXDescriptor ~= nil then
+		result.centerX = centerXDescriptor
+	end
+	local centerYDescriptor = export_alignment_descriptor(normalized.centerY)
+	if centerYDescriptor ~= nil then
+		result.centerY = centerYDescriptor
+	end
+	if normalized.offsetX and normalized.offsetX ~= 0 then
+		result.offsetX = normalized.offsetX
+	end
+	if normalized.offsetY and normalized.offsetY ~= 0 then
+		result.offsetY = normalized.offsetY
+	end
+	if next(result) then
+		return result
+	end
+	return nil
 end
 
 ---@param y integer
@@ -2235,7 +2786,36 @@ function Frame:addChild(child)
 	self._orderCounter = self._orderCounter + 1
 	child._orderIndex = self._orderCounter
 	table.insert(self._children, child)
+	if child.constraints then
+		child:_applyConstraintLayout()
+	end
+	local propagate = child._applyConstraintsToChildren
+	if type(propagate) == "function" then
+		propagate(child)
+	end
 	return child
+end
+
+function Frame:_applyConstraintsToChildren()
+	local children = self._children
+	if not children then
+		return
+	end
+	for i = 1, #children do
+		local child = children[i]
+		if child then
+			child:_applyConstraintLayout()
+			local propagate = child._applyConstraintsToChildren
+			if type(propagate) == "function" then
+				propagate(child)
+			end
+		end
+	end
+end
+
+function Frame:setSize(width, height)
+	Widget.setSize(self, width, height)
+	self:_applyConstraintsToChildren()
 end
 
 ---@since 0.1.0
@@ -3614,6 +4194,7 @@ function ProgressBar:_startIndeterminateAnimation()
 	})
 end
 
+
 function ProgressBar:setRange(minValue, maxValue)
 	expect(1, minValue, "number")
 	expect(2, maxValue, "number")
@@ -3793,6 +4374,105 @@ end
 
 function ProgressBar:handleEvent(_event, ...)
 	return false
+end
+
+function FreeDraw:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = false
+	baseConfig.width = math.max(1, math.floor(baseConfig.width or 10))
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or 4))
+	local instance = setmetatable({}, FreeDraw)
+	instance:_init_base(app, baseConfig)
+	instance.onDraw = config.onDraw
+	instance.clear = config.clear ~= false
+	return instance
+end
+
+function FreeDraw:setOnDraw(handler)
+	if handler ~= nil and type(handler) ~= "function" then
+		error("FreeDraw:setOnDraw expects a function or nil", 2)
+	end
+	self.onDraw = handler
+end
+
+function FreeDraw:setClear(enabled)
+	self.clear = not not enabled
+end
+
+function FreeDraw:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+	local ax, ay, width, height = self:getAbsoluteRect()
+	if width <= 0 or height <= 0 then
+		return
+	end
+	if self.clear then
+		local bgColor = self.bg or self.app.background or colors.black
+		fill_rect(textLayer, ax, ay, width, height, bgColor, bgColor)
+	end
+	if self.onDraw then
+		local ctx = self._ctx or {}
+		ctx.app = self.app
+		ctx.box = self.app.box
+		ctx.textLayer = textLayer
+		ctx.pixelLayer = pixelLayer
+		ctx.x = ax
+		ctx.y = ay
+		ctx.width = width
+		ctx.height = height
+		local defaultBg = self.bg or self.app.background or colors.black
+		local defaultFg = self.fg or colors.white
+		ctx.fill = function(color)
+			local fillBg = color or defaultBg
+			fill_rect(textLayer, ax, ay, width, height, fillBg, fillBg)
+		end
+		ctx.write = function(x, y, text, fg, bg)
+			local tx = math.floor(x or 1)
+			local ty = math.floor(y or 1)
+			if type(text) ~= "string" then
+				text = tostring(text or "")
+			end
+			if ty < 1 or ty > height then
+				return
+			end
+			if tx > width then
+				return
+			end
+			local localText = text
+			local startOffset = 0
+			if tx < 1 then
+				startOffset = 1 - tx
+				if startOffset >= #localText then
+					return
+				end
+				localText = localText:sub(startOffset + 1)
+				tx = 1
+			end
+			local maxLength = width - tx + 1
+			if maxLength <= 0 then
+				return
+			end
+			if #localText > maxLength then
+				localText = localText:sub(1, maxLength)
+			end
+			textLayer.text(ax + tx - 1, ay + ty - 1, localText, fg or defaultFg, bg or defaultBg)
+		end
+		ctx.pixel = function(x, y, color)
+			local px = math.floor(x or 1)
+			local py = math.floor(y or 1)
+			if px < 1 or px > width or py < 1 or py > height then
+				return
+			end
+			pixelLayer.pixel(ax + px - 1, ay + py - 1, color or defaultFg)
+		end
+		self._ctx = ctx
+		self.onDraw(self, ctx)
+	end
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, self.bg or self.app.background or colors.black)
+	end
 end
 
 function Slider:new(app, config)
@@ -9580,6 +10260,12 @@ function App:createLoadingRing(config)
 	return LoadingRing:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.FreeDraw
+function App:createFreeDraw(config)
+	return FreeDraw:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Slider
@@ -10441,6 +11127,9 @@ pixelui.widgets = {
 	LoadingRing = function(app, config)
 		return LoadingRing:new(app, config)
 	end,
+	FreeDraw = function(app, config)
+		return FreeDraw:new(app, config)
+	end,
 	NotificationToast = function(app, config)
 		return NotificationToast:new(app, config)
 	end
@@ -10462,6 +11151,7 @@ pixelui.RadioButton = RadioButton
 pixelui.ProgressBar = ProgressBar
 pixelui.Slider = Slider
 pixelui.LoadingRing = LoadingRing
+pixelui.FreeDraw = FreeDraw
 pixelui.NotificationToast = NotificationToast
 pixelui.easings = easings
 pixelui.ThreadHandle = ThreadHandle
