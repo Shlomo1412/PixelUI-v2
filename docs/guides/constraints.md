@@ -1,5 +1,3 @@
-detailPanel:setConstraints({
-detailPanel:setConstraints(nil)
 # Constraint Layout
 
 PixelUI constraints let a widget match its parent, size itself as a percentage, or stay centered as the terminal changes. Constraints are evaluated whenever a widget (or its parent) is resized, so dynamic layouts keep the correct proportions automatically.
