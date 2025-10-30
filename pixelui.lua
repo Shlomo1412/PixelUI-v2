@@ -201,13 +201,22 @@ local shrekbox = require("shrekbox")
 ---@field labelOff string # Label text when toggle is off
 ---@field trackColorOn PixelUI.Color # Track color when on
 ---@field trackColorOff PixelUI.Color # Track color when off
+---@field trackColorDisabled PixelUI.Color # Track color when disabled
 ---@field thumbColor PixelUI.Color # Color of the sliding thumb
+---@field knobColorDisabled PixelUI.Color # Thumb color when disabled
 ---@field onLabelColor PixelUI.Color? # Text color for "on" label
 ---@field offLabelColor PixelUI.Color? # Text color for "off" label
 ---@field focusBg PixelUI.Color? # Background color when focused
 ---@field focusFg PixelUI.Color? # Foreground color when focused
+---@field focusOutline PixelUI.Color? # Outline color when focused
 ---@field showLabel boolean # Whether to show the label text
 ---@field disabled boolean # Whether the toggle is disabled
+---@field knobMargin integer # Horizontal inner margin for the knob travel
+---@field knobWidth integer? # Optional fixed knob width
+---@field transitionDuration number # Seconds for knob transition animation
+---@field transitionEasing fun(t:number):number # Easing function for knob transition
+---@field private _thumbProgress number # Current knob blend position (0-1)
+---@field private _animationHandle PixelUI.AnimationHandle? # Active animation handle
 ---@field onChange fun(self:PixelUI.Toggle, value:boolean)? # Callback fired when value changes
 
 --- A data visualization widget supporting bar and line charts.
@@ -4381,17 +4390,111 @@ function Toggle:new(app, config)
 	instance.value = not not initialValue
 	instance.labelOn = (config and config.labelOn) or "On"
 	instance.labelOff = (config and config.labelOff) or "Off"
-	instance.trackColorOn = (config and config.trackColorOn) or colors.lightBlue
-	instance.trackColorOff = (config and config.trackColorOff) or colors.gray
+	instance.trackColorOn = (config and config.trackColorOn) or (config and config.onColor) or colors.green
+	instance.trackColorOff = (config and config.trackColorOff) or (config and config.offColor) or colors.red
+	instance.trackColorDisabled = (config and config.trackColorDisabled) or colors.lightGray
 	instance.thumbColor = (config and config.thumbColor) or colors.white
+	instance.knobColorDisabled = (config and config.knobColorDisabled) or colors.lightGray
 	instance.onLabelColor = config and config.onLabelColor or nil
 	instance.offLabelColor = config and config.offLabelColor or nil
 	instance.focusBg = config and config.focusBg or colors.lightGray
 	instance.focusFg = config and config.focusFg or colors.black
+	instance.focusOutline = config and config.focusOutline or instance.focusFg or colors.white
 	instance.showLabel = not (config and config.showLabel == false)
 	instance.disabled = not not (config and config.disabled)
 	instance.onChange = config and config.onChange or nil
+	instance.knobMargin = math.max(0, math.floor(config.knobMargin or 0))
+	if config.knobWidth ~= nil then
+		if type(config.knobWidth) ~= "number" then
+			error("Toggle knobWidth must be a number", 3)
+		end
+		instance.knobWidth = math.max(1, math.floor(config.knobWidth))
+	else
+		instance.knobWidth = nil
+	end
+	if config.transitionDuration ~= nil then
+		if type(config.transitionDuration) ~= "number" then
+			error("Toggle transitionDuration must be a number", 3)
+		end
+		instance.transitionDuration = math.max(0, config.transitionDuration)
+	else
+		instance.transitionDuration = 0.2
+	end
+	local easing = config.transitionEasing
+	if type(easing) == "string" then
+		easing = easings[easing] or easings.easeInOutQuad
+	elseif type(easing) ~= "function" then
+		easing = easings.easeInOutQuad
+	end
+	instance.transitionEasing = easing
+	instance._thumbProgress = instance.value and 1 or 0
+	instance._animationHandle = nil
 	return instance
+end
+
+function Toggle:_cancelAnimation()
+	if self._animationHandle then
+		self._animationHandle:cancel()
+		self._animationHandle = nil
+	end
+end
+
+function Toggle:_setThumbProgress(progress)
+	if progress == nil then
+		progress = self.value and 1 or 0
+	end
+	if progress < 0 then
+		progress = 0
+	elseif progress > 1 then
+		progress = 1
+	end
+	self._thumbProgress = progress
+end
+
+function Toggle:_animateThumb(targetProgress)
+	targetProgress = math.max(0, math.min(1, targetProgress or (self.value and 1 or 0)))
+	if self.disabled then
+		self:_cancelAnimation()
+		self:_setThumbProgress(targetProgress)
+		return
+	end
+	if not self.app or self.transitionDuration <= 0 then
+		self:_cancelAnimation()
+		self:_setThumbProgress(targetProgress)
+		return
+	end
+	local startProgress = self._thumbProgress
+	if startProgress == nil then
+		startProgress = self.value and 1 or 0
+	end
+	if math.abs(startProgress - targetProgress) < 1e-4 then
+		self:_cancelAnimation()
+		self:_setThumbProgress(targetProgress)
+		return
+	end
+	self:_cancelAnimation()
+	local delta = targetProgress - startProgress
+	local easing = self.transitionEasing or easings.easeInOutQuad
+	self._animationHandle = self.app:animate({
+		duration = self.transitionDuration,
+		easing = easing,
+		update = function(progress)
+			local value = startProgress + delta * progress
+			if value < 0 then
+				value = 0
+			elseif value > 1 then
+				value = 1
+			end
+			self._thumbProgress = value
+		end,
+		onComplete = function()
+			self._thumbProgress = targetProgress
+			self._animationHandle = nil
+		end,
+		onCancel = function()
+			self._animationHandle = nil
+		end
+	})
 end
 
 function Toggle:_emitChange()
@@ -4410,9 +4513,11 @@ end
 function Toggle:setValue(value, suppressEvent)
 	value = not not value
 	if self.value == value then
+		self:_animateThumb(value and 1 or 0)
 		return
 	end
 	self.value = value
+	self:_animateThumb(value and 1 or 0)
 	if not suppressEvent then
 		self:_emitChange()
 	end
@@ -4450,13 +4555,19 @@ function Toggle:setDisabled(disabled)
 		return
 	end
 	self.disabled = disabled
+	if disabled then
+		self:_cancelAnimation()
+		self:_setThumbProgress(self.value and 1 or 0)
+	else
+		self:_animateThumb(self.value and 1 or 0)
+	end
 end
 
 function Toggle:isDisabled()
 	return self.disabled
 end
 
-function Toggle:setColors(onColor, offColor, thumbColor, onLabelColor, offLabelColor)
+function Toggle:setColors(onColor, offColor, thumbColor, onLabelColor, offLabelColor, disabledTrackColor, disabledThumbColor)
 	if onColor ~= nil then
 		expect(1, onColor, "number")
 		self.trackColorOn = onColor
@@ -4477,6 +4588,45 @@ function Toggle:setColors(onColor, offColor, thumbColor, onLabelColor, offLabelC
 		expect(5, offLabelColor, "number")
 		self.offLabelColor = offLabelColor
 	end
+	if disabledTrackColor ~= nil then
+		expect(6, disabledTrackColor, "number")
+		self.trackColorDisabled = disabledTrackColor
+	end
+	if disabledThumbColor ~= nil then
+		expect(7, disabledThumbColor, "number")
+		self.knobColorDisabled = disabledThumbColor
+	end
+end
+
+function Toggle:setTransition(duration, easing)
+	if duration ~= nil then
+		expect(1, duration, "number")
+		self.transitionDuration = math.max(0, duration)
+	end
+	if easing ~= nil then
+		if type(easing) == "string" then
+			local fn = easings[easing]
+			if not fn then
+				error("Unknown easing '" .. easing .. "'", 2)
+			end
+			self.transitionEasing = fn
+		elseif type(easing) == "function" then
+			self.transitionEasing = easing
+		else
+			error("Toggle transition easing must be a function or easing name", 2)
+		end
+	end
+end
+
+function Toggle:setKnobStyle(width, margin)
+	if width ~= nil then
+		expect(1, width, "number")
+		self.knobWidth = math.max(1, math.floor(width))
+	end
+	if margin ~= nil then
+		expect(2, margin, "number")
+		self.knobMargin = math.max(0, math.floor(margin))
+	end
 end
 
 function Toggle:draw(textLayer, pixelLayer)
@@ -4494,76 +4644,89 @@ function Toggle:draw(textLayer, pixelLayer)
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
 
-	local border = self.border
-	local leftPad = (border and border.left) and border.thickness or 0
-	local rightPad = (border and border.right) and border.thickness or 0
-	local topPad = (border and border.top) and border.thickness or 0
-	local bottomPad = (border and border.bottom) and border.thickness or 0
-
-	local innerX = ax + leftPad
-	local innerY = ay + topPad
-	local innerWidth = math.max(0, width - leftPad - rightPad)
-	local innerHeight = math.max(0, height - topPad - bottomPad)
-
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
 	if innerWidth <= 0 or innerHeight <= 0 then
 		return
 	end
 
-	local trackX = innerX
-	local trackY = innerY
+	local trackX = ax + leftPad
+	local trackY = ay + topPad
 	local trackWidth = innerWidth
 	local trackHeight = innerHeight
 
-	local offColor = self.trackColorOff or colors.gray
-	local onColor = self.trackColorOn or colors.lightBlue
-	local activeColor = self.value and onColor or offColor
+	local progress = self._thumbProgress
+	if progress == nil then
+		progress = self.value and 1 or 0
+	end
+	if progress < 0 then
+		progress = 0
+	elseif progress > 1 then
+		progress = 1
+	end
 
-	fill_rect(textLayer, trackX, trackY, trackWidth, trackHeight, activeColor, activeColor)
+	local onColor = self.trackColorOn or colors.green
+	local offColor = self.trackColorOff or colors.red
+	local disabledColor = self.trackColorDisabled or offColor
+	local trackBaseColor = self.disabled and disabledColor or offColor
+	fill_rect(textLayer, trackX, trackY, trackWidth, trackHeight, trackBaseColor, trackBaseColor)
 
-	local knobWidth = math.max(1, math.floor(trackWidth / 2))
-	if trackWidth >= 4 then
-		knobWidth = math.max(2, knobWidth)
+	local activeWidth = math.floor(trackWidth * progress + 0.5)
+	if activeWidth > 0 then
+		if activeWidth > trackWidth then
+			activeWidth = trackWidth
+		end
+		local activeColor = self.disabled and disabledColor or onColor
+		fill_rect(textLayer, trackX, trackY, activeWidth, trackHeight, activeColor, activeColor)
 	end
-	if knobWidth > trackWidth then
-		knobWidth = trackWidth
+
+	local margin = self.knobMargin or 0
+	if margin < 0 then
+		margin = 0
 	end
-	local knobX
-	if self.value then
+	if margin * 2 >= trackWidth then
+		margin = math.max(0, math.floor((trackWidth - 1) / 2))
+	end
+	local availableWidth = math.max(1, trackWidth - margin * 2)
+	local knobWidth = self.knobWidth and math.max(1, math.min(math.floor(self.knobWidth), availableWidth))
+	if not knobWidth then
+		knobWidth = math.max(1, math.floor(availableWidth / 2))
+		if availableWidth >= 4 then
+			knobWidth = math.max(2, knobWidth)
+		end
+	end
+	local travel = math.max(0, availableWidth - knobWidth)
+	local knobOffset = math.floor(travel * progress + 0.5)
+	if knobOffset > travel then
+		knobOffset = travel
+	end
+	local knobX = trackX + margin + knobOffset
+	if knobX + knobWidth - 1 > trackX + trackWidth - 1 then
 		knobX = trackX + trackWidth - knobWidth
-	else
-		knobX = trackX
-	end
-	if knobX < trackX then
-		knobX = trackX
-	end
-	if knobX + knobWidth > trackX + trackWidth then
-		knobX = trackX + trackWidth - knobWidth
+	elseif knobX < trackX + margin then
+		knobX = trackX + margin
 	end
 
 	local knobColor = self.thumbColor or colors.white
-	if self:isFocused() then
-		knobColor = self.focusBg or knobColor
+	if self.disabled then
+		knobColor = self.knobColorDisabled or knobColor
 	end
 	fill_rect(textLayer, knobX, trackY, knobWidth, trackHeight, knobColor, knobColor)
 
 	local labelText = ""
 	if self.showLabel then
-		if self.value then
-			labelText = self.labelOn or "On"
-		else
-			labelText = self.labelOff or "Off"
-		end
+		labelText = self.value and (self.labelOn or "On") or (self.labelOff or "Off")
 	end
 	if labelText ~= "" and trackHeight > 0 then
 		local available = math.max(0, trackWidth - 2)
 		if available > 0 and #labelText > available then
 			labelText = labelText:sub(1, available)
 		end
-		local textColor = fg
-		if self.value then
-			textColor = self.onLabelColor or fg
+		local textColor = self.value and (self.onLabelColor or fg) or (self.offLabelColor or fg)
+		local labelBg
+		if progress >= 0.5 then
+			labelBg = self.disabled and disabledColor or onColor
 		else
-			textColor = self.offLabelColor or fg
+			labelBg = self.disabled and disabledColor or offColor
 		end
 		local textY = trackY + math.floor((trackHeight - 1) / 2)
 		local textX = trackX + math.floor((trackWidth - #labelText) / 2)
@@ -4574,13 +4737,13 @@ function Toggle:draw(textLayer, pixelLayer)
 			textX = trackX + trackWidth - #labelText
 		end
 		if #labelText > 0 then
-			textLayer.text(textX, textY, labelText, textColor, activeColor)
+			textLayer.text(textX, textY, labelText, textColor, labelBg)
 		end
 	end
 
 	if self:isFocused() then
-		local outline = self.focusFg or colors.white
-		if trackWidth > 1 then
+		local outline = self.focusOutline or self.focusFg or colors.white
+		if trackWidth > 0 then
 			for dx = 0, trackWidth - 1 do
 				pixelLayer.pixel(trackX + dx, trackY, outline)
 				if trackHeight > 1 then
@@ -4588,7 +4751,7 @@ function Toggle:draw(textLayer, pixelLayer)
 				end
 			end
 		end
-		if trackHeight > 1 then
+		if trackHeight > 0 then
 			for dy = 0, trackHeight - 1 do
 				pixelLayer.pixel(trackX, trackY + dy, outline)
 				if trackWidth > 1 then
@@ -4599,11 +4762,12 @@ function Toggle:draw(textLayer, pixelLayer)
 	end
 
 	if self.disabled then
+		local hatch = self.knobColorDisabled or colors.lightGray
 		for dx = 0, trackWidth - 1, 2 do
 			local column = trackX + dx
-			pixelLayer.pixel(column, trackY, colors.gray)
+			pixelLayer.pixel(column, trackY, hatch)
 			if trackHeight > 1 then
-				pixelLayer.pixel(column, trackY + trackHeight - 1, colors.gray)
+				pixelLayer.pixel(column, trackY + trackHeight - 1, hatch)
 			end
 		end
 	end

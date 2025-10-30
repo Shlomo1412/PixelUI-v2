@@ -809,14 +809,60 @@ toggleState.widget = app:createToggle({
     height = 3,
     labelOn = "Enabled",
     labelOff = "Disabled",
+    showLabel = false,
     trackColorOn = colors.green,
-    trackColorOff = colors.lightGray,
+    trackColorOff = colors.red,
+    trackColorDisabled = colors.lightGray,
     thumbColor = colors.white,
+    knobColorDisabled = colors.lightGray,
+    knobMargin = 1,
+    knobWidth = 6,
+    transitionDuration = 0.25,
+    transitionEasing = "easeInOutQuad",
+    focusOutline = colors.white,
+    border = { color = colors.white },
     bg = colors.gray,
     fg = colors.white
 })
 toggleStep:addChild(toggleState.widget)
 toggleState.defaults = { width = toggleState.widget.width, height = toggleState.widget.height }
+
+local toggleKnobLabel = app:createLabel({
+    x = toggleState.widget.x + toggleState.widget.width + 2,
+    y = toggleState.widget.y,
+    width = 12,
+    height = 1,
+    text = "Smooth",
+    fg = colors.white,
+    bg = colors.gray
+})
+toggleStep:addChild(toggleKnobLabel)
+toggleState.knobLabel = toggleKnobLabel
+toggleState.defaults.knobLabel = { width = toggleKnobLabel.width, height = toggleKnobLabel.height }
+
+local toggleSecondary = app:createToggle({
+    x = toggleState.widget.x,
+    y = toggleState.widget.y + 4,
+    width = 16,
+    height = 3,
+    labelOn = "ON",
+    labelOff = "OFF",
+    showLabel = true,
+    trackColorOn = colors.green,
+    trackColorOff = colors.red,
+    trackColorDisabled = colors.lightGray,
+    thumbColor = colors.white,
+    knobMargin = 2,
+    transitionDuration = 0.1,
+    transitionEasing = "easeOutCubic",
+    bg = colors.gray,
+    fg = colors.white
+})
+toggleSecondary:setValue(false, true)
+toggleSecondary:setDisabled(true)
+toggleStep:addChild(toggleSecondary)
+toggleState.secondary = toggleSecondary
+toggleState.defaults.secondary = { width = toggleSecondary.width, height = toggleSecondary.height }
 
 toggleState.statusLabel = app:createLabel({
     x = 2,
@@ -2173,7 +2219,7 @@ local prevButton = app:createButton({
     y = wizard.y + wizard.height + 1,
     width = 10,
     height = 3,
-    label = "Prev",
+    label = "\17 Prev",
     bg = colors.lightGray,
     fg = colors.black,
     border = { color = colors.white }
@@ -2186,7 +2232,7 @@ local nextButton = app:createButton({
     y = wizard.y + wizard.height + 1,
     width = 10,
     height = 3,
-    label = "Next",
+    label = "Next \16",
     bg = colors.lightGray,
     fg = colors.black,
     border = { color = colors.white }
@@ -2289,15 +2335,48 @@ local function layoutToggleSection(state, stepWidth, stepHeight, innerMargin)
         toggleY = innerMargin
     end
     toggleState.widget:setPosition(toggleX, toggleY)
+    local sectionTop = toggleY
+    local sectionBottom = toggleY + toggleHeight - 1
+
+    if toggleState.secondary then
+        local secondary = toggleState.secondary
+        local secDefaults = toggleState.defaults and toggleState.defaults.secondary or { width = secondary.width, height = secondary.height }
+        local secWidth = math.max(6, math.min(secDefaults.width or secondary.width, toggleWidthLimit))
+        local secHeight = math.max(1, math.min(secDefaults.height or secondary.height, toggleHeightLimit))
+        secondary:setSize(secWidth, secHeight)
+        local secX = toggleX
+        local secY = math.min(innerMargin + stepHeight - secHeight, toggleY + toggleHeight + 1)
+        secondary:setPosition(secX, secY)
+        if secY < sectionTop then
+            sectionTop = secY
+        end
+        local secBottom = secY + secHeight - 1
+        if secBottom > sectionBottom then
+            sectionBottom = secBottom
+        end
+    end
+
+    if toggleState.knobLabel then
+        local label = toggleState.knobLabel
+        local labelDefaults = toggleState.defaults and toggleState.defaults.knobLabel or { width = label.width, height = label.height }
+        local labelWidth = math.max(3, math.min(labelDefaults.width or label.width, toggleWidthLimit))
+        local labelHeight = math.max(1, math.min(labelDefaults.height or label.height, toggleHeightLimit))
+        label:setSize(labelWidth, labelHeight)
+        local labelX = toggleX + toggleWidth + 2
+        if labelX + labelWidth - 1 > toggleStep.width then
+            labelX = math.max(innerMargin, toggleStep.width - labelWidth + 1)
+        end
+        label:setPosition(labelX, sectionTop)
+    end
 
     if toggleState.statusLabel then
         local statusDefaults = toggleState.statusDefaults or {}
         local statusWidth = math.max(6, math.min(statusDefaults.width or toggleState.statusLabel.width, toggleWidthLimit))
-        local remaining = math.max(1, stepHeight - (toggleY - innerMargin) - toggleHeight - 1)
+        local remaining = math.max(1, innerMargin + stepHeight - sectionBottom - 1)
         local statusHeight = math.max(1, math.min(statusDefaults.height or toggleState.statusLabel.height, remaining))
         toggleState.statusLabel:setSize(statusWidth, statusHeight)
         local statusX = math.floor((toggleStep.width - statusWidth) / 2) + 1
-        local statusY = toggleY + toggleHeight + 1
+        local statusY = sectionBottom + 1
         if statusY + statusHeight - 1 > innerMargin + stepHeight - 1 then
             statusY = math.max(innerMargin, innerMargin + stepHeight - statusHeight)
         end
