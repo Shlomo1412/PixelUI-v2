@@ -4,342 +4,68 @@ local osLib = assert(rawget(_G, "os"), "os API unavailable")
 local pullEvent = assert(osLib.pullEvent, "os.pullEvent unavailable")
 local windowAPI = assert(rawget(_G, "window"), "window API unavailable")
 local keys = assert(rawget(_G, "keys"), "keys API unavailable")
+local fs = assert(rawget(_G, "fs"), "fs API unavailable")
+local shell = rawget(_G, "shell")
+local multishell = rawget(_G, "multishell")
+local ok_shrekbox, shrekboxModule = pcall(require, "shrekbox")
+if not ok_shrekbox or type(shrekboxModule) ~= "table" then
+	error("shrekbox module unavailable: " .. tostring(shrekboxModule))
+end
+local shrekbox = shrekboxModule
+local packageMaker
+do
+	local ok, requireFactory = pcall(require, "cc.require")
+	if ok and type(requireFactory) == "table" then
+		if type(requireFactory.make) == "function" then
+			packageMaker = requireFactory.make
+		end
+	elseif ok and type(requireFactory) == "function" then
+		packageMaker = requireFactory
+	end
+end
+
 local table_pack = table.pack or function(...)
 	return { n = select("#", ...), ... }
 end
-local table_unpack = assert(table.unpack, "table.unpack unavailable")
-local expect = require("cc.expect").expect
-local shrekbox = require("shrekbox")
 
----@alias PixelUI.Color integer
----@alias ccTweaked.colors.color integer
+local table_unpack = table.unpack or unpack
 
----@class PixelUI.BorderConfig
----@field color PixelUI.Color? # Border color
----@field sides ("top"|"right"|"bottom"|"left")[]|table<string,boolean>? # Enabled sides
----@field thickness integer? # Pixel thickness of the border (defaults to 1)
-
----@class PixelUI.AppOptions
----@field window table? # Target window; defaults to the current terminal
----@field background PixelUI.Color? # Root background color
----@field rootBorder PixelUI.BorderConfig? # Border applied to the root frame
----@field animationInterval number? # Animation tick interval in seconds (defaults to 0.05)
-
---- Base class for all UI widgets.
---- Provides common properties and behavior for positioning, sizing, styling, and event handling.
----@class PixelUI.Widget
----@field app PixelUI.App # The application instance that owns this widget
----@field parent PixelUI.Frame? # The parent frame containing this widget
----@field x integer # X position relative to parent
----@field y integer # Y position relative to parent
----@field width integer # Width in characters
----@field height integer # Height in characters
----@field bg PixelUI.Color # Background color
----@field fg PixelUI.Color # Foreground/text color
----@field _orderIndex integer? # Internal ordering index
----@field visible boolean # Whether the widget is visible
----@field z number # Z-order for layering (higher values appear on top)
----@field border PixelUI.NormalizedBorderConfig? # Border configuration
----@field id string? # Optional unique identifier
----@field focusable boolean # Whether the widget can receive focus
----@field constraints PixelUI.NormalizedConstraintConfig? # Optional size constraints
----@field draw fun(self:PixelUI.Widget, textLayer:Layer, pixelLayer:Layer) # Render the widget
----@field handleEvent fun(self:PixelUI.Widget, event:string, ...:any):boolean # Handle input events
----@field setFocused fun(self:PixelUI.Widget, focused:boolean) # Set focus state
----@field isFocused fun(self:PixelUI.Widget):boolean # Check if widget has focus
-
---- Internal normalized border configuration.
----@class PixelUI.NormalizedBorderConfig
----@field color PixelUI.Color # Border color
----@field top boolean # Show top border
----@field right boolean # Show right border
----@field bottom boolean # Show bottom border
----@field left boolean # Show left border
----@field thickness integer # Border thickness in pixels
-
----@class PixelUI.ScrollbarConfig
----@field enabled boolean? # Whether the scrollbar is enabled
----@field alwaysVisible boolean? # Force rendering even when content fits
----@field width integer? # Width in characters (defaults to 1)
----@field trackColor PixelUI.Color? # Track background color
----@field thumbColor PixelUI.Color? # Thumb color
----@field arrowColor PixelUI.Color? # Arrow glyph color
----@field background PixelUI.Color? # Fill color for unused areas
----@field minThumbSize integer? # Minimum thumb height in characters
-
----@class PixelUI.NormalizedScrollbarConfig
----@class PixelUI.DimensionConstraint
----@field percent number? # Percentage (0-1) of the referenced metric
----@field of string? # Reference string such as "parent.width"
----@field offset integer? # Offset applied after evaluation
-
----@class PixelUI.AlignmentConstraint
----@field reference string? # Reference string such as "parent.centerX"
----@field offset integer? # Offset applied relative to the reference
-
----@class PixelUI.ConstraintConfig
----@field minWidth integer? # Minimum allowed width (in characters)
----@field maxWidth integer? # Maximum allowed width (in characters)
----@field minHeight integer? # Minimum allowed height (in characters)
----@field maxHeight integer? # Maximum allowed height (in characters)
----@field width (number|string|PixelUI.DimensionConstraint|boolean)? # Explicit width rule
----@field height (number|string|PixelUI.DimensionConstraint|boolean)? # Explicit height rule
----@field widthPercent number? # Width as a percentage (0-1 or 0-100) of the parent width
----@field heightPercent number? # Height as a percentage (0-1 or 0-100) of the parent height
----@field centerX (boolean|string|PixelUI.AlignmentConstraint)? # Horizontal alignment rule
----@field centerY (boolean|string|PixelUI.AlignmentConstraint)? # Vertical alignment rule
----@field offsetX integer? # X offset applied after alignment rules
----@field offsetY integer? # Y offset applied after alignment rules
-
----@class PixelUI.NormalizedConstraintConfig
----@field minWidth integer? # Minimum allowed width (in characters)
----@field maxWidth integer? # Maximum allowed width (in characters)
----@field minHeight integer? # Minimum allowed height (in characters)
----@field maxHeight integer? # Maximum allowed height (in characters)
----@field width table? # Internal descriptor for width rules
----@field height table? # Internal descriptor for height rules
----@field widthPercent number? # Normalized width percentage (0-1)
----@field heightPercent number? # Normalized height percentage (0-1)
----@field centerX table? # Internal descriptor for horizontal alignment
----@field centerY table? # Internal descriptor for vertical alignment
----@field offsetX integer? # Horizontal offset applied after alignment
----@field offsetY integer? # Vertical offset applied after alignment
-
----@field enabled boolean # Whether the scrollbar is enabled
----@field alwaysVisible boolean # Whether the scrollbar renders when content fits
----@field width integer # Width in characters
----@field trackColor PixelUI.Color # Track background color
----@field thumbColor PixelUI.Color # Thumb color
----@field arrowColor PixelUI.Color # Arrow glyph color
----@field background PixelUI.Color # Fill color for unused areas
----@field minThumbSize integer # Minimum thumb height in characters
-
---- Main application class managing the UI and event loop.
---- Handles rendering, events, animations, and threading.
----@class PixelUI.App
----@field window table # The terminal window object
----@field box ShrekBox # ShrekBox rendering instance
----@field layer Layer # Text rendering layer
----@field pixelLayer Layer # Pixel rendering layer
----@field background PixelUI.Color # Root background color
----@field root PixelUI.Frame # Root frame container
----@field running boolean # Whether the application is running
----@field _autoWindow boolean # Whether window was auto-created
----@field _parentTerminal table? # Original terminal before window creation
----@field _focusWidget PixelUI.Widget? # Currently focused widget
----@field _popupWidgets PixelUI.Widget[] # Active popup widgets
----@field _popupLookup table<PixelUI.Widget, boolean> # Popup lookup table
----@field _animations table # Active animations
----@field _animationTimer integer? # Animation timer ID
----@field _animationInterval number # Animation update interval
----@field _radioGroups table<string, { buttons: PixelUI.RadioButton[], lookup: table<PixelUI.RadioButton, boolean>, selected: PixelUI.RadioButton? }> # Radio button groups
-
---- A container widget that can hold child widgets.
---- Serves as the base for layout organization and hierarchy.
----@class PixelUI.Frame : PixelUI.Widget
----@field private _children PixelUI.Widget[] # Child widgets
----@field private _orderCounter integer # Counter for child ordering
----@field title string? # Optional frame title
-
---- A floating window widget with an optional title bar and dragging support.
---- Extends Frame by adding chrome controls and layered ordering.
----@class PixelUI.Window : PixelUI.Frame
----@field draggable boolean # Whether the window can be dragged by the title bar
----@field resizable boolean # Whether the window size can be adjusted via drag handles
----@field closable boolean # Whether the window shows a close button
----@field maximizable boolean # Whether the window shows a maximize/restore button
----@field private _titleBar { enabled:boolean, height:integer, bg:PixelUI.Color?, fg:PixelUI.Color?, align:string }? # Cached title bar configuration
----@field private _titleLayoutCache table? # Cached geometry information for the title bar
----@field private _titleButtonRects table<string, {x1:integer, y1:integer, x2:integer, y2:integer}>? # Interactive button hit boxes
----@field private _dragging boolean # Whether the window is currently being dragged
----@field private _dragSource string? # Event source initiating the drag (mouse/monitor)
----@field private _dragIdentifier any # Identifier for the drag source (mouse button or monitor side)
----@field private _dragOffsetX integer # Offset between pointer X and window origin during drag
----@field private _dragOffsetY integer # Offset between pointer Y and window origin during drag
----@field private _resizing boolean # Whether the window is currently being resized
----@field private _resizeSource string? # Event source initiating the resize
----@field private _resizeIdentifier any # Identifier for the resize source
----@field private _resizeEdges table<string, boolean>? # Active resize edges
----@field private _resizeStart table? # Snapshot of size/position at resize start
----@field private _isMaximized boolean # Whether the window is currently maximized
----@field private _restoreRect table? # Saved geometry used when restoring from maximized state
-
---- A clickable button widget with press effects and event callbacks.
---- Supports click, press, and release events with visual feedback.
----@class PixelUI.Button : PixelUI.Widget
----@field label string # The text displayed on the button
----@field onPress fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is pressed
----@field onRelease fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is released
----@field onClick fun(self:PixelUI.Button, button:integer, x:integer, y:integer)? # Callback fired when the button is clicked (press + release)
----@field clickEffect boolean # Whether to show a visual press effect
----@field private _pressed boolean
-
---- A text display widget with support for wrapping and alignment.
---- Can display static or dynamic text with customizable alignment options.
----@class PixelUI.Label : PixelUI.Widget
----@field text string # The text content to display
----@field wrap boolean # Whether to wrap text to fit within the widget bounds
----@field align "left"|"center"|"right" # Horizontal text alignment
----@field verticalAlign "top"|"middle"|"bottom" # Vertical text alignment
-
---- A checkbox widget with support for checked, unchecked, and indeterminate states.
---- Provides visual feedback and change callbacks.
----@class PixelUI.CheckBox : PixelUI.Widget
----@field label string # Label text displayed next to the checkbox
----@field checked boolean # Whether the checkbox is checked
----@field indeterminate boolean # Whether the checkbox is in an indeterminate state
----@field allowIndeterminate boolean # Whether the indeterminate state is allowed
----@field focusBg PixelUI.Color? # Background color when focused
----@field focusFg PixelUI.Color? # Foreground color when focused
----@field onChange fun(self:PixelUI.CheckBox, checked:boolean, indeterminate:boolean)? # Callback fired when state changes
-
---- A toggle switch widget with on/off states and customizable appearance.
---- Features a sliding thumb animation and optional labels.
----@class PixelUI.Toggle : PixelUI.Widget
----@field value boolean # Current toggle state (true = on, false = off)
----@field labelOn string # Label text when toggle is on
----@field labelOff string # Label text when toggle is off
----@field trackColorOn PixelUI.Color # Track color when on
----@field trackColorOff PixelUI.Color # Track color when off
----@field trackColorDisabled PixelUI.Color # Track color when disabled
----@field thumbColor PixelUI.Color # Color of the sliding thumb
----@field knobColorDisabled PixelUI.Color # Thumb color when disabled
----@field onLabelColor PixelUI.Color? # Text color for "on" label
----@field offLabelColor PixelUI.Color? # Text color for "off" label
----@field focusBg PixelUI.Color? # Background color when focused
----@field focusFg PixelUI.Color? # Foreground color when focused
----@field focusOutline PixelUI.Color? # Outline color when focused
----@field showLabel boolean # Whether to show the label text
----@field disabled boolean # Whether the toggle is disabled
----@field knobMargin integer # Horizontal inner margin for the knob travel
----@field knobWidth integer? # Optional fixed knob width
----@field transitionDuration number # Seconds for knob transition animation
----@field transitionEasing fun(t:number):number # Easing function for knob transition
----@field private _thumbProgress number # Current knob blend position (0-1)
----@field private _animationHandle PixelUI.AnimationHandle? # Active animation handle
----@field onChange fun(self:PixelUI.Toggle, value:boolean)? # Callback fired when value changes
-
---- A data visualization widget supporting bar and line charts.
---- Displays numeric data with optional labels and interactive selection.
----@class PixelUI.Chart : PixelUI.Widget
----@field data number[] # Array of numeric values to display
----@field labels string[] # Labels for each data point
----@field chartType "bar"|"line" # Type of chart visualization
----@field minValue number? # Minimum value for the Y axis (auto-calculated if not set)
----@field maxValue number? # Maximum value for the Y axis (auto-calculated if not set)
----@field showAxis boolean # Whether to show axis lines
----@field showLabels boolean # Whether to show data point labels
----@field placeholder string? # Text to show when no data is available
----@field barColor PixelUI.Color # Color for bars or line
----@field highlightColor PixelUI.Color # Color for highlighted/selected elements
----@field axisColor PixelUI.Color # Color for axis lines
----@field lineColor PixelUI.Color # Color for line charts
----@field rangePadding number # Padding percentage for the value range
----@field selectedIndex integer? # Currently selected data point index
----@field onSelect fun(self:PixelUI.Chart, index:integer?, value:number?)? # Callback fired when a data point is selected
-
---- A progress indicator widget showing completion status.
---- Supports determinate and indeterminate modes with optional labels.
----@class PixelUI.ProgressBar : PixelUI.Widget
----@field value number # Current progress value
----@field min number # Minimum progress value
----@field max number # Maximum progress value
----@field indeterminate boolean # Whether to show an animated indeterminate state
----@field label string? # Optional label text to display
----@field showPercent boolean # Whether to show percentage text
----@field trackColor PixelUI.Color # Background track color
----@field fillColor PixelUI.Color # Foreground fill color
----@field textColor PixelUI.Color # Color for text (label and percentage)
-
---- A notification toast widget for displaying temporary messages.
---- Supports different severity levels and auto-hide functionality.
----@class PixelUI.NotificationToast : PixelUI.Widget
----@field title string? # Optional title text
----@field message string # The notification message content
----@field severity string # Severity level (e.g., "info", "success", "warning", "error")
----@field autoHide boolean # Whether to automatically hide after duration
----@field duration number # Duration in seconds before auto-hiding
----@field dismissOnClick boolean # Whether clicking dismisses the notification
-
---- An animated loading ring indicator widget.
---- Displays a rotating segmented ring for loading states.
----@class PixelUI.LoadingRing : PixelUI.Widget
----@field segmentCount integer # Number of segments in the ring
----@field thickness integer # Thickness of the ring in pixels
----@field color PixelUI.Color # Primary color of the ring
----@field secondaryColor PixelUI.Color? # Optional secondary color for gradient effect
----@field trailColor PixelUI.Color? # Color for the trailing segments
----@field tertiaryColor PixelUI.Color? # Optional tertiary color
----@field speed number # Rotation speed multiplier
----@field direction integer # Rotation direction (1 or -1)
----@field radiusPixels integer? # Radius in pixels (auto-calculated if not set)
----@field trailPalette PixelUI.Color[]? # Array of colors for trail gradient
----@field fadeSteps integer # Number of fade steps for the trail
----@field autoStart boolean? # Whether to start animating automatically
-
---- A raw drawing surface that exposes ShrekBox layers for custom rendering.
---- Useful for advanced visualisations or integrating bespoke ASCII art.
----@class PixelUI.FreeDraw : PixelUI.Widget
----@field onDraw fun(self:PixelUI.FreeDraw, ctx:PixelUI.FreeDrawContext)? # Callback invoked every render
----@field clear boolean # Whether to clear the region before drawing
-
----@class PixelUI.FreeDrawContext
----@field app PixelUI.App # Owning application instance
----@field box ShrekBox # Underlying ShrekBox instance
----@field textLayer Layer # Shared text layer used by PixelUI
----@field pixelLayer Layer # Shared pixel layer used by PixelUI
----@field x integer # Absolute X coordinate of the widget region
----@field y integer # Absolute Y coordinate of the widget region
----@field width integer # Width of the widget region
----@field height integer # Height of the widget region
----@field write fun(x:integer, y:integer, text:string, fg:PixelUI.Color?, bg:PixelUI.Color?) # Write clipped text relative to the region (1-based)
----@field pixel fun(x:integer, y:integer, color:PixelUI.Color) # Set a pixel relative to the region (1-based)
----@field fill fun(color:PixelUI.Color) # Fill the region with a colour
-
---- A slider widget for selecting numeric values within a range.
---- Supports single value or range selection mode.
----@class PixelUI.Slider : PixelUI.Widget
----@field min number # Minimum value
----@field max number # Maximum value
----@field value number # Current value (single mode)
----@field range boolean # Whether in range selection mode
----@field lowerValue number? # Lower bound value (range mode)
----@field upperValue number? # Upper bound value (range mode)
----@field step number # Step increment for value changes
----@field showValue boolean # Whether to display the current value
----@field onChange fun(self:PixelUI.Slider, ...:number)? # Callback fired when value changes
----@field formatValue fun(self:PixelUI.Slider, ...:number):string? # Custom value formatter function
-
---- A tree node representing an item in a TreeView.
---- Can have children nodes for hierarchical structures.
----@class PixelUI.TreeNode
----@field label string # Display text for the node
----@field data any # Custom data associated with the node
----@field children PixelUI.TreeNode[] # Child nodes
----@field expanded boolean # Whether the node is expanded to show children
-
---- A hierarchical tree view widget for displaying nested data.
---- Supports expand/collapse and selection of nodes.
----@class PixelUI.TreeView : PixelUI.Widget
----@field indentWidth integer # Width of indentation per level
----@field highlightBg PixelUI.Color # Background color for selected node
----@field highlightFg PixelUI.Color # Foreground color for selected node
----@field placeholder string? # Text shown when tree is empty
----@field onSelect fun(self:PixelUI.TreeView, node:PixelUI.TreeNode?, index:integer)? # Callback fired when node is selected
----@field onToggle fun(self:PixelUI.TreeView, node:PixelUI.TreeNode, expanded:boolean)? # Callback fired when node is expanded/collapsed
----@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
-
---- A scrollable list widget for displaying and selecting items.
---- Supports keyboard and mouse navigation.
----@class PixelUI.List : PixelUI.Widget
----@field items string[] # Array of items to display
----@field selectedIndex integer # Index of currently selected item
----@field highlightBg PixelUI.Color # Background color for selected item
----@field highlightFg PixelUI.Color # Foreground color for selected item
----@field placeholder string? # Text shown when list is empty
----@field onSelect fun(self:PixelUI.List, item:string?, index:integer)? # Callback fired when selection changes
----@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
-
+local expect
+do
+	local ok, expectModule = pcall(require, "cc.expect")
+	if ok then
+		if type(expectModule) == "table" and type(expectModule.expect) == "function" then
+			expect = expectModule.expect
+		elseif type(expectModule) == "function" then
+			expect = expectModule
+		end
+	end
+	if not expect then
+		---@param index any
+		---@param value any
+		local function fallbackExpect(index, value, ...)
+			local accepted = { ... }
+			local valueType = type(value)
+			for i = 1, #accepted do
+				local expectedType = accepted[i]
+				if expectedType == valueType or (expectedType == "nil" and value == nil) then
+					return value
+				end
+			end
+			local descriptor
+			if type(index) == "number" then
+				descriptor = "bad argument #" .. index
+			elseif type(index) == "string" then
+				descriptor = index
+			else
+				descriptor = "value"
+			end
+			error(('%s (%s expected, got %s)'):format(descriptor, table.concat(accepted, " or "), valueType), 3)
+		end
+		expect = fallbackExpect
+	end
+end
+-- Program widget implementation inserted later in file
 --- A radio button widget for exclusive selection within a group.
 --- Only one radio button in a group can be selected at a time.
 ---@class PixelUI.RadioButton : PixelUI.Widget
@@ -402,6 +128,15 @@ local shrekbox = require("shrekbox")
 ---@field onSelect fun(self:PixelUI.Table, row:any?, index:integer)? # Callback fired when row is selected
 ---@field onSort fun(self:PixelUI.Table, columnId:string, direction:"asc"|"desc")? # Callback fired when sort changes
 ---@field scrollbar PixelUI.ScrollbarConfig? # Optional scrollbar configuration
+
+--- Embeds and manages a CC:Tweaked program inside a PixelUI widget.
+--- Provides a terminal surface with optional callbacks for completion and errors.
+---@class PixelUI.Program : PixelUI.Widget
+---@field path string? # Last executed program path
+---@field running boolean # Whether a program coroutine is active
+---@field title string? # Optional header text drawn above the terminal surface
+---@field onDone fun(self:PixelUI.Program, success:boolean, ...)? # Callback fired when execution finishes
+---@field onError fun(self:PixelUI.Program, err:any, traceback:string?)? # Callback fired when execution errors
 
 --- Status of a background thread.
 ---@alias PixelUI.ThreadStatus "running"|"completed"|"error"|"cancelled"
@@ -469,9 +204,6 @@ local easings = {
 	linear = function(t)
 		return t
 	end,
-	easeInQuad = function(t)
-		return t * t
-	end,
 	easeOutQuad = function(t)
 		local inv = 1 - t
 		return 1 - inv * inv
@@ -499,6 +231,10 @@ setmetatable(Frame, { __index = Widget })
 local Window = {}
 Window.__index = Window
 setmetatable(Window, { __index = Frame })
+
+local Program = {}
+Program.__index = Program
+setmetatable(Program, { __index = Widget })
 
 local Button = {}
 Button.__index = Button
@@ -3719,6 +3455,669 @@ function Window:handleEvent(event, ...)
 	end
 
 	return Frame.handleEvent(self, event, ...)
+end
+
+
+local ProgramRunner = {}
+ProgramRunner.__index = ProgramRunner
+
+local function clamp_program_dimension(value)
+	local n = math.floor(value or 1)
+	if n < 1 then
+		n = 1
+	end
+	return n
+end
+
+local function create_os_proxy()
+	local proxy = {}
+	for k, v in pairs(osLib) do
+		proxy[k] = v
+	end
+	proxy.pullEventRaw = function(filter)
+		local yielded = table_pack(coroutine.yield(filter))
+		return table_unpack(yielded, 1, yielded.n)
+	end
+	proxy.pullEvent = function(filter)
+		if filter ~= nil and type(filter) ~= "string" then
+			error("bad argument #1 to 'pullEvent' (string expected)", 2)
+		end
+		local yielded = table_pack(coroutine.yield(filter))
+		if yielded[1] == "terminate" then
+			error("Terminated", 0)
+		end
+		return table_unpack(yielded, 1, yielded.n)
+	end
+	return proxy
+end
+
+function ProgramRunner.new(widget, env, addEnvironment)
+	local runner = setmetatable({}, ProgramRunner)
+	runner.widget = widget
+	runner.env = type(env) == "table" and env or {}
+	runner.addEnvironment = addEnvironment ~= false
+	runner.path = nil
+	runner.args = {}
+	runner.window = nil
+	runner.co = nil
+	runner.filter = nil
+	runner.running = false
+	return runner
+end
+
+function ProgramRunner:setArgs(...)
+	self.args = { ... }
+end
+
+function ProgramRunner:isRunning()
+	return self.co ~= nil and coroutine.status(self.co) ~= "dead"
+end
+
+function ProgramRunner:_markDirty()
+	if self.widget then
+		self.widget:_markProgramDirty()
+	end
+end
+
+function ProgramRunner:_ensureWindow(width, height)
+	local w = clamp_program_dimension(width)
+	local h = clamp_program_dimension(height)
+	if self.window then
+		self.window.reposition(1, 1, w, h)
+		self:_markDirty()
+		return
+	end
+	local host = (self.widget and self.widget.app and self.widget.app.window) or term.current()
+	local win = windowAPI.create(host, 1, 1, w, h, false)
+	self.window = win
+	local function wrap(methodName, markDirty)
+		local original = win[methodName]
+		if type(original) ~= "function" then
+			return
+		end
+		win[methodName] = function(_, ...)
+			local results = table_pack(original(win, ...))
+			if markDirty then
+				self:_markDirty()
+			end
+			return table_unpack(results, 1, results.n)
+		end
+	end
+	wrap("write", true)
+	wrap("blit", true)
+	wrap("clear", true)
+	wrap("clearLine", true)
+	wrap("scroll", true)
+	wrap("setCursorPos", true)
+	wrap("setCursorBlink", true)
+	wrap("setTextColor", true)
+	wrap("setBackgroundColor", true)
+	wrap("setPaletteColor", true)
+end
+
+function ProgramRunner:_resolvePath(path)
+	if shell and shell.resolveProgram then
+		local resolved = shell.resolveProgram(path)
+		if resolved then
+			return resolved
+		end
+	end
+	if fs.exists(path) then
+		return path
+	end
+	return nil
+end
+
+function ProgramRunner:_buildEnvironment(resolvedPath)
+	local dir = fs.getDir(resolvedPath)
+	local env = {}
+	if shell then
+		env.shell = shell
+	end
+	if multishell then
+		env.multishell = multishell
+	end
+	if packageMaker then
+		env.require, env.package = packageMaker(env, dir)
+	else
+		env.require = require
+		env.package = package
+	end
+	env.term = self.window
+	env.term.native = function()
+		return self.window
+	end
+	env.term.current = term.current
+	env.term.redirect = term.redirect
+	env.os = create_os_proxy()
+	setmetatable(env, { __index = _ENV })
+	if self.addEnvironment then
+		for k, v in pairs(self.env) do
+			env[k] = v
+		end
+	end
+	env._ENV = env
+	return env
+end
+
+function ProgramRunner:run(path, width, height)
+	self.path = path
+	self:_ensureWindow(width, height)
+	local resolved = self:_resolvePath(path)
+	if not resolved then
+		return false, "Program not found: " .. tostring(path)
+	end
+	local handle = fs.open(resolved, "r")
+	if not handle then
+		return false, "Unable to open program: " .. tostring(resolved)
+	end
+	local source = handle.readAll()
+	handle.close()
+	local env = self:_buildEnvironment(resolved)
+	local co = coroutine.create(function()
+		local chunk, err = load(source, "@/" .. resolved, nil, env)
+		if not chunk then
+			error(err, 0)
+		end
+		return chunk(table_unpack(self.args, 1, #self.args))
+	end)
+	self.co = co
+	self.filter = nil
+	local previous = term.current()
+	term.redirect(self.window)
+	local results = table_pack(coroutine.resume(co))
+	term.redirect(previous)
+	local ok = results[1]
+	if not ok then
+		self.running = false
+		self.co = nil
+		return false, results[2]
+	end
+	if coroutine.status(co) == "dead" then
+		self.running = false
+		self.co = nil
+		local outputs = {}
+		if results.n > 1 then
+			for i = 2, results.n do
+				outputs[#outputs + 1] = results[i]
+			end
+		end
+		self:_markDirty()
+		return true, { status = "completed", results = outputs }
+	end
+	self.running = true
+	local nextFilter = results[2]
+	if type(nextFilter) == "string" then
+		self.filter = nextFilter
+	else
+		self.filter = nil
+	end
+	self:_markDirty()
+	return true, { status = "running" }
+end
+
+function ProgramRunner:resume(event, ...)
+	if not self:isRunning() then
+		return false, "Program not running"
+	end
+	if self.filter and event ~= self.filter then
+		return true, { status = "filtered" }
+	end
+	self.filter = nil
+	local previous = term.current()
+	term.redirect(self.window)
+	local results = table_pack(coroutine.resume(self.co, event, ...))
+	term.redirect(previous)
+	local ok = results[1]
+	if not ok then
+		self.running = false
+		self.co = nil
+		self:_markDirty()
+		return false, results[2]
+	end
+	if coroutine.status(self.co) == "dead" then
+		self.running = false
+		local outputs = {}
+		if results.n > 1 then
+			for i = 2, results.n do
+				outputs[#outputs + 1] = results[i]
+			end
+		end
+		self.co = nil
+		self:_markDirty()
+		return true, { status = "completed", results = outputs }
+	end
+	local nextFilter = results[2]
+	if type(nextFilter) == "string" then
+		self.filter = nextFilter
+	else
+		self.filter = nil
+	end
+	self:_markDirty()
+	return true, { status = "running" }
+end
+
+function ProgramRunner:resize(width, height)
+	if not self.window then
+		return
+	end
+	local w = clamp_program_dimension(width)
+	local h = clamp_program_dimension(height)
+	self.window.reposition(1, 1, w, h)
+	self:_markDirty()
+	if self:isRunning() then
+		return self:resume("term_resize", w, h)
+	end
+	return true, { status = "stopped" }
+end
+
+function ProgramRunner:stop()
+	self.co = nil
+	self.filter = nil
+	self.running = false
+	self:_markDirty()
+end
+
+function ProgramRunner:getCursorState()
+	if not self.window then
+		return 1, 1, false, colors.white
+	end
+	local x, y = self.window.getCursorPos()
+	local blink = self.window.getCursorBlink and self.window.getCursorBlink() or false
+	local color = self.window.getTextColor and self.window.getTextColor() or colors.white
+	return x or 1, y or 1, blink or false, color or colors.white
+end
+
+
+function Program:new(app, config)
+	config = config or {}
+	local instance = setmetatable({}, Program)
+	instance:_init_base(app, config)
+	instance.focusable = true
+	instance.title = config.title
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance.path = config.path
+	instance.running = false
+	instance._runner = nil
+	instance._doneHandler = config.onDone
+	instance._errorHandler = config.onError
+	instance._activePointers = {}
+	instance._programDirty = true
+	instance._cursorX = 1
+	instance._cursorY = 1
+	instance._cursorBlink = false
+	instance._cursorColor = instance.fg or colors.white
+	instance._programRedrawQueued = false
+	if config.autoStart and config.path then
+		local args = config.args
+		if type(args) == "table" then
+			instance:execute(config.path, config.env, config.addEnvironment, table_unpack(args, 1, #args))
+		else
+			instance:execute(config.path, config.env, config.addEnvironment)
+		end
+	end
+	return instance
+end
+
+function Program:setTitle(title)
+	if title ~= nil then
+		expect(1, title, "string")
+	end
+	self.title = title
+end
+
+function Program:getTitle()
+	return self.title
+end
+
+function Program:_getSurfaceMetrics()
+	local ax, ay = compute_absolute_position(self)
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local contentX = ax + leftPad
+	local contentY = ay + topPad
+	local width = math.max(1, innerWidth)
+	local height = math.max(1, innerHeight)
+	return contentX, contentY, width, height, leftPad, topPad
+end
+
+function Program:_containsContentPoint(x, y)
+	local contentX, contentY, width, height = self:_getSurfaceMetrics()
+	if width <= 0 or height <= 0 then
+		return false
+	end
+	return x >= contentX and x <= contentX + width - 1 and y >= contentY and y <= contentY + height - 1
+end
+
+function Program:getRelativePosition(x, y)
+	local contentX, contentY, width, height = self:_getSurfaceMetrics()
+	local relX = x - contentX + 1
+	local relY = y - contentY + 1
+	if width > 0 then
+		relX = math.max(1, math.min(width, relX))
+	else
+		relX = 1
+	end
+	if height > 0 then
+		relY = math.max(1, math.min(height, relY))
+	else
+		relY = 1
+	end
+	return relX, relY
+end
+
+function Program:_markProgramDirty()
+	self._programDirty = true
+	if not self._programRedrawQueued and osLib.queueEvent then
+		self._programRedrawQueued = true
+		osLib.queueEvent("pixelui_program_redraw")
+	end
+end
+
+function Program:_updateCursorFromRunner()
+	local runner = self._runner
+	if not runner then
+		self._cursorX, self._cursorY, self._cursorBlink, self._cursorColor = 1, 1, false, self.fg or colors.white
+		return
+	end
+	local cx, cy, blink, color = runner:getCursorState()
+	self._cursorX, self._cursorY, self._cursorBlink, self._cursorColor = cx, cy, blink, color
+end
+
+function Program:_drawProgramOutput(textLayer, originX, originY, innerWidth, innerHeight)
+	if innerWidth <= 0 or innerHeight <= 0 then
+		return
+	end
+	local runner = self._runner
+	local window = runner and runner.window or nil
+	local bgColor = self.bg or self.app.background
+	local fgDefault = self.fg or colors.white
+	local blitLookup = shrekbox._blit_lut
+	if not window then
+		for row = 0, innerHeight - 1 do
+			textLayer.text(originX, originY + row, string.rep(" ", innerWidth), fgDefault, bgColor)
+		end
+		return
+	end
+	for row = 1, innerHeight do
+		local text, fgLine, bgLine = window.getLine(row)
+		local line = text or ""
+		for col = 1, innerWidth do
+			local ch = line:sub(col, col)
+			if ch == "" then
+				ch = " "
+			end
+			local fgChar = fgLine and fgLine:sub(col, col) or nil
+			local bgChar = bgLine and bgLine:sub(col, col) or nil
+			local fgColor = fgChar and blitLookup and blitLookup[fgChar] or fgDefault
+			local bgColorValue = bgChar and blitLookup and blitLookup[bgChar] or bgColor
+			textLayer.text(originX + col - 1, originY + row - 1, ch, fgColor, bgColorValue)
+		end
+	end
+end
+
+function Program:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local bg = self.bg or self.app.background
+
+	if innerWidth > 0 and innerHeight > 0 then
+		fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, bg, bg)
+	else
+		fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	end
+
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	local hasTitle = type(self.title) == "string" and self.title ~= ""
+	local outputY = innerY
+	local outputHeight = innerHeight
+	if hasTitle and innerHeight > 0 then
+		local titleWidth = innerWidth > 0 and innerWidth or width
+		if titleWidth > 0 then
+			local titleX = innerWidth > 0 and innerX or ax
+			local titleY = innerY
+			local text = self.title
+			if #text > titleWidth then
+				text = text:sub(1, titleWidth)
+			end
+			if #text < titleWidth then
+				text = text .. string.rep(" ", titleWidth - #text)
+			end
+			textLayer.text(titleX, titleY, text, self.fg or colors.white, bg)
+		end
+		outputY = innerY + 1
+		outputHeight = innerHeight - 1
+	end
+
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+	end
+
+	if outputHeight > 0 then
+		self:_drawProgramOutput(textLayer, innerX, outputY, innerWidth, outputHeight)
+	end
+
+	self._programDirty = false
+	self._programRedrawQueued = false
+end
+
+function Program:_resizeRunner()
+	local runner = self._runner
+	if not runner then
+		return
+	end
+	local _, _, width, height = self:_getSurfaceMetrics()
+	runner:resize(width, height)
+end
+
+function Program:setSize(width, height)
+	Widget.setSize(self, width, height)
+	self:_resizeRunner()
+end
+
+function Program:setBorder(borderConfig)
+	Widget.setBorder(self, borderConfig)
+	self:_resizeRunner()
+end
+
+function Program:_handleProgramCompletion(results)
+	self.running = false
+	if self._doneHandler then
+		if results and #results > 0 then
+			self._doneHandler(self, true, table_unpack(results, 1, #results))
+		else
+			self._doneHandler(self, true)
+		end
+	end
+	self:_markProgramDirty()
+end
+
+function Program:_handleProgramError(err)
+	local handler = self._errorHandler
+	local trace
+	if self._runner and self._runner.co and debug and debug.traceback then
+		trace = debug.traceback(self._runner.co, err)
+	elseif debug and debug.traceback then
+		trace = debug.traceback(err)
+	end
+	if handler then
+		local result = handler(self, err, trace)
+		if result == false then
+			return
+		end
+	end
+	self.running = false
+	self:_markProgramDirty()
+end
+
+function Program:execute(path, env, addEnvironment, ...)
+	expect(1, path, "string")
+	if self._runner then
+		self._runner:stop()
+	end
+	local runner = ProgramRunner.new(self, env, addEnvironment)
+	runner:setArgs(...)
+	self._runner = runner
+	local _, _, width, height = self:_getSurfaceMetrics()
+	local ok, info = runner:run(path, width, height)
+	self.path = path
+	if not ok then
+		self:_handleProgramError(info)
+		return false, info
+	end
+	self.running = info.status == "running"
+	if info.status == "completed" then
+		self:_handleProgramCompletion(info.results or {})
+	end
+	self:_updateCursorFromRunner()
+	self:_markProgramDirty()
+	return true, info
+end
+
+function Program:stop()
+	if self._runner then
+		self._runner:stop()
+		self._runner = nil
+	end
+	self.running = false
+	self:_markProgramDirty()
+	return self
+end
+
+function Program:onDone(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self._doneHandler = handler
+	return self
+end
+
+function Program:onError(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self._errorHandler = handler
+	return self
+end
+
+function Program:_sendProgramEvent(event, ...)
+	local runner = self._runner
+	if not runner or not runner:isRunning() then
+		return
+	end
+	local ok, info = runner:resume(event, ...)
+	if not ok then
+		self:_handleProgramError(info)
+		return
+	end
+	if info.status == "completed" then
+		self:_handleProgramCompletion(info.results or {})
+	end
+	self:_updateCursorFromRunner()
+end
+
+function Program:sendEvent(event, ...)
+	self:_sendProgramEvent(event, ...)
+	return self
+end
+
+function Program:onFocusChanged(focused)
+	if focused then
+		self:_updateCursorFromRunner()
+	end
+end
+
+function Program:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+	if event == "pixelui_program_redraw" then
+		self._programRedrawQueued = false
+		return false
+	end
+	if Widget.handleEvent(self, event, ...) then
+		return true
+	end
+	local runner = self._runner
+	if event == "mouse_click" then
+		local button, x, y = ...
+		if self:_containsContentPoint(x, y) then
+			self.app:setFocus(self)
+			local relX, relY = self:getRelativePosition(x, y)
+			self._activePointers[button] = true
+			self:_sendProgramEvent(event, button, relX, relY)
+			return true
+		end
+	elseif event == "mouse_drag" then
+		local button, x, y = ...
+		if self._activePointers[button] then
+			local relX, relY = self:getRelativePosition(x, y)
+			self:_sendProgramEvent(event, button, relX, relY)
+			return true
+		end
+	elseif event == "mouse_up" then
+		local button, x, y = ...
+		if self._activePointers[button] then
+			local relX, relY = self:getRelativePosition(x, y)
+			self:_sendProgramEvent(event, button, relX, relY)
+			self._activePointers[button] = nil
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:_containsContentPoint(x, y) then
+			local relX, relY = self:getRelativePosition(x, y)
+			self:_sendProgramEvent(event, direction, relX, relY)
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local side, x, y = ...
+		if self:_containsContentPoint(x, y) then
+			local relX, relY = self:getRelativePosition(x, y)
+			self._activePointers[side] = true
+			self:_sendProgramEvent(event, side, relX, relY)
+			return true
+		end
+	elseif event == "monitor_drag" then
+		local side, x, y = ...
+		if self._activePointers[side] then
+			local relX, relY = self:getRelativePosition(x, y)
+			self:_sendProgramEvent(event, side, relX, relY)
+			return true
+		end
+	elseif event == "monitor_up" then
+		local side, x, y = ...
+		if self._activePointers[side] then
+			local relX, relY = self:getRelativePosition(x, y)
+			self:_sendProgramEvent(event, side, relX, relY)
+			self._activePointers[side] = nil
+			return true
+		end
+	elseif event == "char" or event == "paste" or event == "key" or event == "key_up" then
+		if self:isFocused() then
+			self:_sendProgramEvent(event, ...)
+			return true
+		end
+	elseif event == "term_resize" or event == "timer" or event == "rednet_message" or event == "websocket_success" or event == "websocket_failure" or event == "websocket_message" then
+		if runner and runner:isRunning() then
+			self:_sendProgramEvent(event, ...)
+			return true
+		end
+	elseif event == "terminate" then
+		if runner and runner:isRunning() then
+			self:_sendProgramEvent(event)
+			return true
+		end
+	end
+	return false
 end
 
 
@@ -11095,6 +11494,12 @@ function App:createWindow(config)
 	return Window:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Program
+function App:createProgram(config)
+	return Program:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Button
@@ -12019,6 +12424,9 @@ pixelui.widgets = {
 	Window = function(app, config)
 		return Window:new(app, config)
 	end,
+	Program = function(app, config)
+		return Program:new(app, config)
+	end,
 	Button = function(app, config)
 		return Button:new(app, config)
 	end,
@@ -12072,6 +12480,7 @@ pixelui.widgets = {
 pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Window = Window
+pixelui.Program = Program
 pixelui.Button = Button
 pixelui.Label = Label
 pixelui.CheckBox = CheckBox
