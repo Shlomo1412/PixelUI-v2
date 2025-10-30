@@ -819,6 +819,9 @@ local function resolve_scrollbar(style, totalItems, visibleItems, availableWidth
 	if availableWidth <= 1 or visibleItems <= 0 then
 		return 0, nil
 	end
+	if visibleItems <= 2 then
+		return 0, nil
+	end
 	if not style.alwaysVisible and totalItems <= visibleItems then
 		return 0, nil
 	end
@@ -5994,7 +5997,7 @@ function TreeView:handleEvent(event, ...)
 					indent = contentWidth - 1
 				end
 				local toggleX = contentX + indent
-				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
+				if entry.node and entry.node.children and #entry.node.children > 0 and indent < contentWidth then
 					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
 					if symbolWidth < 1 then
 						symbolWidth = 1
@@ -6037,7 +6040,7 @@ function TreeView:handleEvent(event, ...)
 					indent = contentWidth - 1
 				end
 				local toggleX = contentX + indent
-				if entry.node and entry.node.children and #entry.node.children > 0 and indent < innerWidth then
+				if entry.node and entry.node.children and #entry.node.children > 0 and indent < contentWidth then
 					local symbolWidth = #tostring(self.toggleSymbols.collapsed or "+")
 					if symbolWidth < 1 then
 						symbolWidth = 1
