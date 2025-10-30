@@ -38,6 +38,11 @@ jobs:
       - name: Build with VitePress
         run: npm run docs:build
 
+      - name: Add CNAME for GitHub Pages
+        run: |
+          mkdir -p docs/.vitepress/dist
+          echo 'pixelui.madefor.cc' > docs/.vitepress/dist/CNAME
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
