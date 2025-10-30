@@ -23,6 +23,9 @@ local VERSION_TARGETS = {
 local SHREKBOX_URL = "https://codeberg.org/ShreksHellraiser/shrekbox/raw/branch/main/shrekbox.lua"
 local SHREKBOX_DEFAULT_PATH = "shrekbox.lua"
 
+local EXAMPLE_URL = "https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/example.lua"
+local EXAMPLE_DEFAULT_PATH = "example.lua"
+
 local function trim(value)
   if not value then return "" end
   return value:match("^%s*(.-)%s*$")
@@ -123,6 +126,12 @@ local function main()
     shrekboxPath = promptPath("Save ShrekBox as?", SHREKBOX_DEFAULT_PATH)
   end
 
+  local grabExample = promptYesNo("Download example.lua too?", false)
+  local examplePath
+  if grabExample then
+    examplePath = promptPath("Save example.lua as?", EXAMPLE_DEFAULT_PATH)
+  end
+
   print("")
   print("Summary:")
   print("  PixelUI build: " .. versionChoice.description)
@@ -131,6 +140,11 @@ local function main()
     print("  ShrekBox file: " .. shrekboxPath)
   else
     print("  ShrekBox     : skipped")
+  end
+  if grabExample then
+    print("  example.lua  : " .. examplePath)
+  else
+    print("  example.lua  : skipped")
   end
 
   local proceed = promptYesNo("Proceed with download?", true)
@@ -145,7 +159,12 @@ local function main()
     okShrek = downloadFile(SHREKBOX_URL, shrekboxPath, "ShrekBox")
   end
 
-  if okPixel and okShrek then
+  local okExample = true
+  if grabExample then
+    okExample = downloadFile(EXAMPLE_URL, examplePath, "example.lua")
+  end
+
+  if okPixel and okShrek and okExample then
     print("")
     print("All downloads completed successfully.")
   else
