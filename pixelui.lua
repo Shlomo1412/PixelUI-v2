@@ -141,6 +141,29 @@ local shrekbox = require("shrekbox")
 ---@field private _orderCounter integer # Counter for child ordering
 ---@field title string? # Optional frame title
 
+--- A floating window widget with an optional title bar and dragging support.
+--- Extends Frame by adding chrome controls and layered ordering.
+---@class PixelUI.Window : PixelUI.Frame
+---@field draggable boolean # Whether the window can be dragged by the title bar
+---@field resizable boolean # Whether the window size can be adjusted via drag handles
+---@field closable boolean # Whether the window shows a close button
+---@field maximizable boolean # Whether the window shows a maximize/restore button
+---@field private _titleBar { enabled:boolean, height:integer, bg:PixelUI.Color?, fg:PixelUI.Color?, align:string }? # Cached title bar configuration
+---@field private _titleLayoutCache table? # Cached geometry information for the title bar
+---@field private _titleButtonRects table<string, {x1:integer, y1:integer, x2:integer, y2:integer}>? # Interactive button hit boxes
+---@field private _dragging boolean # Whether the window is currently being dragged
+---@field private _dragSource string? # Event source initiating the drag (mouse/monitor)
+---@field private _dragIdentifier any # Identifier for the drag source (mouse button or monitor side)
+---@field private _dragOffsetX integer # Offset between pointer X and window origin during drag
+---@field private _dragOffsetY integer # Offset between pointer Y and window origin during drag
+---@field private _resizing boolean # Whether the window is currently being resized
+---@field private _resizeSource string? # Event source initiating the resize
+---@field private _resizeIdentifier any # Identifier for the resize source
+---@field private _resizeEdges table<string, boolean>? # Active resize edges
+---@field private _resizeStart table? # Snapshot of size/position at resize start
+---@field private _isMaximized boolean # Whether the window is currently maximized
+---@field private _restoreRect table? # Saved geometry used when restoring from maximized state
+
 --- A clickable button widget with press effects and event callbacks.
 --- Supports click, press, and release events with visual feedback.
 ---@class PixelUI.Button : PixelUI.Widget
@@ -463,6 +486,10 @@ Widget.__index = Widget
 local Frame = {}
 Frame.__index = Frame
 setmetatable(Frame, { __index = Widget })
+
+local Window = {}
+Window.__index = Window
+setmetatable(Window, { __index = Frame })
 
 local Button = {}
 Button.__index = Button
@@ -816,6 +843,74 @@ local function normalize_border(config)
 	end
 
 	return normalized
+end
+
+local function compute_inner_offsets(widget)
+	local border = widget.border
+	local thickness = border and math.max(1, math.floor(border.thickness or 1)) or 0
+	local leftPad = (border and border.left) and thickness or 0
+	local rightPad = (border and border.right) and thickness or 0
+	local topPad = (border and border.top) and thickness or 0
+	local bottomPad = (border and border.bottom) and thickness or 0
+	local innerWidth = math.max(0, widget.width - leftPad - rightPad)
+	local innerHeight = math.max(0, widget.height - topPad - bottomPad)
+	return leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight
+end
+
+local function normalize_title_bar(config, hasTitle)
+	if config == nil then
+		return {
+			enabled = hasTitle ~= false,
+			height = 1,
+			bg = nil,
+			fg = nil,
+			align = "left"
+		}
+	end
+	if config == false then
+		return { enabled = false, height = 0, bg = nil, fg = nil, align = "left" }
+	end
+	if config == true then
+		return { enabled = true, height = 1, bg = nil, fg = nil, align = "left" }
+	end
+	expect(1, config, "table")
+	local enabled = config.enabled
+	if enabled == nil then
+		enabled = true
+	end
+	if not enabled then
+		return { enabled = false, height = 0, bg = nil, fg = nil, align = "left" }
+	end
+	local height = config.height
+	if type(height) ~= "number" or height < 1 then
+		height = 1
+	else
+		height = math.floor(height)
+	end
+	local align = config.align and tostring(config.align):lower() or "left"
+	if align ~= "left" and align ~= "center" and align ~= "right" then
+		align = "left"
+	end
+	return {
+		enabled = true,
+		height = height,
+		bg = config.bg,
+		fg = config.fg,
+		align = align
+	}
+end
+
+local function clamp_range(value, minValue, maxValue)
+	if maxValue ~= nil and minValue ~= nil and maxValue < minValue then
+		return minValue
+	end
+	if minValue ~= nil and value < minValue then
+		return minValue
+	end
+	if maxValue ~= nil and value > maxValue then
+		return maxValue
+	end
+	return value
 end
 
 local RELATIVE_REF_PATTERN = "^(%a[%w_]*)%.([%a_][%w_]*)$"
@@ -2949,6 +3044,672 @@ function Frame:handleEvent(event, ...)
 
 
 	return false
+end
+
+
+function Window:new(app, config)
+	config = config or {}
+	local base = Frame.new(Frame, app, config)
+	setmetatable(base, Window)
+	base.draggable = config.draggable ~= false
+	base.resizable = config.resizable ~= false
+	base.closable = config.closable ~= false
+	base.maximizable = config.maximizable ~= false
+	base._titleBar = normalize_title_bar(config.titleBar, nil)
+	base:_refreshTitleBarState()
+	base:_invalidateTitleLayout()
+	base._dragging = false
+	base._dragSource = nil
+	base._dragIdentifier = nil
+	base._dragOffsetX = 0
+	base._dragOffsetY = 0
+	base._resizing = false
+	base._resizeSource = nil
+	base._resizeIdentifier = nil
+	base._resizeEdges = nil
+	base._resizeStart = nil
+	base._isMaximized = false
+	base._restoreRect = nil
+	return base
+end
+
+function Window:_refreshTitleBarState()
+	if not self._titleBar then
+		self._titleBarHeight = 0
+		return
+	end
+	if not self._titleBar.enabled then
+		self._titleBarHeight = 0
+		return
+	end
+	self._titleBar.height = math.max(1, math.floor(self._titleBar.height or 1))
+	if not self._titleBar.align then
+		self._titleBar.align = "left"
+	end
+	self._titleBarHeight = self._titleBar.height
+end
+
+function Window:_invalidateTitleLayout()
+	self._titleLayoutCache = nil
+	self._titleButtonRects = nil
+end
+
+function Window:_computeTitleLayout()
+	local barHeight = self:_getVisibleTitleBarHeight()
+	local bar = self._titleBar
+	if barHeight <= 0 or not bar or not bar.enabled then
+		self:_invalidateTitleLayout()
+		return nil
+	end
+
+	local ax, ay = compute_absolute_position(self)
+	local leftPad, rightPad = compute_inner_offsets(self)
+	local textX = ax + leftPad
+	local textWidth = math.max(0, self.width - leftPad - rightPad)
+	if textWidth <= 0 then
+		textX = ax
+		textWidth = self.width
+	end
+
+	local layout = {
+		barX = ax,
+		barY = ay,
+		barWidth = self.width,
+		barHeight = barHeight,
+		textX = textX,
+		textWidth = textWidth,
+		textBaseline = ay,
+		buttonRects = {},
+		buttonOrder = {},
+		maximizeState = self._isMaximized and "restore" or "maximize"
+	}
+
+	local buttonWidth = 3
+	local spacing = 1
+	local cursor = textX + textWidth - 1
+
+	local function placeButton(name)
+		if cursor - buttonWidth + 1 < textX then
+			return nil
+		end
+		local x2 = cursor
+		local x1 = x2 - buttonWidth + 1
+		local rect = { x1 = x1, y1 = ay, x2 = x2, y2 = ay }
+		layout.buttonRects[name] = rect
+		layout.buttonOrder[#layout.buttonOrder + 1] = name
+		cursor = x1 - spacing
+		return rect
+	end
+
+	if self.closable then
+		placeButton("close")
+	end
+	if self.maximizable then
+		placeButton("maximize")
+	end
+
+	layout.titleStart = textX
+	layout.titleEnd = cursor
+	if layout.titleEnd < layout.titleStart then
+		layout.titleWidth = 0
+	else
+		layout.titleWidth = layout.titleEnd - layout.titleStart + 1
+	end
+
+	self._titleLayoutCache = layout
+	self._titleButtonRects = layout.buttonRects
+	return layout
+end
+
+function Window:_hitTestTitleButton(px, py)
+	local layout = self._titleLayoutCache or self:_computeTitleLayout()
+	if not layout then
+		return nil
+	end
+	for name, rect in pairs(layout.buttonRects) do
+		if px >= rect.x1 and px <= rect.x2 and py >= rect.y1 and py <= rect.y2 then
+			return name
+		end
+	end
+	return nil
+end
+
+function Window:_fillTitleBarPixels(pixelLayer, layout, color)
+	if not pixelLayer or not layout then
+		return
+	end
+	local px = (layout.barX - 1) * 2 + 1
+	local py = (layout.barY - 1) * 3 + 1
+	local widthPixels = layout.barWidth * 2
+	local heightPixels = math.min(layout.barHeight * 3, self.height * 3)
+	for dy = 0, heightPixels - 1 do
+		for dx = 0, widthPixels - 1 do
+			pixelLayer.pixel(px + dx, py + dy, color)
+		end
+	end
+end
+
+function Window:_hitTestResize(px, py)
+	if not self.resizable then
+		return nil
+	end
+	local ax, ay = compute_absolute_position(self)
+	local rightX = ax + math.max(0, self.width - 1)
+	local bottomY = ay + math.max(0, self.height - 1)
+	local threshold = 1
+	if self.border and self.border.thickness then
+		threshold = math.max(1, math.floor(self.border.thickness))
+	end
+	local edges = {}
+	local nearRight = px >= rightX - threshold + 1 and px <= rightX
+	local nearLeft = px >= ax and px <= ax + threshold - 1
+	if nearRight then
+		edges.right = true
+	elseif nearLeft then
+		edges.left = true
+	end
+	if py >= bottomY - threshold + 1 and py <= bottomY then
+		edges.bottom = true
+	end
+	if not edges.right and not edges.left and not edges.bottom then
+		return nil
+	end
+	return edges
+end
+
+function Window:_beginResize(source, identifier, px, py, edges)
+	if not edges then
+		return
+	end
+	self:_restoreFromMaximize()
+	self._resizing = true
+	self._resizeSource = source
+	self._resizeIdentifier = identifier
+	self._resizeEdges = edges
+	local constraints = self.constraints or {}
+	self._resizeStart = {
+		pointerX = px,
+		pointerY = py,
+		width = self.width,
+		height = self.height,
+		x = self.x,
+		y = self.y,
+		minWidth = constraints.minWidth or 1,
+		minHeight = constraints.minHeight or 1
+	}
+	self:bringToFront()
+	if self.app then
+		self.app:setFocus(nil)
+	end
+end
+
+function Window:_updateResize(px, py)
+	if not self._resizing or not self._resizeStart then
+		return
+	end
+	local state = self._resizeStart
+	local dx = px - state.pointerX
+	local dy = py - state.pointerY
+	local newWidth = state.width
+	local newHeight = state.height
+	if self._resizeEdges.right then
+		newWidth = state.width + dx
+	elseif self._resizeEdges.left then
+		newWidth = state.width - dx
+	end
+	if self._resizeEdges.bottom then
+		newHeight = state.height + dy
+	end
+	if newWidth < state.minWidth then
+		newWidth = state.minWidth
+	end
+	if newHeight < state.minHeight then
+		newHeight = state.minHeight
+	end
+	newWidth = math.max(1, newWidth)
+	newHeight = math.max(1, newHeight)
+	self:setSize(newWidth, newHeight)
+	if self._resizeEdges.left then
+		local appliedWidth = self.width
+		local targetX = state.x + (state.width - appliedWidth)
+		if self.parent then
+			local maxX = math.max(1, self.parent.width - appliedWidth + 1)
+			if targetX < 1 then
+				targetX = 1
+			elseif targetX > maxX then
+				targetX = maxX
+			end
+		else
+			if targetX < 1 then
+				targetX = 1
+			end
+		end
+		if targetX ~= self.x then
+			self:setPosition(targetX, self.y)
+		end
+	end
+end
+
+function Window:_endResize()
+	self._resizing = false
+	self._resizeSource = nil
+	self._resizeIdentifier = nil
+	self._resizeEdges = nil
+	self._resizeStart = nil
+end
+
+function Window:_restoreFromMaximize()
+	if not self._isMaximized then
+		return
+	end
+	local rect = self._restoreRect
+	self._isMaximized = false
+	self._restoreRect = nil
+	if rect then
+		self:setPosition(rect.x, rect.y)
+		self:setSize(rect.width, rect.height)
+	end
+	self:_invalidateTitleLayout()
+end
+
+function Window:_computeMaximizedGeometry()
+	local parent = self.parent
+	if parent then
+		local leftPad, rightPad, topPad, bottomPad = compute_inner_offsets(parent)
+		local width = math.max(1, parent.width - leftPad - rightPad)
+		local height = math.max(1, parent.height - topPad - bottomPad)
+		local x = leftPad + 1
+		local y = topPad + 1
+		return { x = x, y = y, width = width, height = height }
+	end
+	local root = self.app and self.app.root or nil
+	if root then
+		return { x = 1, y = 1, width = root.width, height = root.height }
+	end
+	return { x = self.x, y = self.y, width = self.width, height = self.height }
+end
+
+function Window:maximize()
+	if not self.maximizable or self._isMaximized then
+		return
+	end
+	self._restoreRect = { x = self.x, y = self.y, width = self.width, height = self.height }
+	local target = self:_computeMaximizedGeometry()
+	self:setPosition(target.x, target.y)
+	self:setSize(target.width, target.height)
+	self._isMaximized = true
+	self:bringToFront()
+	self:_invalidateTitleLayout()
+	if self.onMaximize then
+		self:onMaximize()
+	end
+end
+
+function Window:restore()
+	if not self._isMaximized then
+		return
+	end
+	local rect = self._restoreRect
+	self._isMaximized = false
+	self._restoreRect = nil
+	if rect then
+		self:setPosition(rect.x, rect.y)
+		self:setSize(rect.width, rect.height)
+	end
+	self:_invalidateTitleLayout()
+	if self.onRestore then
+		self:onRestore()
+	end
+end
+
+function Window:toggleMaximize()
+	if self._isMaximized then
+		self:restore()
+	else
+		self:maximize()
+	end
+end
+
+function Window:close()
+	if self.onClose then
+		local result = self:onClose()
+		if result == false then
+			return
+		end
+	end
+	self.visible = false
+	self:_endDrag()
+	self:_endResize()
+end
+
+function Window:_getVisibleTitleBarHeight()
+	local bar = self._titleBar
+	if not bar or not bar.enabled then
+		return 0
+	end
+	local _, _, _, _, _, innerHeight = compute_inner_offsets(self)
+	if innerHeight <= 0 then
+		return 0
+	end
+	local height = math.max(1, math.floor(bar.height or 1))
+	if height > innerHeight then
+		height = innerHeight
+	end
+	return height
+end
+
+function Window:setTitleBar(options)
+	self._titleBar = normalize_title_bar(options, nil)
+	self:_refreshTitleBarState()
+	self:_invalidateTitleLayout()
+end
+
+function Window:getTitleBar()
+	return clone_table(self._titleBar)
+end
+
+function Window:setDraggable(value)
+	self.draggable = not not value
+end
+
+function Window:isDraggable()
+	return not not self.draggable
+end
+
+function Window:setResizable(value)
+	self.resizable = not not value
+	self:_invalidateTitleLayout()
+end
+
+function Window:isResizable()
+	return not not self.resizable
+end
+
+function Window:setClosable(value)
+	self.closable = not not value
+	self:_invalidateTitleLayout()
+end
+
+function Window:isClosable()
+	return not not self.closable
+end
+
+function Window:setMaximizable(value)
+	self.maximizable = not not value
+	self:_invalidateTitleLayout()
+end
+
+function Window:isMaximizable()
+	return not not self.maximizable
+end
+
+function Window:setTitle(title)
+	Frame.setTitle(self, title)
+	self:_invalidateTitleLayout()
+end
+
+function Window:getContentOffset()
+	local leftPad, _, topPad = compute_inner_offsets(self)
+	local titleOffset = self:_getVisibleTitleBarHeight()
+	return leftPad, topPad + titleOffset
+end
+
+function Window:setSize(width, height)
+	Frame.setSize(self, width, height)
+	self:_refreshTitleBarState()
+	self:_invalidateTitleLayout()
+end
+
+function Window:setBorder(borderConfig)
+	Widget.setBorder(self, borderConfig)
+	self:_refreshTitleBarState()
+	self:_invalidateTitleLayout()
+end
+
+function Window:bringToFront()
+	local parent = self.parent
+	if not parent then
+		return
+	end
+	parent._orderCounter = (parent._orderCounter or 0) + 1
+	self._orderIndex = parent._orderCounter
+end
+
+function Window:_pointInTitleBar(px, py)
+	local layout = self:_computeTitleLayout()
+	if not layout then
+		return false
+	end
+	if self._titleButtonRects then
+		for _, rect in pairs(self._titleButtonRects) do
+			if px >= rect.x1 and px <= rect.x2 and py >= rect.y1 and py <= rect.y2 then
+				return false
+			end
+		end
+	end
+	local barX1 = layout.barX
+	local barY1 = layout.barY
+	local barX2 = barX1 + math.max(0, layout.barWidth - 1)
+	local barY2 = barY1 + math.max(0, layout.barHeight - 1)
+	return px >= barX1 and px <= barX2 and py >= barY1 and py <= barY2
+end
+
+function Window:_beginDrag(source, identifier, px, py)
+	self:_restoreFromMaximize()
+	local ax, ay = compute_absolute_position(self)
+	self._dragging = true
+	self._dragSource = source
+	self._dragIdentifier = identifier
+	self._dragOffsetX = px - ax
+	self._dragOffsetY = py - ay
+	self:bringToFront()
+	if self.app then
+		self.app:setFocus(nil)
+	end
+end
+
+function Window:_updateDragPosition(px, py)
+	if not self._dragging then
+		return
+	end
+	local parent = self.parent
+	local offsetX = self._dragOffsetX or 0
+	local offsetY = self._dragOffsetY or 0
+	local newAbsX = px - offsetX
+	local newAbsY = py - offsetY
+	if parent then
+		local parentAx, parentAy = compute_absolute_position(parent)
+		local minAbsX = parentAx
+		local minAbsY = parentAy
+		local maxAbsX = parentAx + math.max(0, parent.width - self.width)
+		local maxAbsY = parentAy + math.max(0, parent.height - self.height)
+		newAbsX = clamp_range(newAbsX, minAbsX, maxAbsX)
+		newAbsY = clamp_range(newAbsY, minAbsY, maxAbsY)
+		local newLocalX = newAbsX - parentAx + 1
+		local newLocalY = newAbsY - parentAy + 1
+		self:setPosition(newLocalX, newLocalY)
+	else
+		self:setPosition(newAbsX, newAbsY)
+	end
+end
+
+function Window:_endDrag()
+	self._dragging = false
+	self._dragSource = nil
+	self._dragIdentifier = nil
+	self._dragOffsetX = 0
+	self._dragOffsetY = 0
+end
+
+function Window:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local bg = self.bg or self.app.background
+
+	if innerWidth > 0 and innerHeight > 0 then
+		fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, bg, bg)
+	else
+		fill_rect(textLayer, ax, ay, width, height, bg, bg)
+	end
+
+	clear_border_characters(textLayer, ax, ay, width, height)
+
+	local bar = self._titleBar
+	local titleLayout = nil
+	local titleBarBg = nil
+	if bar then
+		titleLayout = self:_computeTitleLayout()
+		if titleLayout then
+			titleBarBg = bar.bg or bg
+			local barFg = bar.fg or self.fg or colors.white
+			if titleLayout.textWidth > 0 then
+				fill_rect(textLayer, titleLayout.textX, titleLayout.textBaseline, titleLayout.textWidth, titleLayout.barHeight, titleBarBg, titleBarBg)
+			end
+			local availableWidth = titleLayout.titleWidth or 0
+			local titleText = self.title or ""
+			if availableWidth > 0 and titleText ~= "" then
+				if #titleText > availableWidth then
+					titleText = titleText:sub(1, availableWidth)
+				end
+				local padding = availableWidth - #titleText
+				local align = bar.align or "left"
+				local line = titleText
+				if padding > 0 then
+					if align == "center" then
+						local leftPad = math.floor(padding / 2)
+						local rightPad = padding - leftPad
+						line = string.rep(" ", leftPad) .. titleText .. string.rep(" ", rightPad)
+					elseif align == "right" then
+						line = string.rep(" ", padding) .. titleText
+					else
+						line = titleText .. string.rep(" ", padding)
+					end
+				end
+				textLayer.text(titleLayout.titleStart, titleLayout.textBaseline, line, barFg, titleBarBg)
+			end
+			local buttonFg = bar.fg or self.fg or colors.white
+			if self.maximizable then
+				local maxRect = titleLayout.buttonRects.maximize
+				if maxRect then
+					local label = titleLayout.maximizeState == "restore" and "[-]" or "[+]"
+					textLayer.text(maxRect.x1, maxRect.y1, label, buttonFg, titleBarBg)
+				end
+			end
+			if self.closable then
+				local closeRect = titleLayout.buttonRects.close
+				if closeRect then
+					textLayer.text(closeRect.x1, closeRect.y1, "[X]", buttonFg, titleBarBg)
+				end
+			end
+		end
+	end
+
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
+		if titleLayout and titleBarBg then
+			self:_fillTitleBarPixels(pixelLayer, titleLayout, titleBarBg)
+		end
+	end
+
+	local children = copy_children(self._children)
+	sort_children_ascending(children)
+	for i = 1, #children do
+		children[i]:draw(textLayer, pixelLayer)
+	end
+end
+
+function Window:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	if event == "mouse_click" then
+		local button, x, y = ...
+		local hit = self:_hitTestTitleButton(x, y)
+		if hit == "close" and self.closable then
+			self:close()
+			return true
+		elseif hit == "maximize" and self.maximizable then
+			self:toggleMaximize()
+			return true
+		end
+		local resizeEdges = self:_hitTestResize(x, y)
+		if resizeEdges then
+			self:_beginResize("mouse", button, x, y, resizeEdges)
+			return true
+		end
+		if self.draggable and self:_pointInTitleBar(x, y) then
+			self:_beginDrag("mouse", button, x, y)
+			return true
+		end
+	elseif event == "mouse_drag" then
+		local button, x, y = ...
+		if self._resizing and self._resizeSource == "mouse" and button == self._resizeIdentifier then
+			self:_updateResize(x, y)
+			return true
+		end
+		if self._dragging and self._dragSource == "mouse" and button == self._dragIdentifier then
+			self:_updateDragPosition(x, y)
+			return true
+		end
+	elseif event == "mouse_up" then
+		local button = ...
+		if self._resizing and self._resizeSource == "mouse" and button == self._resizeIdentifier then
+			self:_endResize()
+			return true
+		end
+		if self._dragging and self._dragSource == "mouse" and button == self._dragIdentifier then
+			self:_endDrag()
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local side, x, y = ...
+		local hit = self:_hitTestTitleButton(x, y)
+		if hit == "close" and self.closable then
+			self:close()
+			return true
+		elseif hit == "maximize" and self.maximizable then
+			self:toggleMaximize()
+			return true
+		end
+		local resizeEdges = self:_hitTestResize(x, y)
+		if resizeEdges then
+			self:_beginResize("monitor", side, x, y, resizeEdges)
+			return true
+		end
+		if self.draggable and self:_pointInTitleBar(x, y) then
+			self:_beginDrag("monitor", side, x, y)
+			return true
+		end
+	elseif event == "monitor_drag" then
+		local side, x, y = ...
+		if self._resizing and self._resizeSource == "monitor" and side == self._resizeIdentifier then
+			self:_updateResize(x, y)
+			return true
+		end
+		if self._dragging and self._dragSource == "monitor" and side == self._dragIdentifier then
+			self:_updateDragPosition(x, y)
+			return true
+		end
+	elseif event == "monitor_up" then
+		local side = ...
+		if self._resizing and self._resizeSource == "monitor" and side == self._resizeIdentifier then
+			self:_endResize()
+			return true
+		end
+		if self._dragging and self._dragSource == "monitor" and side == self._dragIdentifier then
+			self:_endDrag()
+			return true
+		end
+	end
+
+	return Frame.handleEvent(self, event, ...)
 end
 
 
@@ -10164,6 +10925,12 @@ function App:createFrame(config)
 	return Frame:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Window
+function App:createWindow(config)
+	return Window:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Button
@@ -11085,6 +11852,9 @@ pixelui.widgets = {
 	Frame = function(app, config)
 		return Frame:new(app, config)
 	end,
+	Window = function(app, config)
+		return Window:new(app, config)
+	end,
 	Button = function(app, config)
 		return Button:new(app, config)
 	end,
@@ -11137,6 +11907,7 @@ pixelui.widgets = {
 
 pixelui.Widget = Widget
 pixelui.Frame = Frame
+pixelui.Window = Window
 pixelui.Button = Button
 pixelui.Label = Label
 pixelui.CheckBox = CheckBox

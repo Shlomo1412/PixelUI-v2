@@ -110,6 +110,15 @@ local toggleState = {
     statusLabel = nil,
     statusDefaults = {}
 }
+local windowDemo = {
+    windows = {},
+    defaults = {},
+    counter = 0,
+    frame = nil,
+    infoLabel = nil,
+    spawnButton = nil,
+    statusLabel = nil
+}
 local tableState = {
     widget = nil,
     defaults = {},
@@ -849,7 +858,151 @@ end, function()
     end
 end)
 
--- Step 12: Table showcase
+-- Step 12: Window showcase
+local windowStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(windowStep)
+windowDemo.frame = windowStep
+
+windowDemo.infoLabel = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Spawn draggable windows with title bars. They float above the wizard.",
+    bg = colors.gray,
+    fg = colors.white
+})
+windowStep:addChild(windowDemo.infoLabel)
+windowDemo.defaults.info = { width = windowDemo.infoLabel.width, height = windowDemo.infoLabel.height }
+
+windowDemo.spawnButton = app:createButton({
+    x = 2,
+    y = 6,
+    width = 16,
+    height = 3,
+    label = "Spawn Window",
+    bg = colors.orange,
+    fg = colors.black,
+    border = { color = colors.white }
+})
+windowStep:addChild(windowDemo.spawnButton)
+windowDemo.defaults.button = { width = windowDemo.spawnButton.width, height = windowDemo.spawnButton.height }
+
+windowDemo.statusLabel = app:createLabel({
+    x = 2,
+    y = 9,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "No windows yet. Press Spawn Window to create one.",
+    bg = colors.gray,
+    fg = colors.white
+})
+windowStep:addChild(windowDemo.statusLabel)
+windowDemo.defaults.status = { width = windowDemo.statusLabel.width, height = windowDemo.statusLabel.height }
+
+local function updateWindowStatus()
+    if not windowDemo.statusLabel then
+        return
+    end
+    local count = #windowDemo.windows
+    if count == 0 then
+        windowDemo.statusLabel:setText("No windows yet. Press Spawn Window to create one.")
+    else
+        local suffix = (count == 1) and "" or "s"
+        windowDemo.statusLabel:setText(string.format("%d window%s active. Drag the title bar to move.", count, suffix))
+    end
+end
+
+local function spawnDemoWindow()
+    seedRandom()
+    local maxWindows = 6
+    if #windowDemo.windows >= maxWindows then
+        local oldest = table.remove(windowDemo.windows, 1)
+        if oldest and oldest.parent then
+            oldest.parent:removeChild(oldest)
+        end
+    end
+
+    windowDemo.counter = windowDemo.counter + 1
+
+    local winWidth = 20
+    local winHeight = 8
+    local rootWidth = root.width
+    local rootHeight = root.height
+    local maxX = math.max(1, rootWidth - winWidth + 1)
+    local maxY = math.max(1, rootHeight - winHeight + 1)
+    local posX = math.max(1, math.min(maxX, math.random(1, maxX)))
+    local posY = math.max(1, math.min(maxY, math.random(1, maxY)))
+
+    local titleAlign = (windowDemo.counter % 3 == 0) and "right" or ((windowDemo.counter % 2 == 0) and "center" or "left")
+    local win = app:createWindow({
+        x = posX,
+        y = posY,
+        width = winWidth,
+        height = winHeight,
+        title = string.format("Window %02d", windowDemo.counter),
+        bg = colors.black,
+        fg = colors.white,
+        border = { color = colors.white },
+        titleBar = {
+            bg = colors.lightGray,
+            fg = colors.black,
+            align = titleAlign
+        }
+    })
+
+    root:addChild(win)
+
+    local offsetX, offsetY = win:getContentOffset()
+    local contentWidth = math.max(1, win.width - offsetX - 1)
+    local contentHeight = math.max(1, win.height - offsetY - 1)
+    local contentText = string.format("This is window %02d. Drag me around!", windowDemo.counter)
+
+    local contentLabel = app:createLabel({
+        x = offsetX + 1,
+        y = offsetY + 1,
+        width = contentWidth,
+        height = contentHeight,
+        wrap = true,
+        align = "left",
+        text = contentText,
+        bg = colors.black,
+        fg = colors.white
+    })
+    win:addChild(contentLabel)
+
+    windowDemo.windows[#windowDemo.windows + 1] = win
+    updateWindowStatus()
+    app:render()
+end
+
+windowDemo.spawnButton:setOnClick(function()
+    spawnDemoWindow()
+end)
+
+addStep(windowStep, function()
+    updateWindowStatus()
+    if windowDemo.spawnButton then
+        app:setFocus(windowDemo.spawnButton)
+    end
+end, function()
+    if windowDemo.spawnButton and windowDemo.spawnButton:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 13: Table showcase
 local tableStep = app:createFrame({
     x = 2,
     y = 2,
@@ -954,7 +1107,7 @@ end, function()
     end
 end)
 
--- Step 13: Text Editor showcase
+-- Step 14: Text Editor showcase
 local editorStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1065,7 +1218,7 @@ end, function()
     end
 end)
 
--- Step 14: ProgressBar showcase
+-- Step 15: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1162,7 +1315,7 @@ end, function()
     end
 end)
 
--- Step 15: Thread showcase
+-- Step 16: Thread showcase
 local threadStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1457,7 +1610,7 @@ end, function()
     end
 end)
 
--- Step 16: NotificationToast showcase
+-- Step 17: NotificationToast showcase
 local toastStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1598,7 +1751,7 @@ end, function()
     app:setFocus(nil)
 end)
 
--- Step 17: Constraints showcase
+-- Step 18: Constraints showcase
 local constraintStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1775,7 +1928,7 @@ end, function()
     app:setFocus(nil)
 end)
 
--- Step 18: FreeDraw showcase
+-- Step 19: FreeDraw showcase
 local freeDrawStep = app:createFrame({
     x = 2,
     y = 2,
@@ -2089,6 +2242,13 @@ local layoutState = {
     toggleStep = toggleStep,
     tableState = tableState,
     tableStep = tableStep,
+    windowDemo = {
+        step = windowDemo.frame,
+        infoLabel = windowDemo.infoLabel,
+        spawnButton = windowDemo.spawnButton,
+        statusLabel = windowDemo.statusLabel,
+        defaults = windowDemo.defaults
+    },
     editorState = editorState,
     editorStep = editorStep,
     progressDeterminate = progressDeterminate,
@@ -2104,6 +2264,209 @@ local layoutState = {
     threadDemo = threadDemo,
     threadStep = threadStep
 }
+
+local function layoutToggleSection(state, stepWidth, stepHeight, innerMargin)
+    local toggleState = state.toggleState
+    if not toggleState or not toggleState.widget then
+        return
+    end
+
+    local toggleStep = state.toggleStep
+    local defaults = toggleState.defaults or {}
+    local toggleWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+    local toggleHeightLimit = math.max(1, stepHeight - innerMargin * 2)
+    local baseWidth = defaults.width or toggleState.widget.width
+    local baseHeight = defaults.height or toggleState.widget.height
+    local toggleWidth = math.max(6, math.min(baseWidth, toggleWidthLimit))
+    local toggleHeight = math.max(1, math.min(baseHeight, toggleHeightLimit))
+    toggleState.widget:setSize(toggleWidth, toggleHeight)
+    local toggleX = math.floor((toggleStep.width - toggleWidth) / 2) + 1
+    local toggleY = innerMargin + math.max(1, math.floor((stepHeight - toggleHeight) / 3))
+    if toggleY + toggleHeight - 1 > innerMargin + stepHeight - 1 then
+        toggleY = math.max(innerMargin, innerMargin + stepHeight - toggleHeight)
+    end
+    if toggleY < innerMargin then
+        toggleY = innerMargin
+    end
+    toggleState.widget:setPosition(toggleX, toggleY)
+
+    if toggleState.statusLabel then
+        local statusDefaults = toggleState.statusDefaults or {}
+        local statusWidth = math.max(6, math.min(statusDefaults.width or toggleState.statusLabel.width, toggleWidthLimit))
+        local remaining = math.max(1, stepHeight - (toggleY - innerMargin) - toggleHeight - 1)
+        local statusHeight = math.max(1, math.min(statusDefaults.height or toggleState.statusLabel.height, remaining))
+        toggleState.statusLabel:setSize(statusWidth, statusHeight)
+        local statusX = math.floor((toggleStep.width - statusWidth) / 2) + 1
+        local statusY = toggleY + toggleHeight + 1
+        if statusY + statusHeight - 1 > innerMargin + stepHeight - 1 then
+            statusY = math.max(innerMargin, innerMargin + stepHeight - statusHeight)
+        end
+        toggleState.statusLabel:setPosition(statusX, statusY)
+    end
+end
+
+local function layoutWindowDemo(state, stepWidth, stepHeight, innerMargin)
+    local windowDemoState = state.windowDemo
+    if not windowDemoState or not windowDemoState.step then
+        return
+    end
+
+    local step = windowDemoState.step
+    local usableWidth = math.max(6, stepWidth - innerMargin * 2)
+    local currentY = innerMargin
+
+    local infoLabel = windowDemoState.infoLabel
+    if infoLabel then
+        local defaults = windowDemoState.defaults and windowDemoState.defaults.info
+        local targetWidth = defaults and defaults.width or infoLabel.width
+        local targetHeight = defaults and defaults.height or infoLabel.height
+        local infoWidth = math.max(6, math.min(targetWidth, usableWidth))
+        local infoHeight = math.max(1, targetHeight)
+        infoLabel:setSize(infoWidth, infoHeight)
+        local infoX = math.floor((step.width - infoWidth) / 2) + 1
+        infoLabel:setPosition(infoX, innerMargin)
+        currentY = infoLabel.y + infoLabel.height
+    end
+
+    local spawnButton = windowDemoState.spawnButton
+    if spawnButton then
+        local defaults = windowDemoState.defaults and windowDemoState.defaults.button
+        local targetWidth = defaults and defaults.width or spawnButton.width
+        local targetHeight = defaults and defaults.height or spawnButton.height
+        local buttonWidth = math.max(6, math.min(targetWidth, usableWidth))
+        local buttonHeight = math.max(2, targetHeight)
+        spawnButton:setSize(buttonWidth, buttonHeight)
+        local buttonX = math.floor((step.width - buttonWidth) / 2) + 1
+        local buttonY = currentY + 1
+        if buttonY + buttonHeight - 1 > innerMargin + stepHeight - 1 then
+            buttonY = math.max(innerMargin, innerMargin + stepHeight - buttonHeight)
+        end
+        spawnButton:setPosition(buttonX, buttonY)
+        currentY = spawnButton.y + spawnButton.height
+    end
+
+    local statusLabel = windowDemoState.statusLabel
+    if statusLabel then
+        local defaults = windowDemoState.defaults and windowDemoState.defaults.status
+        local targetWidth = defaults and defaults.width or statusLabel.width
+        local targetHeight = defaults and defaults.height or statusLabel.height
+        local statusWidth = math.max(6, math.min(targetWidth, usableWidth))
+        local statusHeight = math.max(1, targetHeight)
+        statusLabel:setSize(statusWidth, statusHeight)
+        local statusX = math.floor((step.width - statusWidth) / 2) + 1
+        local desiredY = currentY + 1
+        local maxY = innerMargin + stepHeight - statusHeight
+        if desiredY > maxY then
+            desiredY = maxY
+        end
+        if desiredY < innerMargin then
+            desiredY = innerMargin
+        end
+        statusLabel:setPosition(statusX, desiredY)
+    end
+end
+
+local function layoutBasicWidgets(state, stepWidth, stepHeight, innerMargin)
+    -- Button layout
+    local buttonStep = state.buttonStep
+    local stepButton = state.stepButton
+    local defaultButtonSize = state.defaultButtonSize
+    if buttonStep and stepButton and defaultButtonSize then
+        local buttonWidth = math.max(4, math.min(defaultButtonSize.width, stepWidth))
+        local buttonHeight = math.min(defaultButtonSize.height, stepHeight)
+        stepButton:setSize(buttonWidth, buttonHeight)
+        centerWidget(stepButton, buttonStep, buttonWidth, buttonHeight)
+    end
+
+    -- TextBox layout
+    local textStep = state.textStep
+    local stepBox = state.stepBox
+    local defaultTextBoxSize = state.defaultTextBoxSize
+    if textStep and stepBox and defaultTextBoxSize then
+        local textWidthLimit = math.max(4, stepWidth - 2)
+        local textWidth = math.max(4, math.min(defaultTextBoxSize.width, textWidthLimit))
+        local textHeight = math.min(defaultTextBoxSize.height, stepHeight)
+        stepBox:setSize(textWidth, textHeight)
+        centerWidget(stepBox, textStep, textWidth, textHeight)
+    end
+
+    -- ComboBox layout
+    local comboStep = state.comboStep
+    local stepCombo = state.stepCombo
+    local defaultComboSize = state.defaultComboSize
+    if comboStep and stepCombo and defaultComboSize then
+        local comboWidthLimit = math.max(6, stepWidth - 2)
+        local comboWidth = math.max(6, math.min(defaultComboSize.width, comboWidthLimit))
+        local comboHeight = math.min(defaultComboSize.height, stepHeight)
+        stepCombo:setSize(comboWidth, comboHeight)
+        centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
+    end
+end
+
+local function layoutListAndLabel(state, stepWidth, stepHeight, innerMargin)
+    -- List widget layout
+    local listWidget = state.listWidget
+    if listWidget then
+        local listDefaults = state.listDefaults or {}
+        local listStep = state.listStep
+        local listWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local listHeightLimit = math.max(3, stepHeight - innerMargin * 2)
+        local baseWidth = listDefaults.width or listWidget.width
+        local baseHeight = listDefaults.height or listWidget.height
+        local listWidth = math.max(6, math.min(baseWidth, listWidthLimit))
+        local listHeight = math.max(3, math.min(baseHeight, listHeightLimit))
+        listWidget:setSize(listWidth, listHeight)
+        centerWidget(listWidget, listStep, listWidth, listHeight)
+    end
+
+    -- Label layout
+    local labelTitle = state.labelTitle
+    local labelBody = state.labelBody
+    if labelTitle and labelBody then
+        local labelStep = state.labelStep
+        local labelDefaults = state.labelDefaults
+        local labelWidthLimit = math.max(6, stepWidth - innerMargin * 2)
+        local labelHeightLimit = math.max(4, stepHeight - innerMargin * 2)
+        local titleDefaults = labelDefaults and labelDefaults.title or {}
+        local bodyDefaults = labelDefaults and labelDefaults.body or {}
+        local titleHeight = math.max(1, math.min(titleDefaults.height or labelTitle.height, math.floor(labelHeightLimit / 2)))
+        local bodyHeightLimit = math.max(1, labelHeightLimit - titleHeight - 1)
+        local bodyHeight = math.max(1, math.min(bodyDefaults.height or labelBody.height, bodyHeightLimit))
+        local totalHeight = titleHeight + 1 + bodyHeight
+        local titleWidth = math.max(6, math.min(titleDefaults.width or labelTitle.width, labelWidthLimit))
+        local bodyWidth = math.max(6, math.min(bodyDefaults.width or labelBody.width, labelWidthLimit))
+        labelTitle:setSize(titleWidth, titleHeight)
+        labelBody:setSize(bodyWidth, bodyHeight)
+        local startY = innerMargin + math.floor((stepHeight - totalHeight) / 2)
+        local titleX = math.floor((labelStep.width - titleWidth) / 2) + 1
+        local bodyX = math.floor((labelStep.width - bodyWidth) / 2) + 1
+        labelTitle:setPosition(titleX, startY)
+        labelBody:setPosition(bodyX, startY + titleHeight + 1)
+    end
+end
+
+local function layoutRadioButtons(state, stepWidth, stepHeight, innerMargin)
+    local radioButtons = state.radioButtons or {}
+    if #radioButtons > 0 then
+        local radioStep = state.radioStep
+        local radioDefaultWidths = state.radioDefaultWidths or {}
+        local maxRadioWidth = math.max(4, stepWidth - innerMargin)
+        local freeRows = math.max(0, stepHeight - #radioButtons)
+        local gap = (#radioButtons > 1) and math.floor(freeRows / (#radioButtons - 1)) or 0
+        local radioY = innerMargin
+        for index = 1, #radioButtons do
+            local radio = radioButtons[index]
+            if radio then
+                local defaultWidth = radioDefaultWidths[index] or radio.width
+                local radioWidth = math.max(4, math.min(defaultWidth, maxRadioWidth))
+                radio:setSize(radioWidth, radio.height)
+                local radioX = math.floor((radioStep.width - radioWidth) / 2) + 1
+                radio:setPosition(radioX, radioY)
+                radioY = radioY + 1 + gap
+            end
+        end
+    end
+end
 
 local function layout()
     local state = layoutState
@@ -2154,96 +2517,14 @@ local function layout()
         end
     end
 
-    local buttonStep = state.buttonStep
-    local stepButton = state.stepButton
-    local defaultButtonSize = state.defaultButtonSize
-    local buttonWidth = math.max(4, math.min(defaultButtonSize.width, stepWidth))
-    local buttonHeight = math.min(defaultButtonSize.height, stepHeight)
-    stepButton:setSize(buttonWidth, buttonHeight)
-    centerWidget(stepButton, buttonStep, buttonWidth, buttonHeight)
+    -- Basic widgets (Button, TextBox, ComboBox)
+    layoutBasicWidgets(state, stepWidth, stepHeight, innerMargin)
 
-    local textStep = state.textStep
-    local stepBox = state.stepBox
-    local defaultTextBoxSize = state.defaultTextBoxSize
-    local textWidthLimit = math.max(4, stepWidth - 2)
-    local textWidth = math.max(4, math.min(defaultTextBoxSize.width, textWidthLimit))
-    local textHeight = math.min(defaultTextBoxSize.height, stepHeight)
-    stepBox:setSize(textWidth, textHeight)
-    centerWidget(stepBox, textStep, textWidth, textHeight)
+    -- List widget and Label layout
+    layoutListAndLabel(state, stepWidth, stepHeight, innerMargin)
 
-    local comboStep = state.comboStep
-    local stepCombo = state.stepCombo
-    local defaultComboSize = state.defaultComboSize
-    local comboWidthLimit = math.max(6, stepWidth - 2)
-    local comboWidth = math.max(6, math.min(defaultComboSize.width, comboWidthLimit))
-    local comboHeight = math.min(defaultComboSize.height, stepHeight)
-    stepCombo:setSize(comboWidth, comboHeight)
-    centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
-
-    local listWidget = state.listWidget
-    if listWidget then
-        local listDefaults = state.listDefaults or {}
-        local listStep = state.listStep
-        local listWidthLimit = math.max(6, stepWidth - innerMargin * 2)
-        local listHeightLimit = math.max(3, stepHeight - innerMargin * 2)
-        local baseWidth = listDefaults.width or listWidget.width
-        local baseHeight = listDefaults.height or listWidget.height
-        local listWidth = math.max(6, math.min(baseWidth, listWidthLimit))
-        local listHeight = math.max(3, math.min(baseHeight, listHeightLimit))
-        listWidget:setSize(listWidth, listHeight)
-        centerWidget(listWidget, listStep, listWidth, listHeight)
-    end
-
-    local labelTitle = state.labelTitle
-    local labelBody = state.labelBody
-    if labelTitle and labelBody then
-        local labelStep = state.labelStep
-        local labelDefaults = state.labelDefaults
-        local labelWidthLimit = math.max(6, stepWidth - innerMargin * 2)
-        local titleDefaults = (labelDefaults and labelDefaults.title) or { width = labelTitle.width, height = labelTitle.height }
-        local bodyDefaults = (labelDefaults and labelDefaults.body) or { width = labelBody.width, height = labelBody.height }
-        local bodyWidth = math.max(6, math.min(bodyDefaults.width or labelBody.width, labelWidthLimit))
-        local bodyHeightLimit = math.max(3, stepHeight - innerMargin * 2)
-        local bodyHeight = math.max(2, math.min(bodyDefaults.height or labelBody.height, bodyHeightLimit))
-        labelBody:setSize(bodyWidth, bodyHeight)
-        local bodyX = math.floor((labelStep.width - bodyWidth) / 2) + 1
-        local bodyY = innerMargin + 1
-        if bodyY + bodyHeight - 1 > innerMargin + stepHeight - 1 then
-            bodyY = math.max(innerMargin, innerMargin + stepHeight - bodyHeight)
-        end
-        labelBody:setPosition(bodyX, bodyY)
-
-        local titleWidth = math.max(4, math.min(titleDefaults.width or labelTitle.width, labelWidthLimit))
-        local titleHeight = math.max(1, titleDefaults.height or labelTitle.height)
-        labelTitle:setSize(titleWidth, titleHeight)
-        local titleX = math.floor((labelStep.width - titleWidth) / 2) + 1
-        local titleY = math.max(innerMargin, bodyY - 1)
-        labelTitle:setPosition(titleX, titleY)
-    end
-
-    local radioButtons = state.radioButtons or {}
-    if #radioButtons > 0 then
-        local radioStep = state.radioStep
-        local radioDefaultWidths = state.radioDefaultWidths or {}
-        local maxRadioWidth = math.max(4, stepWidth - innerMargin)
-        local freeRows = math.max(0, stepHeight - #radioButtons)
-        local gap = (#radioButtons > 1) and math.floor(freeRows / (#radioButtons - 1)) or 0
-        local radioY = innerMargin
-        for index = 1, #radioButtons do
-            local radio = radioButtons[index]
-            if radio then
-                local presetWidth = radioDefaultWidths[index] or radio.width
-                local radioWidth = math.max(4, math.min(presetWidth, maxRadioWidth))
-                radio:setSize(radioWidth, 1)
-                local centerX = math.floor((radioStep.width - radioWidth) / 2) + 1
-                radio:setPosition(centerX, radioY)
-                if radio:isSelected() then
-                    selectedRadio = radio
-                end
-                radioY = math.min(innerMargin + stepHeight - 1, radioY + 1 + gap)
-            end
-        end
-    end
+    -- Radio buttons layout
+    layoutRadioButtons(state, stepWidth, stepHeight, innerMargin)
 
     local sliderSingle = state.sliderSingle
     local sliderRange = state.sliderRange
@@ -2387,41 +2668,9 @@ local function layout()
         end
     end
 
-    local toggleState = state.toggleState
-    if toggleState.widget then
-        local toggleStep = state.toggleStep
-        local defaults = toggleState.defaults or {}
-        local toggleWidthLimit = math.max(6, stepWidth - innerMargin * 2)
-        local toggleHeightLimit = math.max(1, stepHeight - innerMargin * 2)
-        local baseWidth = defaults.width or toggleState.widget.width
-        local baseHeight = defaults.height or toggleState.widget.height
-        local toggleWidth = math.max(6, math.min(baseWidth, toggleWidthLimit))
-        local toggleHeight = math.max(1, math.min(baseHeight, toggleHeightLimit))
-        toggleState.widget:setSize(toggleWidth, toggleHeight)
-        local toggleX = math.floor((toggleStep.width - toggleWidth) / 2) + 1
-        local toggleY = innerMargin + math.max(1, math.floor((stepHeight - toggleHeight) / 3))
-        if toggleY + toggleHeight - 1 > innerMargin + stepHeight - 1 then
-            toggleY = math.max(innerMargin, innerMargin + stepHeight - toggleHeight)
-        end
-        if toggleY < innerMargin then
-            toggleY = innerMargin
-        end
-        toggleState.widget:setPosition(toggleX, toggleY)
+    layoutToggleSection(state, stepWidth, stepHeight, innerMargin)
 
-        if toggleState.statusLabel then
-            local statusDefaults = toggleState.statusDefaults or {}
-            local statusWidth = math.max(6, math.min(statusDefaults.width or toggleState.statusLabel.width, toggleWidthLimit))
-            local remaining = math.max(1, stepHeight - (toggleY - innerMargin) - toggleHeight - 1)
-            local statusHeight = math.max(1, math.min(statusDefaults.height or toggleState.statusLabel.height, remaining))
-            toggleState.statusLabel:setSize(statusWidth, statusHeight)
-            local statusX = math.floor((toggleStep.width - statusWidth) / 2) + 1
-            local statusY = toggleY + toggleHeight + 1
-            if statusY + statusHeight - 1 > innerMargin + stepHeight - 1 then
-                statusY = math.max(innerMargin, innerMargin + stepHeight - statusHeight)
-            end
-            toggleState.statusLabel:setPosition(statusX, statusY)
-        end
-    end
+    layoutWindowDemo(state, stepWidth, stepHeight, innerMargin)
 
     local tableState = state.tableState
     if tableState.widget then
