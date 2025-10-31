@@ -1193,6 +1193,11 @@ editorState.widget = app:createTextBox({
         "updateTableDetails(row)",
         "logStatus(name)"
     },
+    autocompleteMaxItems = 6,
+    autocompleteHighlightBg = colors.orange,
+    autocompleteHighlightFg = colors.black,
+    autocompleteBorder = { color = colors.white },
+    autocompleteMaxWidth = 28,
     autocompleteAuto = true,
     placeholder = "Type Lua code here...",
     text = editorSample,
@@ -1222,10 +1227,10 @@ editorState.instructions = app:createLabel({
     x = 2,
     y = 10,
     width = 26,
-    height = 2,
+    height = 4,
     wrap = true,
     align = "left",
-    text = "Shortcuts: Ctrl+F find (Esc closes), Ctrl+H replace, Ctrl+Space autocomplete (Tab/Enter accepts), Shift+Arrows selects.",
+    text = "Ctrl+F find, Ctrl+H repl.\nCtrl+Space popup; arrows/\nTab/Enter choose.\nShift+Arrows select.",
     bg = colors.gray,
     fg = colors.white
 })
