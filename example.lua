@@ -1191,7 +1191,17 @@ editorState.widget = app:createTextBox({
         "app:createTextBox",
         "generateTableData()",
         "updateTableDetails(row)",
-        "logStatus(name)"
+        "logStatus(name)",
+        "local",
+        "function",
+        "for",
+        "if",
+        "then",
+        "end",
+        "return",
+        "true",
+        "false",
+        "nil"
     },
     autocompleteMaxItems = 6,
     autocompleteHighlightBg = colors.orange,
