@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'PixelUI',
   description: 'A modern UI framework for ComputerCraft',
-  base: '/PixelUI-v2/',
+  base: '/',
   
   themeConfig: {
     nav: [
