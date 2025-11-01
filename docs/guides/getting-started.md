@@ -7,8 +7,8 @@ This guide will help you get started with PixelUI v2 and build your first user i
 PixelUI v2 is a single-file library for ComputerCraft. Download `pixelui.lua` and place it in your ComputerCraft computer.
 
 ```lua
--- Download using wget
-wget https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/pixelui.lua
+-- Download the installer using wget
+wget run https://raw.githubusercontent.com/Shlomo1412/PixelUI-v2/main/installer.lua
 ```
 
 ## Your First Application

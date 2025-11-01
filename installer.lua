@@ -120,7 +120,7 @@ local function main()
 
   local versionChoice = promptVersion()
   local pixeluiPath = promptPath("Save PixelUI as?", versionChoice.defaultPath)
-  local grabShrekbox = promptYesNo("Download ShrekBox too?", false)
+  local grabShrekbox = promptYesNo("Download ShrekBox too?", true)
   local shrekboxPath
   if grabShrekbox then
     shrekboxPath = promptPath("Save ShrekBox as?", SHREKBOX_DEFAULT_PATH)
