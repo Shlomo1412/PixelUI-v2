@@ -142,6 +142,14 @@ local contextMenuState = {
     selectionLabel = nil,
     selectionDefaults = {}
 }
+local tabState = {
+    widget = nil,
+    defaults = {},
+    instructions = nil,
+    statusLabel = nil,
+    toggleButton = nil,
+    settingsEnabled = false
+}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
@@ -2276,6 +2284,176 @@ end, function()
     app:setFocus(nil)
 end)
 
+-- Step 21: TabControl showcase
+local tabStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(tabStep)
+
+tabState.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Use the tabs to switch dashboards. Try arrow keys or scroll to cycle selections.",
+    bg = colors.gray,
+    fg = colors.white
+})
+tabStep:addChild(tabState.instructions)
+tabState.defaults.instructions = {
+    width = tabState.instructions.width,
+    height = tabState.instructions.height
+}
+
+tabState.widget = app:createTabControl({
+    width = 26,
+    height = 6,
+    bg = colors.gray,
+    fg = colors.white,
+    tabBg = colors.gray,
+    tabFg = colors.lightGray,
+    activeTabBg = colors.white,
+    activeTabFg = colors.black,
+    hoverTabBg = colors.lightGray,
+    hoverTabFg = colors.black,
+    bodyBg = colors.gray,
+    bodyFg = colors.white,
+    emptyText = "No dashboards available.",
+    tabs = {
+        {
+            id = "overview",
+            label = "Overview",
+            content = "System uptime 99.9%\nServices healthy: 8/8\nActive alerts: 2"
+        },
+        {
+            id = "metrics",
+            label = "Metrics",
+            content = "CPU avg 37%\nMemory 68%\nRequests/min 1.2k"
+        },
+        {
+            id = "history",
+            label = "History",
+            content = "Recent incidents:\n- 12:42 API latency spike\n- 09:15 Deploy pipeline fail"
+        },
+        {
+            id = "settings",
+            label = "Settings",
+            disabled = true,
+            content = "Unlock to adjust notification routing and thresholds."
+        }
+    }
+})
+tabStep:addChild(tabState.widget)
+tabState.defaults.widget = {
+    width = tabState.widget.width,
+    height = tabState.widget.height
+}
+
+tabState.toggleButton = app:createButton({
+    width = 18,
+    height = 1,
+    label = "Enable Settings",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+tabStep:addChild(tabState.toggleButton)
+tabState.defaults.toggle = {
+    width = tabState.toggleButton.width,
+    height = tabState.toggleButton.height
+}
+
+tabState.statusLabel = app:createLabel({
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "",
+    bg = colors.gray,
+    fg = colors.white
+})
+tabStep:addChild(tabState.statusLabel)
+tabState.defaults.status = {
+    width = tabState.statusLabel.width,
+    height = tabState.statusLabel.height
+}
+
+local function updateTabStatus(tab)
+    if not tabState.statusLabel then
+        return
+    end
+    if not tab then
+        tabState.statusLabel:setText("No tab selected.")
+        return
+    end
+    local summary
+    if tab.id == "overview" then
+        summary = "System overview highlights uptime and alerts."
+    elseif tab.id == "metrics" then
+        summary = "Live metrics dashboard is active."
+    elseif tab.id == "history" then
+        summary = "Incident timeline is on display."
+    elseif tab.id == "settings" then
+        if tabState.settingsEnabled then
+            summary = "Settings tab unlocked for adjustments."
+        else
+            summary = "Settings tab is locked until enabled."
+        end
+    else
+        summary = string.format("%s tab selected.", tab.label or "Tab")
+    end
+    tabState.statusLabel:setText(summary)
+end
+
+tabState.widget:setOnSelect(function(_, tab)
+    updateTabStatus(tab)
+end)
+
+tabState.toggleButton:setOnClick(function()
+    tabState.settingsEnabled = not tabState.settingsEnabled
+    tabState.widget:setTabEnabled(4, tabState.settingsEnabled)
+    if tabState.settingsEnabled then
+        tabState.toggleButton:setLabel("Disable Settings")
+        tabState.widget:selectTabById("settings")
+    else
+        tabState.toggleButton:setLabel("Enable Settings")
+        local current = tabState.widget:getSelectedTab()
+        if current and current.id == "settings" then
+            tabState.widget:setSelectedIndex(1, true)
+        end
+    end
+    updateTabStatus(tabState.widget:getSelectedTab())
+end)
+
+updateTabStatus(tabState.widget:getSelectedTab())
+
+addStep(tabStep, function()
+    tabState.widget:setTabEnabled(4, tabState.settingsEnabled)
+    if tabState.settingsEnabled then
+        tabState.toggleButton:setLabel("Disable Settings")
+    else
+        tabState.toggleButton:setLabel("Enable Settings")
+        local current = tabState.widget:getSelectedTab()
+        if current and current.id == "settings" then
+            tabState.widget:setSelectedIndex(1, true)
+        end
+    end
+    updateTabStatus(tabState.widget:getSelectedTab())
+    if tabState.widget then
+        app:setFocus(tabState.widget)
+    end
+end, function()
+    if tabState.widget and tabState.widget:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -2413,6 +2591,8 @@ local layoutState = {
     radioButtons = radioButtons,
     radioDefaultWidths = radioDefaultWidths,
     radioStep = radioStep,
+    tabState = tabState,
+    tabStep = tabStep,
     sliderSingle = sliderSingle,
     sliderRange = sliderRange,
     sliderDefaults = sliderDefaults,
@@ -2692,6 +2872,65 @@ local function layoutRadioButtons(state, stepWidth, stepHeight, innerMargin)
     end
 end
 
+local function layoutTabControl(state, stepWidth, stepHeight, innerMargin)
+    local tabState = state.tabState
+    if not tabState or not tabState.widget then
+        return
+    end
+
+    local tabStep = state.tabStep
+    local defaults = tabState.defaults or {}
+    local maxWidth = math.max(10, stepWidth - innerMargin * 2)
+    local cursorY = innerMargin
+
+    local instructions = tabState.instructions
+    if instructions then
+        local instDefaults = defaults.instructions or { width = instructions.width, height = instructions.height }
+        local instWidth = math.max(10, math.min(instDefaults.width or instructions.width, maxWidth))
+        local instHeight = math.max(1, math.min(instDefaults.height or instructions.height, math.max(1, math.floor(stepHeight / 3))))
+        instructions:setSize(instWidth, instHeight)
+        local instX = math.floor((tabStep.width - instWidth) / 2) + 1
+        instructions:setPosition(instX, cursorY)
+        cursorY = cursorY + instHeight + 1
+    end
+
+    local widget = tabState.widget
+    if widget then
+        local widgetDefaults = defaults.widget or { width = widget.width, height = widget.height }
+        local availableHeight = math.max(4, innerMargin + stepHeight - cursorY - 1)
+        local widgetWidth = math.max(12, math.min(widgetDefaults.width or widget.width, maxWidth))
+        local widgetHeight = math.max(4, math.min(widgetDefaults.height or widget.height, availableHeight))
+        widget:setSize(widgetWidth, widgetHeight)
+        local widgetX = math.floor((tabStep.width - widgetWidth) / 2) + 1
+        widget:setPosition(widgetX, cursorY)
+        cursorY = widget.y + widget.height + 1
+    end
+
+    local toggleButton = tabState.toggleButton
+    if toggleButton then
+        local toggleDefaults = defaults.toggle or { width = toggleButton.width, height = toggleButton.height }
+        local toggleWidth = math.max(10, math.min(toggleDefaults.width or toggleButton.width, maxWidth))
+        local toggleHeight = math.max(1, toggleDefaults.height or toggleButton.height)
+        toggleButton:setSize(toggleWidth, toggleHeight)
+        local toggleX = math.floor((tabStep.width - toggleWidth) / 2) + 1
+        local toggleY = math.min(innerMargin + stepHeight - toggleHeight, cursorY)
+        toggleButton:setPosition(toggleX, toggleY)
+        cursorY = toggleY + toggleHeight + 1
+    end
+
+    local statusLabel = tabState.statusLabel
+    if statusLabel then
+        local statusDefaults = defaults.status or { width = statusLabel.width, height = statusLabel.height }
+        local statusWidth = math.max(10, math.min(statusDefaults.width or statusLabel.width, maxWidth))
+        local maxStatusHeight = math.max(1, innerMargin + stepHeight - cursorY + 1)
+        local statusHeight = math.max(1, math.min(statusDefaults.height or statusLabel.height, maxStatusHeight))
+        statusLabel:setSize(statusWidth, statusHeight)
+        local statusX = math.floor((tabStep.width - statusWidth) / 2) + 1
+        local statusY = math.min(innerMargin + stepHeight - statusHeight, cursorY)
+        statusLabel:setPosition(statusX, statusY)
+    end
+end
+
 local function layout()
     local state = layoutState
     local app = state.app
@@ -2749,6 +2988,9 @@ local function layout()
 
     -- Radio buttons layout
     layoutRadioButtons(state, stepWidth, stepHeight, innerMargin)
+
+    -- Tab control layout
+    layoutTabControl(state, stepWidth, stepHeight, innerMargin)
 
     local sliderSingle = state.sliderSingle
     local sliderRange = state.sliderRange

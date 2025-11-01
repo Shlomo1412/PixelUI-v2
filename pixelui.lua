@@ -363,6 +363,38 @@ local shrekbox = require("shrekbox")
 ---@field placeholder string? # Text shown when no item is selected
 ---@field onChange fun(self:PixelUI.ComboBox, item:string?, index:integer)? # Callback fired when selection changes
 
+--- A tabbed navigation widget with an optional body renderer.
+--- Renders a strip of selectable tabs and a content area beneath them.
+---@class PixelUI.TabControl : PixelUI.Widget
+---@field tabs PixelUI.TabControlTab[] # Active tabs in display order
+---@field selectedIndex integer # Index of the currently selected tab (0 when none available)
+---@field tabSpacing integer # Spacing in characters between adjacent tabs
+---@field tabPadding integer # Horizontal padding applied inside tab labels
+---@field tabHeight integer # Height of the tab strip in characters
+---@field tabBg PixelUI.Color # Background color for inactive tabs
+---@field tabFg PixelUI.Color # Foreground color for inactive tabs
+---@field activeTabBg PixelUI.Color # Background color for the active tab
+---@field activeTabFg PixelUI.Color # Foreground color for the active tab
+---@field hoverTabBg PixelUI.Color # Background color for hovered tabs
+---@field hoverTabFg PixelUI.Color # Foreground color for hovered tabs
+---@field disabledTabFg PixelUI.Color # Foreground color for disabled tabs
+---@field bodyBg PixelUI.Color # Background color for the body area
+---@field bodyFg PixelUI.Color # Foreground color for the body area
+---@field onSelect fun(self:PixelUI.TabControl, tab:PixelUI.TabControlTab?, index:integer)? # Fired when a tab is (re)selected
+---@field bodyRenderer PixelUI.TabControlRenderer? # Optional custom renderer for the content area
+---@field emptyText string? # Message displayed when no tabs are available
+
+---@class PixelUI.TabControlTab
+---@field id any? # Optional identifier for the tab
+---@field label string # Display label rendered inside the tab
+---@field value any? # Optional value associated with the tab
+---@field content string|PixelUI.TabControlRenderer? # Optional string or renderer used for the body
+---@field contentRenderer PixelUI.TabControlRenderer? # Tab-specific renderer that overrides the widget default
+---@field disabled boolean? # When true the tab cannot be selected
+---@field tooltip string? # Optional tooltip text (reserved for future use)
+
+---@alias PixelUI.TabControlRenderer fun(self:PixelUI.TabControl, tab:PixelUI.TabControlTab?, textLayer:Layer, pixelLayer:Layer, area:{ x:integer, y:integer, width:integer, height:integer })
+
 --- A hierarchical context menu widget with optional submenus.
 --- Renders as a popup and supports keyboard navigation.
 ---@class PixelUI.ContextMenu : PixelUI.Widget
@@ -596,6 +628,10 @@ setmetatable(RadioButton, { __index = Widget })
 local ComboBox = {}
 ComboBox.__index = ComboBox
 setmetatable(ComboBox, { __index = Widget })
+
+local TabControl = {}
+TabControl.__index = TabControl
+setmetatable(TabControl, { __index = Widget })
 
 local ContextMenu = {}
 ContextMenu.__index = ContextMenu
@@ -9381,6 +9417,736 @@ function ComboBox:handleEvent(event, ...)
 	return false
 end
 
+function TabControl:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	if config and config.focusable == false then
+		baseConfig.focusable = false
+	else
+		baseConfig.focusable = true
+	end
+	baseConfig.width = math.max(8, math.floor(baseConfig.width or 18))
+	baseConfig.height = math.max(3, math.floor(baseConfig.height or 7))
+	local instance = setmetatable({}, TabControl)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = baseConfig.focusable ~= false
+	instance.tabSpacing = math.max(0, math.floor((config and config.tabSpacing) or 1))
+	instance.tabPadding = math.max(0, math.floor((config and config.tabPadding) or 2))
+	instance.tabHeight = math.max(1, math.floor((config and config.tabHeight) or 3))
+	instance.tabBg = (config and config.tabBg) or instance.bg or colors.black
+	instance.tabFg = (config and config.tabFg) or instance.fg or colors.white
+	instance.activeTabBg = (config and config.activeTabBg) or colors.white
+	instance.activeTabFg = (config and config.activeTabFg) or colors.black
+	instance.hoverTabBg = (config and config.hoverTabBg) or colors.lightGray
+	instance.hoverTabFg = (config and config.hoverTabFg) or colors.black
+	instance.disabledTabFg = (config and config.disabledTabFg) or colors.lightGray
+	instance.bodyBg = (config and config.bodyBg) or instance.bg or colors.black
+	instance.bodyFg = (config and config.bodyFg) or instance.fg or colors.white
+	instance.separatorColor = (config and config.separatorColor) or colors.gray
+	instance.bodyRenderer = (config and config.bodyRenderer) or (config and config.renderBody) or nil
+	instance.emptyText = config and config.emptyText or nil
+	instance.onSelect = config and config.onSelect or nil
+	instance.tabs = {}
+	if config and type(config.tabs) == "table" then
+		instance.tabs = instance:_normalizeTabs(config.tabs)
+	end
+	if config and type(config.selectedIndex) == "number" then
+		instance.selectedIndex = math.floor(config.selectedIndex)
+	elseif #instance.tabs > 0 then
+		instance.selectedIndex = 1
+	else
+		instance.selectedIndex = 0
+	end
+	instance._hoverIndex = nil
+	instance._tabRects = {}
+	instance._layoutCache = nil
+	if not instance.border then
+		instance.border = normalize_border(true)
+	end
+	instance:_normalizeSelection(true)
+	return instance
+end
+
+function TabControl:_normalizeTabEntry(entry, index)
+	if entry == nil then
+		return nil
+	end
+	local entryType = type(entry)
+	if entryType == "string" then
+		return {
+			id = index,
+			label = entry,
+			value = entry,
+			disabled = false
+		}
+	elseif entryType == "table" then
+		local label = entry.label or entry.text or entry.title
+		if label == nil then
+			if entry.id ~= nil then
+				label = tostring(entry.id)
+			elseif entry.value ~= nil then
+				label = tostring(entry.value)
+			else
+				label = string.format("Tab %d", index)
+			end
+		else
+			label = tostring(label)
+		end
+		local normalized = {
+			id = entry.id ~= nil and entry.id or entry.value or index,
+			label = label,
+			value = entry.value ~= nil and entry.value or entry.id or entry,
+			disabled = not not entry.disabled,
+			content = entry.content,
+			tooltip = entry.tooltip,
+			contentRenderer = entry.contentRenderer or entry.render
+		}
+		if normalized.contentRenderer ~= nil and type(normalized.contentRenderer) ~= "function" then
+			normalized.contentRenderer = nil
+		end
+		return normalized
+	else
+		return {
+			id = index,
+			label = tostring(entry),
+			value = entry,
+			disabled = false
+		}
+	end
+end
+
+function TabControl:_normalizeTabs(tabs)
+	local normalized = {}
+	for i = 1, #tabs do
+		local entry = self:_normalizeTabEntry(tabs[i], i)
+		if entry then
+			normalized[#normalized + 1] = entry
+		end
+	end
+	return normalized
+end
+
+function TabControl:_findFirstEnabled()
+	for i = 1, #self.tabs do
+		local tab = self.tabs[i]
+		if tab and not tab.disabled then
+			return i
+		end
+	end
+	return 0
+end
+
+function TabControl:_resolveSelectableIndex(index)
+	local count = #self.tabs
+	if count == 0 then
+		return 0
+	end
+	index = math.max(1, math.min(count, math.floor(index)))
+	local tab = self.tabs[index]
+	if tab and not tab.disabled then
+		return index
+	end
+	for i = index + 1, count do
+		tab = self.tabs[i]
+		if tab and not tab.disabled then
+			return i
+		end
+	end
+	for i = index - 1, 1, -1 do
+		tab = self.tabs[i]
+		if tab and not tab.disabled then
+			return i
+		end
+	end
+	return 0
+end
+
+function TabControl:_normalizeSelection(silent)
+	local previousIndex = self.selectedIndex or 0
+	local count = #self.tabs
+	local nextIndex = previousIndex
+	if count == 0 then
+		nextIndex = 0
+	else
+		nextIndex = math.floor(nextIndex)
+		if nextIndex < 1 or nextIndex > count then
+			nextIndex = math.max(1, math.min(count, nextIndex))
+		end
+		if count > 0 then
+			local tab = self.tabs[nextIndex]
+			if not tab or tab.disabled then
+				nextIndex = self:_resolveSelectableIndex(nextIndex)
+			end
+			if nextIndex == 0 then
+				nextIndex = self:_findFirstEnabled()
+			end
+		end
+	end
+	if nextIndex < 0 then
+		nextIndex = 0
+	end
+	local changed = nextIndex ~= previousIndex
+	self.selectedIndex = nextIndex
+	if not silent then
+		if changed then
+			self:_notifySelect()
+		elseif previousIndex ~= 0 and nextIndex == 0 then
+			self:_notifySelect()
+		end
+	end
+end
+
+function TabControl:setTabs(tabs)
+	expect(1, tabs, "table")
+	local previousIndex = self.selectedIndex or 0
+	local previousTab = self:getSelectedTab()
+	local previousId = previousTab and previousTab.id
+	local previousLabel = previousTab and previousTab.label
+	self.tabs = self:_normalizeTabs(tabs)
+	if previousId ~= nil then
+		for i = 1, #self.tabs do
+			local tab = self.tabs[i]
+			if tab and tab.id == previousId and not tab.disabled then
+				self.selectedIndex = i
+				break
+			end
+		end
+	end
+	if (self.selectedIndex or 0) < 1 or (self.selectedIndex or 0) > #self.tabs then
+		if previousLabel ~= nil then
+			for i = 1, #self.tabs do
+				local tab = self.tabs[i]
+				if tab and tab.label == previousLabel and not tab.disabled then
+					self.selectedIndex = i
+					break
+				end
+			end
+		end
+	end
+	if (self.selectedIndex or 0) < 1 or (self.selectedIndex or 0) > #self.tabs then
+		self.selectedIndex = previousIndex
+	end
+	self:_normalizeSelection(false)
+	self._tabRects = {}
+end
+
+function TabControl:getTabs()
+	local result = {}
+	for i = 1, #self.tabs do
+		result[i] = clone_table(self.tabs[i])
+	end
+	return result
+end
+
+function TabControl:addTab(tab)
+	local normalized = self:_normalizeTabEntry(tab, #self.tabs + 1)
+	if not normalized then
+		return
+	end
+	self.tabs[#self.tabs + 1] = normalized
+	if self.selectedIndex == 0 then
+		self.selectedIndex = #self.tabs
+		self:_normalizeSelection(false)
+	else
+		self:_normalizeSelection(true)
+	end
+	self._tabRects = {}
+end
+
+function TabControl:removeTab(index)
+	expect(1, index, "number")
+	index = math.floor(index)
+	if index < 1 or index > #self.tabs then
+		return
+	end
+	table.remove(self.tabs, index)
+	if self.selectedIndex == index then
+		self.selectedIndex = index
+		self:_normalizeSelection(false)
+	elseif self.selectedIndex > index then
+		self.selectedIndex = self.selectedIndex - 1
+		self:_normalizeSelection(true)
+	else
+		self:_normalizeSelection(true)
+	end
+	self._tabRects = {}
+end
+
+function TabControl:setTabEnabled(index, enabled)
+	expect(1, index, "number")
+	expect(2, enabled, "boolean")
+	index = math.floor(index)
+	if index < 1 or index > #self.tabs then
+		return
+	end
+	local tab = self.tabs[index]
+	if not tab then
+		return
+	end
+	if enabled then
+		if tab.disabled then
+			tab.disabled = false
+			if self.selectedIndex == 0 then
+				self.selectedIndex = index
+				self:_normalizeSelection(false)
+			else
+				self:_normalizeSelection(true)
+			end
+		end
+	else
+		if not tab.disabled then
+			tab.disabled = true
+			if self.selectedIndex == index then
+				self:_normalizeSelection(false)
+			else
+				self:_normalizeSelection(true)
+			end
+		end
+	end
+end
+
+function TabControl:setTabLabel(index, label)
+	expect(1, index, "number")
+	expect(2, label, "string")
+	index = math.floor(index)
+	if index < 1 or index > #self.tabs then
+		return
+	end
+	local tab = self.tabs[index]
+	if not tab then
+		return
+	end
+	if tab.label ~= label then
+		tab.label = label
+		self._tabRects = {}
+	end
+end
+
+function TabControl:selectTabById(id, suppressEvent)
+	for i = 1, #self.tabs do
+		local tab = self.tabs[i]
+		if tab and tab.id == id then
+			self:setSelectedIndex(i, suppressEvent)
+			return true
+		end
+	end
+	return false
+end
+
+function TabControl:getSelectedIndex()
+	return self.selectedIndex or 0
+end
+
+function TabControl:getSelectedTab()
+	local index = self.selectedIndex or 0
+	if index >= 1 and index <= #self.tabs then
+		return self.tabs[index]
+	end
+	return nil
+end
+
+function TabControl:setSelectedIndex(index, suppressEvent)
+	if #self.tabs == 0 then
+		if self.selectedIndex ~= 0 then
+			self.selectedIndex = 0
+			if not suppressEvent then
+				self:_notifySelect()
+			end
+		end
+		return
+	end
+	expect(1, index, "number")
+	index = math.floor(index)
+	if index < 1 then
+		index = 1
+	elseif index > #self.tabs then
+		index = #self.tabs
+	end
+	if self.tabs[index] and self.tabs[index].disabled then
+		index = self:_resolveSelectableIndex(index)
+	end
+	if index == 0 then
+		if self.selectedIndex ~= 0 then
+			self.selectedIndex = 0
+			if not suppressEvent then
+				self:_notifySelect()
+			end
+		end
+		return
+	end
+	if self.selectedIndex ~= index then
+		self.selectedIndex = index
+		if not suppressEvent then
+			self:_notifySelect()
+		end
+	end
+end
+
+function TabControl:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function TabControl:setBodyRenderer(renderer)
+	if renderer ~= nil then
+		expect(1, renderer, "function")
+	end
+	self.bodyRenderer = renderer
+end
+
+function TabControl:setEmptyText(text)
+	if text ~= nil then
+		expect(1, text, "string")
+	end
+	self.emptyText = text
+end
+
+function TabControl:_notifySelect()
+	if self.onSelect then
+		self.onSelect(self, self:getSelectedTab(), self.selectedIndex or 0)
+	end
+end
+
+function TabControl:_emitSelect()
+	if self.onSelect then
+		self.onSelect(self, self:getSelectedTab(), self.selectedIndex or 0)
+	end
+end
+
+function TabControl:_computeTabLayout()
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local border = self.border
+	local leftPad = (border and border.left) and 1 or 0
+	local rightPad = (border and border.right) and 1 or 0
+	local topPad = (border and border.top) and 1 or 0
+	local bottomPad = (border and border.bottom) and 1 or 0
+	local innerX = ax + leftPad
+	local innerY = ay + topPad
+	local innerWidth = math.max(0, width - leftPad - rightPad)
+	local innerHeight = math.max(0, height - topPad - bottomPad)
+	local tabHeight = math.min(innerHeight, self.tabHeight or 3)
+	if tabHeight < 0 then
+		tabHeight = 0
+	end
+	local bodyHeight = math.max(0, innerHeight - tabHeight)
+	local tabRects = {}
+	if innerWidth > 0 and tabHeight > 0 then
+		local cursorX = innerX
+		local maxX = innerX + innerWidth - 1
+		local spacing = math.max(0, self.tabSpacing or 0)
+		local padding = math.max(0, self.tabPadding or 0)
+		for i = 1, #self.tabs do
+			if cursorX > maxX then
+				break
+			end
+			local tab = self.tabs[i]
+			local label = tab and tab.label and tostring(tab.label) or string.format("Tab %d", i)
+			local desiredWidth = math.max(3, #label + padding * 2)
+			local remaining = maxX - cursorX + 1
+			if desiredWidth > remaining then
+				desiredWidth = remaining
+			end
+			if desiredWidth <= 0 then
+				break
+			end
+			tabRects[i] = {
+				x1 = cursorX,
+				y1 = innerY,
+				x2 = cursorX + desiredWidth - 1,
+				y2 = innerY + tabHeight - 1,
+				width = desiredWidth
+			}
+			cursorX = cursorX + desiredWidth + spacing
+		end
+	end
+	self._tabRects = tabRects
+	self._layoutCache = {
+		innerX = innerX,
+		innerY = innerY,
+		innerWidth = innerWidth,
+		innerHeight = innerHeight,
+		tabHeight = tabHeight,
+		bodyX = innerX,
+		bodyY = innerY + tabHeight,
+		bodyWidth = innerWidth,
+		bodyHeight = bodyHeight
+	}
+	return self._layoutCache, tabRects
+end
+
+
+function TabControl:_tabIndexFromPoint(x, y)
+	self:_computeTabLayout()
+	for index, rect in pairs(self._tabRects) do
+		if rect and x >= rect.x1 and x <= rect.x2 and y >= rect.y1 and y <= rect.y2 then
+			return index
+		end
+	end
+	return nil
+end
+
+function TabControl:_moveSelection(delta)
+	if #self.tabs == 0 or delta == 0 then
+		return
+	end
+	delta = delta > 0 and 1 or -1
+	local count = #self.tabs
+	local index = self.selectedIndex
+	if index < 1 or index > count then
+		index = delta > 0 and 0 or count + 1
+	end
+	for _ = 1, count do
+		index = index + delta
+		if index < 1 then
+			index = count
+		elseif index > count then
+			index = 1
+		end
+		local tab = self.tabs[index]
+		if tab and not tab.disabled then
+			self:setSelectedIndex(index)
+			return
+		end
+	end
+end
+
+function TabControl:_renderBody(textLayer, pixelLayer, layout)
+	local bodyWidth = layout.bodyWidth or 0
+	local bodyHeight = layout.bodyHeight or 0
+	if bodyWidth <= 0 or bodyHeight <= 0 then
+		return
+	end
+	local tab = self:getSelectedTab()
+	if not tab then
+		return
+	end
+	local renderer = tab.contentRenderer
+	if renderer ~= nil and type(renderer) == "function" then
+		renderer(self, tab, textLayer, pixelLayer, layout)
+		return
+	end
+	if type(tab.content) == "function" then
+		tab.content(self, tab, textLayer, pixelLayer, layout)
+		return
+	end
+	if self.bodyRenderer then
+		self.bodyRenderer(self, tab, textLayer, pixelLayer, layout)
+		return
+	end
+	if type(tab.content) == "string" then
+		local lines = toast_wrap_text(tab.content, bodyWidth)
+		local maxLines = math.min(bodyHeight, #lines)
+		local fg = self.bodyFg or self.tabFg or colors.white
+		local bg = self.bodyBg or self.bg or colors.black
+		for i = 1, maxLines do
+			local line = lines[i]
+			if #line > bodyWidth then
+				line = line:sub(1, bodyWidth)
+			end
+			if #line < bodyWidth then
+				line = line .. string.rep(" ", bodyWidth - #line)
+			end
+			textLayer.text(layout.bodyX, layout.bodyY + i - 1, line, fg, bg)
+		end
+	end
+end
+
+function TabControl:onFocusChanged(focused)
+	if not focused then
+		self._hoverIndex = nil
+	end
+end
+
+function TabControl:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+	local ax, ay, width, height = self:getAbsoluteRect()
+	local bodyBg = self.bodyBg or self.bg or colors.black
+	local bodyFg = self.bodyFg or self.fg or colors.white
+	fill_rect(textLayer, ax, ay, width, height, bodyBg, bodyBg)
+	clear_border_characters(textLayer, ax, ay, width, height)
+	if self.border then
+		draw_border(pixelLayer, ax, ay, width, height, self.border, bodyBg)
+	end
+	local layout = select(1, self:_computeTabLayout())
+	if not layout or layout.innerWidth <= 0 or layout.innerHeight <= 0 then
+		return
+	end
+	local tabBgDefault = self.tabBg or bodyBg
+	local tabFgDefault = self.tabFg or bodyFg
+	if layout.tabHeight > 0 and layout.innerWidth > 0 then
+		fill_rect(textLayer, layout.innerX, layout.innerY, layout.innerWidth, layout.tabHeight, tabBgDefault, tabBgDefault)
+	end
+	if self._hoverIndex and not self._tabRects[self._hoverIndex] then
+		self._hoverIndex = nil
+	end
+	for index, rect in pairs(self._tabRects) do
+		local tab = self.tabs[index]
+		if tab and rect then
+			local tabBg = tabBgDefault
+			local tabFg = tabFgDefault
+			if index == self.selectedIndex and self.selectedIndex > 0 then
+				tabBg = self.activeTabBg or tabBg
+				tabFg = self.activeTabFg or tabFg
+				if self:isFocused() then
+					tabBg = self.hoverTabBg or tabBg
+					tabFg = self.hoverTabFg or tabFg
+				end
+			elseif self._hoverIndex and self._hoverIndex == index and not tab.disabled then
+				tabBg = self.hoverTabBg or tabBg
+				tabFg = self.hoverTabFg or tabFg
+			end
+			if tab.disabled then
+				tabFg = self.disabledTabFg or tabFg
+			end
+			fill_rect(textLayer, rect.x1, rect.y1, rect.width, layout.tabHeight, tabBg, tabBg)
+			local padding = math.max(0, self.tabPadding or 0)
+			local label = tab.label or string.format("Tab %d", index)
+			label = tostring(label)
+			local available = rect.width - padding * 2
+			local labelText = label
+			if available > 0 then
+				if #labelText > available then
+					labelText = labelText:sub(1, available)
+				end
+				if #labelText < available then
+					labelText = labelText .. string.rep(" ", available - #labelText)
+				end
+				local labelX = rect.x1 + padding
+				local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
+				textLayer.text(labelX, labelY, labelText, tabFg, tabBg)
+			else
+				local clipped = labelText
+				if #clipped > rect.width then
+					clipped = clipped:sub(1, rect.width)
+				end
+				local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
+				textLayer.text(rect.x1, labelY, clipped, tabFg, tabBg)
+			end
+		end
+	end
+	if layout.bodyHeight > 0 and layout.bodyWidth > 0 then
+		fill_rect(textLayer, layout.bodyX, layout.bodyY, layout.bodyWidth, layout.bodyHeight, bodyBg, bodyBg)
+		local tab = self:getSelectedTab()
+		if tab then
+			self:_renderBody(textLayer, pixelLayer, layout)
+		elseif self.emptyText then
+			local lines = toast_wrap_text(self.emptyText, layout.bodyWidth)
+			local maxLines = math.min(layout.bodyHeight, #lines)
+			for i = 1, maxLines do
+				local line = lines[i]
+				if #line > layout.bodyWidth then
+					line = line:sub(1, layout.bodyWidth)
+				end
+				if #line < layout.bodyWidth then
+					line = line .. string.rep(" ", layout.bodyWidth - #line)
+				end
+				textLayer.text(layout.bodyX, layout.bodyY + i - 1, line, bodyFg, bodyBg)
+			end
+		end
+	end
+end
+
+function TabControl:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+	if event == "mouse_click" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_tabIndexFromPoint(x, y)
+			if index then
+				local tab = self.tabs[index]
+				if tab and not tab.disabled then
+					if self.selectedIndex ~= index then
+						self:setSelectedIndex(index)
+					else
+						self:_emitSelect()
+					end
+				end
+			end
+			return true
+		end
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			local index = self:_tabIndexFromPoint(x, y)
+			if index then
+				local tab = self.tabs[index]
+				if tab and not tab.disabled then
+					if self.selectedIndex ~= index then
+						self:setSelectedIndex(index)
+					else
+						self:_emitSelect()
+					end
+				end
+			end
+			return true
+		end
+	elseif event == "mouse_scroll" then
+		local direction, x, y = ...
+		if self:containsPoint(x, y) then
+			self.app:setFocus(self)
+			if direction > 0 then
+				self:_moveSelection(1)
+			elseif direction < 0 then
+				self:_moveSelection(-1)
+			end
+			return true
+		end
+	elseif event == "mouse_move" then
+		local x, y = ...
+		if self:containsPoint(x, y) then
+			self._hoverIndex = self:_tabIndexFromPoint(x, y)
+		elseif self._hoverIndex then
+			self._hoverIndex = nil
+		end
+	elseif event == "mouse_drag" then
+		local _, x, y = ...
+		if self:containsPoint(x, y) then
+			self._hoverIndex = self:_tabIndexFromPoint(x, y)
+		elseif self._hoverIndex then
+			self._hoverIndex = nil
+		end
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.left then
+			self:_moveSelection(-1)
+			return true
+		elseif keyCode == keys.right then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.up then
+			self:_moveSelection(-1)
+			return true
+		elseif keyCode == keys.down then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.home then
+			self:setSelectedIndex(1)
+			return true
+		elseif keyCode == keys["end"] then
+			self:setSelectedIndex(#self.tabs)
+			return true
+		elseif keyCode == keys.tab then
+			self:_moveSelection(1)
+			return true
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			self:_emitSelect()
+			return true
+		end
+	end
+	return false
+end
+
 function ContextMenu:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -12216,6 +12982,12 @@ function App:createComboBox(config)
 	return ComboBox:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.TabControl
+function App:createTabControl(config)
+	return TabControl:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.ContextMenu
@@ -13123,6 +13895,9 @@ pixelui.widgets = {
 	ComboBox = function(app, config)
 		return ComboBox:new(app, config)
 	end,
+	TabControl = function(app, config)
+		return TabControl:new(app, config)
+	end,
 	ContextMenu = function(app, config)
 		return ContextMenu:new(app, config)
 	end,
@@ -13167,6 +13942,7 @@ pixelui.CheckBox = CheckBox
 pixelui.Toggle = Toggle
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
+pixelui.TabControl = TabControl
 pixelui.ContextMenu = ContextMenu
 pixelui.List = List
 pixelui.Table = Table
