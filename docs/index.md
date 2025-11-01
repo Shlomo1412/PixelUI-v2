@@ -5,9 +5,6 @@ hero:
   name: "PixelUI v2"
   text: "A Modern UI Framework"
   tagline: "Build beautiful, responsive user interfaces for ComputerCraft with ease"
-  image:
-    src: /assets/logo.png
-    alt: PixelUI Logo
   actions:
     - theme: brand
       text: 🚀 Get Started
