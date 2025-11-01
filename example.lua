@@ -135,6 +135,13 @@ local editorState = {
     instructions = nil,
     instructionsDefaults = {}
 }
+local contextMenuState = {
+    menu = nil,
+    target = nil,
+    targetDefaults = {},
+    selectionLabel = nil,
+    selectionDefaults = {}
+}
 local progressDeterminate
 local progressIndeterminate
 local progressDefaults = {}
@@ -1279,7 +1286,130 @@ end, function()
     end
 end)
 
--- Step 15: ProgressBar showcase
+-- Step 15: Context menu showcase
+local contextStep = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(contextStep)
+
+contextMenuState.menu = app:createContextMenu({
+    menuBg = colors.black,
+    menuFg = colors.white,
+    highlightBg = colors.orange,
+    highlightFg = colors.black,
+    shortcutFg = colors.lightGray,
+    disabledFg = colors.gray,
+    border = { color = colors.white },
+    maxWidth = 28
+})
+contextMenuState.menu:setZ(900)
+root:addChild(contextMenuState.menu)
+
+contextMenuState.menu:setItems({
+    { label = "Open File", shortcut = "Enter", value = "open" },
+    { label = "Reveal in Explorer", shortcut = "Ctrl+Shift+E", value = "reveal" },
+    "-",
+    {
+        label = "Syntax",
+        submenu = {
+            { label = "Lua", value = "syntax:lua" },
+            { label = "JSON", value = "syntax:json" },
+            { label = "Plain Text", value = "syntax:text" }
+        }
+    },
+    {
+        label = "Run Task",
+        submenu = {
+            { label = "Build", shortcut = "Ctrl+B", value = "task:build" },
+            { label = "Test", shortcut = "Ctrl+T", value = "task:test" }
+        }
+    },
+    "-",
+    { label = "Delete", shortcut = "Del", value = "delete", disabled = true }
+})
+
+local contextHint = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Right-click the tile to open the menu.",
+    bg = colors.gray,
+    fg = colors.white
+})
+contextStep:addChild(contextHint)
+
+contextMenuState.target = app:createButton({
+    width = 18,
+    height = 1,
+    label = "main.lua",
+    bg = colors.black,
+    fg = colors.white
+})
+centerWidget(contextMenuState.target, contextStep, contextMenuState.target.width, contextMenuState.target.height)
+contextStep:addChild(contextMenuState.target)
+contextMenuState.targetDefaults = { width = contextMenuState.target.width, height = contextMenuState.target.height }
+
+contextMenuState.selectionLabel = app:createLabel({
+    x = 2,
+    y = 9,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Last action: (none)",
+    bg = colors.gray,
+    fg = colors.white
+})
+contextStep:addChild(contextMenuState.selectionLabel)
+contextMenuState.selectionDefaults = { width = contextMenuState.selectionLabel.width, height = contextMenuState.selectionLabel.height }
+
+contextMenuState.target:setOnClick(function(_, button, x, y)
+    if button == 2 then
+        contextMenuState.menu:open(x, y)
+        return
+    end
+    contextMenuState.menu:close()
+    contextMenuState.selectionLabel:setText("Last action: left click")
+end)
+
+contextMenuState.menu:setOnSelect(function(_, item)
+    if not item then
+        contextMenuState.selectionLabel:setText("Last action: (cancelled)")
+        return
+    end
+    local summary
+    if item.value == "open" then
+        summary = "Opened file"
+    elseif item.value == "reveal" then
+        summary = "Reveal in explorer"
+    elseif type(item.value) == "string" and item.value:match("^syntax:") then
+        summary = "Syntax set to " .. (item.label or "(unnamed)")
+    elseif type(item.value) == "string" and item.value:match("^task:") then
+        summary = "Run task " .. (item.label or "(unnamed)")
+    elseif item.value == "delete" then
+        summary = "Delete (disabled)"
+    else
+        summary = item.label or "(unnamed)"
+    end
+    contextMenuState.selectionLabel:setText("Last action: " .. summary)
+end)
+
+addStep(contextStep, function()
+    contextMenuState.selectionLabel:setText("Last action: (none)")
+    contextMenuState.menu:close()
+end, function()
+    contextMenuState.menu:close()
+end)
+
+-- Step 16: ProgressBar showcase
 local progressStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1376,7 +1506,7 @@ end, function()
     end
 end)
 
--- Step 16: Thread showcase
+-- Step 17: Thread showcase
 local threadStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1671,7 +1801,7 @@ end, function()
     end
 end)
 
--- Step 17: NotificationToast showcase
+-- Step 18: NotificationToast showcase
 local toastStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1812,7 +1942,7 @@ end, function()
     app:setFocus(nil)
 end)
 
--- Step 18: Constraints showcase
+-- Step 19: Constraints showcase
 local constraintStep = app:createFrame({
     x = 2,
     y = 2,
@@ -1989,7 +2119,7 @@ end, function()
     app:setFocus(nil)
 end)
 
--- Step 19: FreeDraw showcase
+-- Step 20: FreeDraw showcase
 local freeDrawStep = app:createFrame({
     x = 2,
     y = 2,

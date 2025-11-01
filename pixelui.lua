@@ -363,6 +363,41 @@ local shrekbox = require("shrekbox")
 ---@field placeholder string? # Text shown when no item is selected
 ---@field onChange fun(self:PixelUI.ComboBox, item:string?, index:integer)? # Callback fired when selection changes
 
+--- A hierarchical context menu widget with optional submenus.
+--- Renders as a popup and supports keyboard navigation.
+---@class PixelUI.ContextMenu : PixelUI.Widget
+---@field items PixelUI.ContextMenuEntry[] # Normalized menu entries
+---@field menuBg PixelUI.Color # Background color for menu panels
+---@field menuFg PixelUI.Color # Foreground color for menu items
+---@field highlightBg PixelUI.Color # Highlight background for the active item
+---@field highlightFg PixelUI.Color # Highlight foreground for the active item
+---@field shortcutFg PixelUI.Color # Foreground color for shortcut text
+---@field disabledFg PixelUI.Color # Foreground color for disabled entries
+---@field separatorColor PixelUI.Color # Separator line color
+---@field maxWidth integer # Maximum width of a menu panel in characters
+---@field onSelect fun(self:PixelUI.ContextMenu, item:PixelUI.ContextMenuItem)? # Fired after an item is activated
+
+---@class PixelUI.ContextMenuEntry
+---@field label string? # Text label for menu row
+---@field shortcut string? # Optional shortcut hint text
+---@field value any # Arbitrary value passed through on selection
+---@field id any # Optional identifier for the item
+---@field disabled boolean? # When true the item cannot be activated
+---@field submenu PixelUI.ContextMenuEntry[]? # Nested submenu entries
+---@field onSelect fun(menu:PixelUI.ContextMenu, item:PixelUI.ContextMenuItem)? # Item-specific handler invoked on activation
+---@field separator boolean? # Marks this entry as a separator row
+
+---@class PixelUI.ContextMenuItem
+---@field type "item"|"separator"
+---@field label string?
+---@field shortcut string?
+---@field value any
+---@field id any
+---@field disabled boolean
+---@field submenu PixelUI.ContextMenuItem[]?
+---@field action fun(menu:PixelUI.ContextMenu, item:PixelUI.ContextMenuItem)?
+---@field data any
+
 --- A text input widget supporting single and multi-line input.
 --- Features syntax highlighting, autocomplete, and find/replace.
 ---@class PixelUI.TextBox : PixelUI.Widget
@@ -561,6 +596,10 @@ setmetatable(RadioButton, { __index = Widget })
 local ComboBox = {}
 ComboBox.__index = ComboBox
 setmetatable(ComboBox, { __index = Widget })
+
+local ContextMenu = {}
+ContextMenu.__index = ContextMenu
+setmetatable(ContextMenu, { __index = Widget })
 
 local NotificationToast = {}
 NotificationToast.__index = NotificationToast
@@ -9342,6 +9381,737 @@ function ComboBox:handleEvent(event, ...)
 	return false
 end
 
+function ContextMenu:new(app, config)
+	config = config or {}
+	local baseConfig = clone_table(config) or {}
+	baseConfig.focusable = true
+	baseConfig.width = math.max(1, math.floor(baseConfig.width or 1))
+	baseConfig.height = math.max(1, math.floor(baseConfig.height or 1))
+	local instance = setmetatable({}, ContextMenu)
+	instance:_init_base(app, baseConfig)
+	instance.focusable = true
+	instance.menuBg = (config and config.menuBg) or colors.black
+	instance.menuFg = (config and config.menuFg) or colors.white
+	instance.highlightBg = (config and config.highlightBg) or colors.lightGray
+	instance.highlightFg = (config and config.highlightFg) or colors.black
+	instance.shortcutFg = (config and config.shortcutFg) or instance.menuFg
+	instance.disabledFg = (config and config.disabledFg) or colors.lightGray
+	instance.separatorColor = (config and config.separatorColor) or instance.disabledFg
+	instance.maxWidth = math.max(8, math.floor((config and config.maxWidth) or 32))
+	if instance.border == nil then
+		instance.border = normalize_border(true)
+	end
+	instance.onSelect = config and config.onSelect or nil
+	instance.items = instance:_normalizeItems(config and config.items or {})
+	instance._levels = {}
+	instance._open = false
+	instance._previousFocus = nil
+	return instance
+end
+
+function ContextMenu:setItems(items)
+	self.items = self:_normalizeItems(items)
+	if self._open then
+		self:close()
+	end
+end
+
+function ContextMenu:setOnSelect(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSelect = handler
+end
+
+function ContextMenu:isOpen()
+	return self._open
+end
+
+function ContextMenu:draw(_textLayer, _pixelLayer)
+	-- Context menus render as popups through _drawDropdown.
+end
+
+function ContextMenu:_normalizeItem(entry)
+	if entry == nil then
+		return nil
+	end
+	if entry == "-" then
+		return { type = "separator" }
+	end
+	local entryType = type(entry)
+	if entryType == "string" then
+		return { type = "item", label = entry, shortcut = nil, disabled = false }
+	end
+	if entryType ~= "table" then
+		return nil
+	end
+	if entry.separator or entry.type == "separator" then
+		return { type = "separator" }
+	end
+	local label = entry.label or entry.text
+	if label == nil then
+		return nil
+	end
+	label = tostring(label)
+	local normalized = {
+		type = "item",
+		label = label,
+		shortcut = entry.shortcut and tostring(entry.shortcut) or nil,
+		disabled = not not entry.disabled,
+		action = entry.onSelect or entry.action or entry.callback,
+		id = entry.id,
+		value = entry.value,
+		data = entry.data
+	}
+	local submenu = entry.submenu or entry.items
+	if submenu then
+		local normalizedSub = self:_normalizeItems(submenu)
+		if #normalizedSub > 0 then
+			normalized.submenu = normalizedSub
+		end
+	end
+	return normalized
+end
+
+function ContextMenu:_normalizeItems(items)
+	if type(items) ~= "table" then
+		return {}
+	end
+	local normalized = {}
+	local lastWasSeparator = true
+	for index = 1, #items do
+		local item = self:_normalizeItem(items[index])
+		if item then
+			if item.type == "separator" then
+				if not lastWasSeparator and #normalized > 0 then
+					normalized[#normalized + 1] = item
+					lastWasSeparator = true
+				end
+			else
+				normalized[#normalized + 1] = item
+				lastWasSeparator = false
+			end
+		end
+	end
+	while #normalized > 0 and normalized[#normalized].type == "separator" do
+		normalized[#normalized] = nil
+	end
+	return normalized
+end
+
+function ContextMenu:_firstEnabledIndex(items)
+	for index = 1, #items do
+		local item = items[index]
+		if item and item.type == "item" and not item.disabled then
+			return index
+		end
+	end
+	return nil
+end
+
+function ContextMenu:_maxWidthForLevel()
+	local maxWidth = self.maxWidth
+	local root = self.app and self.app.root
+	if root and root.width then
+		maxWidth = math.max(1, math.min(maxWidth, root.width))
+	else
+		maxWidth = math.max(4, maxWidth)
+	end
+	return maxWidth
+end
+
+function ContextMenu:_measureItems(items, maxTotalWidth)
+	if not items or #items == 0 then
+		return nil
+	end
+	local labelWidth = 0
+	local shortcutWidth = 0
+	for index = 1, #items do
+		local item = items[index]
+		if item.type == "item" then
+			local labelLength = #(item.label or "")
+			if labelLength > labelWidth then
+				labelWidth = labelLength
+			end
+			local shortcut = item.shortcut
+			if shortcut and shortcut ~= "" then
+				local shortLength = #shortcut
+				if shortLength > shortcutWidth then
+					shortcutWidth = shortLength
+				end
+			end
+		end
+	end
+	local leftPad = (self.border and self.border.left) and 1 or 0
+	local rightPad = (self.border and self.border.right) and 1 or 0
+	local topPad = (self.border and self.border.top) and 1 or 0
+	local bottomPad = (self.border and self.border.bottom) and 1 or 0
+	local arrowWidth = 2
+	local gap = (shortcutWidth > 0) and 2 or 0
+	local contentWidth = labelWidth + arrowWidth + gap + shortcutWidth
+	if contentWidth < arrowWidth + 2 then
+		contentWidth = arrowWidth + 2
+	end
+	if contentWidth < labelWidth + arrowWidth then
+		contentWidth = labelWidth + arrowWidth
+	end
+	local totalWidth = contentWidth + leftPad + rightPad
+	if maxTotalWidth then
+		maxTotalWidth = math.max(leftPad + rightPad + 4, math.floor(maxTotalWidth))
+		if totalWidth > maxTotalWidth then
+			contentWidth = maxTotalWidth - leftPad - rightPad
+			if contentWidth < arrowWidth + 2 then
+				contentWidth = arrowWidth + 2
+			end
+			local maxShortcut = math.max(0, contentWidth - arrowWidth - 1)
+			if shortcutWidth > maxShortcut then
+				shortcutWidth = maxShortcut
+			end
+			gap = (shortcutWidth > 0) and 2 or 0
+			local availableLabel = contentWidth - arrowWidth - gap - shortcutWidth
+			if availableLabel < 1 then
+				availableLabel = 1
+			end
+			if labelWidth > availableLabel then
+				labelWidth = availableLabel
+			end
+			contentWidth = labelWidth + arrowWidth + gap + shortcutWidth
+			totalWidth = contentWidth + leftPad + rightPad
+		end
+	end
+	if shortcutWidth == 0 then
+		gap = 0
+	end
+	return {
+		itemWidth = contentWidth,
+		labelWidth = labelWidth,
+		shortcutWidth = shortcutWidth,
+		shortcutGap = gap,
+		arrowWidth = arrowWidth,
+		leftPad = leftPad,
+		rightPad = rightPad,
+		topPad = topPad,
+		bottomPad = bottomPad,
+		itemCount = #items,
+		totalWidth = totalWidth,
+		totalHeight = #items + topPad + bottomPad
+	}
+end
+
+function ContextMenu:_buildLevel(items, startX, startY, parentLevel, parentIndex, metrics)
+	metrics = metrics or self:_measureItems(items, self:_maxWidthForLevel())
+	if not metrics or metrics.itemCount == 0 then
+		return nil
+	end
+	local root = self.app and self.app.root or nil
+	local rootWidth = root and root.width or nil
+	local rootHeight = root and root.height or nil
+	local totalWidth = metrics.totalWidth
+	local totalHeight = metrics.totalHeight
+	local x = math.floor(startX)
+	local y = math.floor(startY)
+	if rootWidth then
+		if x < 1 then
+			x = 1
+		end
+		if x + totalWidth - 1 > rootWidth then
+			x = math.max(1, rootWidth - totalWidth + 1)
+		end
+	end
+	if rootHeight then
+		if y < 1 then
+			y = 1
+		end
+		if y + totalHeight - 1 > rootHeight then
+			y = math.max(1, rootHeight - totalHeight + 1)
+		end
+	end
+	local contentX = x + metrics.leftPad
+	local contentY = y + metrics.topPad
+	local arrowX = contentX + metrics.itemWidth - 1
+	if arrowX < contentX then
+		arrowX = contentX
+	end
+	local shortcutX
+	if metrics.shortcutWidth > 0 then
+		shortcutX = arrowX - metrics.shortcutWidth - 1
+		if shortcutX < contentX then
+			shortcutX = contentX
+		end
+	end
+	return {
+		items = items,
+		metrics = metrics,
+		rect = { x = x, y = y, width = totalWidth, height = totalHeight },
+		contentX = contentX,
+		contentY = contentY,
+		arrowX = arrowX,
+		shortcutX = shortcutX,
+		highlightIndex = self:_firstEnabledIndex(items),
+		parentLevel = parentLevel,
+		parentIndex = parentIndex
+	}
+end
+
+function ContextMenu:_closeLevelsAfter(levelIndex)
+	local levels = self._levels
+	if not levels then
+		return
+	end
+	for index = #levels, levelIndex + 1, -1 do
+		levels[index] = nil
+	end
+end
+
+function ContextMenu:_openSubmenu(levelIndex, itemIndex)
+	local levels = self._levels
+	local level = levels and levels[levelIndex]
+	if not level then
+		return
+	end
+	local item = level.items[itemIndex]
+	if not item or item.type ~= "item" or not item.submenu or #item.submenu == 0 then
+		self:_closeLevelsAfter(levelIndex)
+		return
+	end
+	local existing = levels[levelIndex + 1]
+	if existing and existing.parentLevel == levelIndex and existing.parentIndex == itemIndex then
+		return
+	end
+	local metrics = self:_measureItems(item.submenu, self:_maxWidthForLevel())
+	if not metrics then
+		self:_closeLevelsAfter(levelIndex)
+		return
+	end
+	local baseX = level.rect.x + level.rect.width
+	local baseY = level.contentY + itemIndex - 1 - metrics.topPad
+	local newLevel = self:_buildLevel(item.submenu, baseX, baseY, levelIndex, itemIndex, metrics)
+	if not newLevel then
+		self:_closeLevelsAfter(levelIndex)
+		return
+	end
+	local root = self.app and self.app.root or nil
+	local rootWidth = root and root.width or nil
+	if rootWidth and newLevel.rect.x + newLevel.rect.width - 1 > rootWidth then
+		local offset = ((self.border and self.border.left) and 1 or 0)
+		local altX = level.rect.x - newLevel.rect.width + offset
+		local adjusted = self:_buildLevel(item.submenu, altX, baseY, levelIndex, itemIndex, metrics)
+		if adjusted then
+			newLevel = adjusted
+		end
+	end
+	self:_closeLevelsAfter(levelIndex)
+	self._levels[#self._levels + 1] = newLevel
+end
+
+function ContextMenu:_findItemAtPoint(x, y)
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return nil
+	end
+	for index = #levels, 1, -1 do
+		local level = levels[index]
+		local rect = level.rect
+		if x >= rect.x and x < rect.x + rect.width and y >= rect.y and y < rect.y + rect.height then
+			if y >= level.contentY and y < level.contentY + #level.items then
+				local relative = y - level.contentY + 1
+				if relative >= 1 and relative <= #level.items then
+					return index, relative
+				end
+			end
+			return index, nil
+		end
+	end
+	return nil
+end
+
+function ContextMenu:_setHighlight(levelIndex, itemIndex, openSubmenu)
+	local level = self._levels[levelIndex]
+	if not level then
+		return
+	end
+	if not itemIndex then
+		level.highlightIndex = nil
+		self:_closeLevelsAfter(levelIndex)
+		return
+	end
+	local item = level.items[itemIndex]
+	if not item or item.type ~= "item" or item.disabled then
+		level.highlightIndex = nil
+		self:_closeLevelsAfter(levelIndex)
+		return
+	end
+	level.highlightIndex = itemIndex
+	if item.submenu and #item.submenu > 0 then
+		if openSubmenu then
+			self:_openSubmenu(levelIndex, itemIndex)
+		end
+	else
+		self:_closeLevelsAfter(levelIndex)
+	end
+end
+
+function ContextMenu:_handlePointerHover(x, y)
+	local levelIndex, itemIndex = self:_findItemAtPoint(x, y)
+	if not levelIndex then
+		return false
+	end
+	self:_setHighlight(levelIndex, itemIndex, true)
+	return true
+end
+
+function ContextMenu:_handlePointerPress(button, x, y)
+	local levelIndex, itemIndex = self:_findItemAtPoint(x, y)
+	if not levelIndex then
+		self:close()
+		return false
+	end
+	if not itemIndex then
+		self:_closeLevelsAfter(levelIndex)
+		local level = self._levels[levelIndex]
+		if level then
+			level.highlightIndex = nil
+		end
+		return true
+	end
+	local level = self._levels[levelIndex]
+	local item = level and level.items[itemIndex]
+	if not item then
+		self:_closeLevelsAfter(levelIndex)
+		return true
+	end
+	if item.type == "separator" then
+		self:_closeLevelsAfter(levelIndex)
+		level.highlightIndex = nil
+		return true
+	end
+	if item.disabled then
+		self:_setHighlight(levelIndex, itemIndex, false)
+		return true
+	end
+	self:_setHighlight(levelIndex, itemIndex, false)
+	if item.submenu and #item.submenu > 0 then
+		self:_openSubmenu(levelIndex, itemIndex)
+		return true
+	end
+	self:_activateItem(levelIndex, item)
+	return true
+end
+
+function ContextMenu:_moveHighlight(step)
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return
+	end
+	local levelIndex = #levels
+	local level = levels[levelIndex]
+	local count = #level.items
+	if count == 0 then
+		return
+	end
+	local index = level.highlightIndex or 0
+	for _ = 1, count do
+		index = index + step
+		if index < 1 then
+			index = count
+		elseif index > count then
+			index = 1
+		end
+		local item = level.items[index]
+		if item and item.type == "item" and not item.disabled then
+			self:_setHighlight(levelIndex, index, true)
+			return
+		end
+	end
+end
+
+function ContextMenu:_activateHighlightedSubmenu()
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return
+	end
+	local levelIndex = #levels
+	local level = levels[levelIndex]
+	local index = level.highlightIndex
+	if not index then
+		return
+	end
+	local item = level.items[index]
+	if item and item.submenu and #item.submenu > 0 then
+		self:_openSubmenu(levelIndex, index)
+		local child = self._levels[levelIndex + 1]
+		if child and not child.highlightIndex then
+			child.highlightIndex = self:_firstEnabledIndex(child.items)
+		end
+	end
+end
+
+function ContextMenu:_activateHighlightedItem()
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return
+	end
+	local levelIndex = #levels
+	local level = levels[levelIndex]
+	local index = level.highlightIndex
+	if not index then
+		return
+	end
+	local item = level.items[index]
+	if not item or item.type ~= "item" or item.disabled then
+		return
+	end
+	if item.submenu and #item.submenu > 0 then
+		self:_openSubmenu(levelIndex, index)
+		local child = self._levels[levelIndex + 1]
+		if child and not child.highlightIndex then
+			child.highlightIndex = self:_firstEnabledIndex(child.items)
+		end
+		return
+	end
+	self:_activateItem(levelIndex, item)
+end
+
+function ContextMenu:_typeSearch(ch)
+	if not ch or ch == "" then
+		return
+	end
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return
+	end
+	local levelIndex = #levels
+	local level = levels[levelIndex]
+	local count = #level.items
+	if count == 0 then
+		return
+	end
+	local start = level.highlightIndex or 0
+	local target = ch:lower()
+	for offset = 1, count do
+		local index = ((start + offset - 1) % count) + 1
+		local item = level.items[index]
+		if item and item.type == "item" and not item.disabled then
+			local label = (item.label or ""):lower()
+			if label:sub(1, 1) == target then
+				self:_setHighlight(levelIndex, index, true)
+				return
+			end
+		end
+	end
+end
+
+function ContextMenu:_activateItem(levelIndex, item)
+	if not item or item.type ~= "item" or item.disabled then
+		return
+	end
+	if item.action then
+		item.action(self, item)
+	end
+	if self.onSelect then
+		self.onSelect(self, item)
+	end
+	self:close()
+end
+
+function ContextMenu:_setOpen(open)
+	open = not not open
+	if open then
+		if self._open then
+			return
+		end
+		self._open = true
+		if self.app then
+			self._previousFocus = self.app:getFocus()
+			self.app:_registerPopup(self)
+			self.app:setFocus(self)
+		end
+	else
+		if not self._open then
+			return
+		end
+		self._open = false
+		if self.app then
+			self.app:_unregisterPopup(self)
+			if self.app:getFocus() == self then
+				local previous = self._previousFocus
+				if previous and previous.app == self.app and previous.visible ~= false then
+					self.app:setFocus(previous)
+				else
+					self.app:setFocus(nil)
+				end
+			end
+		end
+		self._previousFocus = nil
+		self._levels = {}
+	end
+end
+
+function ContextMenu:open(x, y, options)
+	expect(1, x, "number")
+	expect(2, y, "number")
+	if options ~= nil then
+		expect(3, options, "table")
+	end
+	local items
+	if options and options.items then
+		items = self:_normalizeItems(options.items)
+	else
+		items = self.items
+	end
+	if not items or #items == 0 then
+		self:close()
+		return false
+	end
+	local metrics = self:_measureItems(items, self:_maxWidthForLevel())
+	if not metrics then
+		self:close()
+		return false
+	end
+	local anchorX = math.floor(x)
+	local anchorY = math.floor(y)
+	local startX = anchorX - metrics.leftPad
+	local startY = anchorY - metrics.topPad
+	local level = self:_buildLevel(items, startX, startY, nil, nil, metrics)
+	if not level then
+		self:close()
+		return false
+	end
+	self._levels = { level }
+	self:_setOpen(true)
+	return true
+end
+
+function ContextMenu:close()
+	self:_setOpen(false)
+end
+
+function ContextMenu:_drawDropdown(textLayer, pixelLayer)
+	if not self._open or self.visible == false then
+		return
+	end
+	local levels = self._levels
+	if not levels or #levels == 0 then
+		return
+	end
+	for index = 1, #levels do
+		local level = levels[index]
+		local rect = level.rect
+		fill_rect(textLayer, rect.x, rect.y, rect.width, rect.height, self.menuBg, self.menuBg)
+		clear_border_characters(textLayer, rect.x, rect.y, rect.width, rect.height)
+		local items = level.items
+		for itemIndex = 1, #items do
+			local item = items[itemIndex]
+			local rowY = level.contentY + itemIndex - 1
+			local isHighlighted = level.highlightIndex == itemIndex and item.type == "item" and not item.disabled
+			local rowBg = isHighlighted and (self.highlightBg or self.menuBg) or self.menuBg
+			local baseFg = self.menuFg or colors.white
+			if item.type == "separator" then
+				local sepColor = self.separatorColor or baseFg
+				local line = string.rep("-", level.metrics.itemWidth)
+				textLayer.text(level.contentX, rowY, line, sepColor, rowBg)
+			else
+				local textColor = item.disabled and (self.disabledFg or colors.lightGray) or (isHighlighted and (self.highlightFg or baseFg) or baseFg)
+				textLayer.text(level.contentX, rowY, string.rep(" ", level.metrics.itemWidth), textColor, rowBg)
+				local label = item.label or ""
+				if #label > level.metrics.labelWidth then
+					label = label:sub(1, level.metrics.labelWidth)
+				end
+				if #label > 0 then
+					textLayer.text(level.contentX, rowY, label, textColor, rowBg)
+				end
+				if level.shortcutX then
+					local shortcut = item.shortcut or ""
+					if #shortcut > level.metrics.shortcutWidth then
+						shortcut = shortcut:sub(#shortcut - level.metrics.shortcutWidth + 1)
+					end
+					local shortPad = math.max(0, level.metrics.shortcutWidth - #shortcut)
+					if shortPad > 0 then
+						shortcut = string.rep(" ", shortPad) .. shortcut
+					end
+					local shortColor = self.shortcutFg or textColor
+					textLayer.text(level.shortcutX, rowY, shortcut, shortColor, rowBg)
+				end
+				if item.submenu and item.submenu[1] ~= nil then
+					textLayer.text(level.arrowX, rowY, ">", textColor, rowBg)
+				end
+			end
+		end
+		if self.border then
+			draw_border(pixelLayer, rect.x, rect.y, rect.width, rect.height, self.border, self.menuBg)
+		end
+	end
+end
+
+function ContextMenu:handleEvent(event, ...)
+	if not self.visible or not self._open then
+		return false
+	end
+	if event == "mouse_click" then
+		local button, x, y = ...
+		return self:_handlePointerPress(button, x, y)
+	elseif event == "monitor_touch" then
+		local _, x, y = ...
+		return self:_handlePointerPress(1, x, y)
+	elseif event == "mouse_move" then
+		local x, y = ...
+		return self:_handlePointerHover(x, y)
+	elseif event == "mouse_drag" then
+		local _, x, y = ...
+		return self:_handlePointerHover(x, y)
+	elseif event == "mouse_scroll" then
+		self:close()
+		return false
+	elseif event == "key" then
+		if not self:isFocused() then
+			return false
+		end
+		local keyCode = ...
+		if keyCode == keys.down then
+			self:_moveHighlight(1)
+			return true
+		elseif keyCode == keys.up then
+			self:_moveHighlight(-1)
+			return true
+		elseif keyCode == keys.right then
+			self:_activateHighlightedSubmenu()
+			return true
+		elseif keyCode == keys.left then
+			if #self._levels > 1 then
+				self:_closeLevelsAfter(#self._levels - 1)
+			else
+				self:close()
+			end
+			return true
+		elseif keyCode == keys.enter or keyCode == keys.space then
+			self:_activateHighlightedItem()
+			return true
+		elseif keyCode == keys.escape then
+			self:close()
+			return true
+		end
+	elseif event == "char" then
+		if not self:isFocused() then
+			return false
+		end
+		local ch = ...
+		if ch and #ch > 0 then
+			self:_typeSearch(ch:sub(1, 1))
+			return true
+		end
+	elseif event == "paste" then
+		if not self:isFocused() then
+			return false
+		end
+		local text = ...
+		if text and #text > 0 then
+			self:_typeSearch(text:sub(1, 1))
+			return true
+		end
+	end
+	return false
+end
+
 local TextBox = {}
 TextBox.__index = TextBox
 setmetatable(TextBox, { __index = Widget })
@@ -11448,6 +12218,13 @@ end
 
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
+---@return PixelUI.ContextMenu
+function App:createContextMenu(config)
+	return ContextMenu:new(self, config)
+end
+
+---@since 0.1.0
+---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.List
 function App:createList(config)
 	return List:new(self, config)
@@ -12346,6 +13123,9 @@ pixelui.widgets = {
 	ComboBox = function(app, config)
 		return ComboBox:new(app, config)
 	end,
+	ContextMenu = function(app, config)
+		return ContextMenu:new(app, config)
+	end,
 	List = function(app, config)
 		return List:new(app, config)
 	end,
@@ -12387,6 +13167,7 @@ pixelui.CheckBox = CheckBox
 pixelui.Toggle = Toggle
 pixelui.TextBox = TextBox
 pixelui.ComboBox = ComboBox
+pixelui.ContextMenu = ContextMenu
 pixelui.List = List
 pixelui.Table = Table
 pixelui.TreeView = TreeView
