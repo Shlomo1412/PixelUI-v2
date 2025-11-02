@@ -58,7 +58,7 @@ app:run()
    local width, height = monitor.getSize()
    ```
 2. **Resize the root frame or the widgets** to match that size. For example, `root:setSize(width, height)` or pass `width`/`height` when creating frames.
-3. **Use constraints** (see [Constraints](/constraints.md)) to make complex screens respond to different monitor dimensions.
+3. **Use constraints** (see [Constraints](./constraints.md)) to make complex screens respond to different monitor dimensions.
 4. **Leverage layout helpers** like those in `example.lua` to centralize resizing logic when the monitor size changes.
 
 ## Handling Touch Input
