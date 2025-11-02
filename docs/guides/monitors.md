@@ -90,8 +90,8 @@ For advanced scenarios you can create multiple PixelUI apps, each bound to a dif
 
 ## Further Reading
 
-- [`example.lua`](../../example.lua) – contains monitor-friendly layout patterns and animation usage.
+- [`example.lua`](https://github.com/Shlomo1412/PixelUI-v2/blob/main/example.lua) – contains monitor-friendly layout patterns and animation usage.
 - [`constraints.md`](./constraints.md) – details adaptive sizing strategies for varying monitor resolutions.
 - [`monitors` peripheral docs](https://tweaked.cc/module/peripheral.html) – official CC:Tweaked reference for monitor APIs.
 
-With these steps you can deliver polished status boards or remote controls on any in-game monitor. Experiment with PixelUI widgets, mix popups like `ContextMenu` or `NotificationToast`, and tailor the interface to your base.
+With these steps you can deliver polished status boards or remote controls on any in-game monitor.
