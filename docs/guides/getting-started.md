@@ -26,7 +26,6 @@ local root = app:getRoot()
 
 -- Create a button
 local button = app:createButton({
-  parent = root,
   x = 5,
   y = 5,
   width = 20,
@@ -39,6 +38,9 @@ local button = app:createButton({
   end
 })
 
+-- Add the button to the main frame
+root:addChild(btn)
+
 -- Run the application
 app:run()
 ```
@@ -50,7 +52,8 @@ Every PixelUI application has the following structure:
 1. **Create the App** - `pixelui.create()` initializes the application
 2. **Get the Root Frame** - The root frame is the main container
 3. **Add Widgets** - Create and configure widgets
-4. **Run the App** - Start the event loop with `app:run()`
+4. Remember to add the button to the frame: `root:addChild(widget)`
+5. **Run the App** - Start the event loop with `app:run()`
 
 ## Adding More Widgets
 
@@ -63,7 +66,6 @@ local root = app:getRoot()
 
 -- Add a title label
 local title = app:createLabel({
-  parent = root,
   x = 2,
   y = 2,
   width = root.width - 2,
@@ -75,9 +77,11 @@ local title = app:createLabel({
   fg = colors.yellow
 })
 
+-- Add to root
+root:addChild(title)
+
 -- Add a text input
 local textbox = app:createTextBox({
-  parent = root,
   x = 2,
   y = 6,
   width = root.width - 2,
@@ -87,9 +91,11 @@ local textbox = app:createTextBox({
   fg = colors.black
 })
 
+-- Add to root
+root:addChild(textbox)
+
 -- Add a submit button
 local submitBtn = app:createButton({
-  parent = root,
   x = 2,
   y = 10,
   width = 15,
@@ -105,6 +111,9 @@ local submitBtn = app:createButton({
   end
 })
 
+-- And, yet again - add to root
+root:addChild(submitBtn)
+
 app:run()
 ```
 
@@ -115,7 +124,6 @@ Frames are containers that can hold other widgets. They're useful for organizing
 ```lua
 -- Create a frame for a sidebar
 local sidebar = app:createFrame({
-  parent = root,
   x = 1,
   y = 1,
   width = 15,
@@ -123,10 +131,10 @@ local sidebar = app:createFrame({
   bg = colors.gray,
   border = { color = colors.lightGray }
 })
+root:addChild(sidebar)
 
 -- Add widgets to the sidebar
 local menuBtn1 = app:createButton({
-  parent = sidebar,
   x = 2,
   y = 2,
   width = 11,
@@ -135,9 +143,9 @@ local menuBtn1 = app:createButton({
   bg = colors.blue,
   fg = colors.white
 })
+sidebar:addChild(menuBtn1)
 
 local menuBtn2 = app:createButton({
-  parent = sidebar,
   x = 2,
   y = 6,
   width = 11,
@@ -146,6 +154,7 @@ local menuBtn2 = app:createButton({
   bg = colors.blue,
   fg = colors.white
 })
+sidebar:addChild(menuBtn2)
 ```
 
 ## Event Handling
@@ -165,21 +174,21 @@ end
 
 -- List selection
 local list = app:createList({
-  parent = root,
   items = {"Item 1", "Item 2", "Item 3"},
   onSelect = function(self, item, index)
     print("Selected:", item)
   end
 })
+root:addChild(list)
 
 -- Checkbox state
 local checkbox = app:createCheckBox({
-  parent = root,
   label = "Enable feature",
   onChange = function(self, checked, indeterminate)
     print("Checked:", checked)
   end
 })
+root:addChild(checkbox)
 ```
 
 ## Next Steps
@@ -198,3 +207,4 @@ Now that you understand the basics, explore:
 - Use `z` property to control layering
 - Call `app:render()` to manually redraw (normally automatic)
 - Use `widget.visible = false` to hide widgets
+- Always use `frame:addChild(widget)`, otherwise the widget won't render

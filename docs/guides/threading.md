@@ -75,12 +75,12 @@ Report progress from your background thread:
 
 ```lua
 local progressBar = app:createProgressBar({
-  parent = root,
   x = 5,
   y = 10,
   width = 30,
   height = 3
 })
+root:addChild(progressBar)
 
 local handle = app:spawnThread(function(ctx)
   for i = 1, 100 do
@@ -160,7 +160,6 @@ local root = app:getRoot()
 
 -- Create UI elements
 local progressBar = app:createProgressBar({
-  parent = root,
   x = 2,
   y = 5,
   width = root.width - 3,
@@ -168,18 +167,18 @@ local progressBar = app:createProgressBar({
   label = "Processing...",
   showPercent = true
 })
+root:addChild(progressBar)
 
 local statusLabel = app:createLabel({
-  parent = root,
   x = 2,
   y = 9,
   width = root.width - 3,
   height = 1,
   text = "Idle"
 })
+root:addChild(statusLabel)
 
 local startBtn = app:createButton({
-  parent = root,
   x = 2,
   y = 11,
   width = 15,
@@ -188,9 +187,9 @@ local startBtn = app:createButton({
   bg = colors.green,
   fg = colors.white
 })
+root:addChild(startBtn)
 
 local cancelBtn = app:createButton({
-  parent = root,
   x = 18,
   y = 11,
   width = 15,
@@ -200,6 +199,7 @@ local cancelBtn = app:createButton({
   fg = colors.white,
   disabled = true
 })
+root:addChild(cancelBtn)
 
 local currentHandle = nil
 
