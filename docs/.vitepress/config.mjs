@@ -29,6 +29,7 @@ export default defineConfig({
           { text: 'Constraints', link: '/guides/constraints' },
           { text: 'FreeDraw Canvas', link: '/guides/freedraw' },
           { text: 'Threading', link: '/guides/threading' },
+          { text: 'Monitors', link: '/guides/monitors' },
         ]
       },
       {
