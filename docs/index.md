@@ -103,10 +103,6 @@ features:
     transition: box-shadow 0.3s ease;
   }
 
-  h1, h2, h3 {
-    text-shadow: 0 0 10px rgba(116, 192, 252, 0.5);
-  }
-
   .vp-doc > * {
     animation: fadeIn 1.2s ease-in;
   }
