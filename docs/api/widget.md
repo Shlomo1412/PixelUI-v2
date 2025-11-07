@@ -20,6 +20,7 @@ Base class for all UI widgets. Provides common properties and behavior for posit
 | border | `PixelUI.NormalizedBorderConfig?` | Border configuration |
 | id | `string?` | Optional unique identifier |
 | focusable | `boolean` | Whether the widget can receive focus |
+| constraints | `PixelUI.NormalizedConstraintConfig?` | Optional size constraints |
 | draw | `fun(self:PixelUI.Widget,` |  |
 | handleEvent | `fun(self:PixelUI.Widget,` |  |
 | setFocused | `fun(self:PixelUI.Widget,` |  |
@@ -37,6 +38,30 @@ _init_base()
 
 ```lua
 setSize()
+```
+
+### _applyConstraintLayout
+
+```lua
+_applyConstraintLayout()
+```
+
+### _applySizeConstraints
+
+```lua
+_applySizeConstraints()
+```
+
+### setConstraints
+
+```lua
+setConstraints()
+```
+
+### getConstraints
+
+```lua
+getConstraints()
 ```
 
 ### setPosition

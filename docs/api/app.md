@@ -93,6 +93,22 @@ createFrame(config)
 
 - `PixelUI.Frame`
 
+### createWindow
+
+```lua
+createWindow(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.Window`
+
 ### createButton
 
 *Since: 0.1.0*
@@ -200,6 +216,40 @@ createComboBox(config)
 **Returns:**
 
 - `PixelUI.ComboBox`
+
+### createTabControl
+
+```lua
+createTabControl(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.TabControl`
+
+### createContextMenu
+
+*Since: 0.1.0*
+
+```lua
+createContextMenu(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.ContextMenu`
 
 ### createList
 
@@ -340,6 +390,22 @@ createLoadingRing(config)
 **Returns:**
 
 - `PixelUI.LoadingRing`
+
+### createFreeDraw
+
+```lua
+createFreeDraw(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.FreeDraw`
 
 ### createSlider
 

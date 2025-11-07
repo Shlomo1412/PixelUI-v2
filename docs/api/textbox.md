@@ -14,7 +14,16 @@ A text input widget supporting single and multi-line input. Features syntax high
 | maxLength | `integer?` | Maximum allowed text length |
 | multiline | `boolean` | Whether to support multiple lines |
 | autocomplete | `string[]?` | Array of autocomplete suggestions |
+| autocompleteMaxItems | `integer?` | Maximum suggestions shown in popup |
+| autocompleteBg | `PixelUI.Color?` | Popup background color |
+| autocompleteFg | `PixelUI.Color?` | Popup foreground color |
+| autocompleteHighlightBg | `PixelUI.Color?` | Highlight background for the active suggestion |
+| autocompleteHighlightFg | `PixelUI.Color?` | Highlight foreground for the active suggestion |
+| autocompleteBorder | `PixelUI.BorderConfig?` | Optional border for the popup |
+| autocompleteMaxWidth | `integer?` | Maximum popup width in characters |
+| autocompleteGhostColor | `PixelUI.Color?` | Ghost text color inside the editor |
 | syntax | `table?` | Syntax highlighting configuration |
+| scrollbar | `PixelUI.ScrollbarConfig?` | Optional scrollbar configuration |
 
 ## Methods
 
@@ -28,6 +37,12 @@ new()
 
 ```lua
 setOnCursorMove()
+```
+
+### setScrollbar
+
+```lua
+setScrollbar()
 ```
 
 ### onFocusChanged
@@ -88,6 +103,12 @@ _getInnerMetrics()
 
 ```lua
 _getOverlayHeight()
+```
+
+### _computeLayoutMetrics
+
+```lua
+_computeLayoutMetrics()
 ```
 
 ### _getContentSize
@@ -322,6 +343,24 @@ _drawFindOverlay()
 
 ```lua
 _hideAutocomplete()
+```
+
+### _isPointInAutocomplete
+
+```lua
+_isPointInAutocomplete()
+```
+
+### _autocompleteIndexFromPoint
+
+```lua
+_autocompleteIndexFromPoint()
+```
+
+### _drawDropdown
+
+```lua
+_drawDropdown()
 ```
 
 ### _updateAutocomplete
