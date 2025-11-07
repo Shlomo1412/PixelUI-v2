@@ -10,8 +10,6 @@ Browse the complete API documentation for PixelUI v2.
 
 ## Widgets
 
-- [PixelUI.DimensionConstraint](/api/dimensionconstraint)
-- [PixelUI.AlignmentConstraint](/api/alignmentconstraint)
 - [PixelUI.Window](/api/window) - A floating window widget with an optional title bar and dragging support. Extends Frame by adding chrome controls and layered ordering.
 - [PixelUI.Button](/api/button) - A clickable button widget with press effects and event callbacks. Supports click, press, and release events with visual feedback.
 - [PixelUI.Label](/api/label) - A text display widget with support for wrapping and alignment. Can display static or dynamic text with customizable alignment options.
@@ -28,7 +26,6 @@ Browse the complete API documentation for PixelUI v2.
 - [PixelUI.RadioButton](/api/radiobutton) - A radio button widget for exclusive selection within a group. Only one radio button in a group can be selected at a time.
 - [PixelUI.ComboBox](/api/combobox) - A dropdown selection widget (combo box) for choosing from a list of options. Opens a dropdown menu when clicked.
 - [PixelUI.TabControl](/api/tabcontrol) - A tabbed navigation widget with an optional body renderer. Renders a strip of selectable tabs and a content area beneath them.
-- [PixelUI.TabControlTab](/api/tabcontroltab)
 - [PixelUI.TextBox](/api/textbox) - A text input widget supporting single and multi-line input. Features syntax highlighting, autocomplete, and find/replace.
 - [PixelUI.Table](/api/table) - A data table widget with sorting and selection capabilities. Displays tabular data with customizable columns and row selection.
 

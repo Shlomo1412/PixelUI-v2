@@ -2,6 +2,21 @@
 
 Type definitions and utility types used in PixelUI.
 
+## PixelUI.DimensionConstraint
+
+| Name | Type | Description |
+|------|------|-------------|
+| percent | `number?` | Percentage (0-1) of the referenced metric |
+| of | `string?` | Reference string such as "parent.width" |
+| offset | `integer?` | Offset applied after evaluation |
+
+## PixelUI.AlignmentConstraint
+
+| Name | Type | Description |
+|------|------|-------------|
+| reference | `string?` | Reference string such as "parent.centerX" |
+| offset | `integer?` | Offset applied relative to the reference |
+
 ## PixelUI.FreeDrawContext
 
 | Name | Type | Description |
@@ -28,6 +43,18 @@ A tree node representing an item in a TreeView. Can have children nodes for hier
 | data | `any` | Custom data associated with the node |
 | children | `PixelUI.TreeNode[]` | Child nodes |
 | expanded | `boolean` | Whether the node is expanded to show children |
+
+## PixelUI.TabControlTab
+
+| Name | Type | Description |
+|------|------|-------------|
+| id | `any?` | Optional identifier for the tab |
+| label | `string` | Display label rendered inside the tab |
+| value | `any?` | Optional value associated with the tab |
+| content | `string\|PixelUI.TabControlRenderer?` | Optional string or renderer used for the body |
+| contentRenderer | `PixelUI.TabControlRenderer?` | Tab-specific renderer that overrides the widget default |
+| disabled | `boolean?` | When true the tab cannot be selected |
+| tooltip | `string?` | Optional tooltip text (reserved for future use) |
 
 ## PixelUI.ContextMenu
 

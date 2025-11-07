@@ -165,7 +165,7 @@ function main() {
       categories.Core.push(cls);
     } else if (cls.name.includes('Options') || cls.name.includes('Config')) {
       categories.Configuration.push(cls);
-    } else if (cls.name.includes('Handle') || cls.name.includes('Context') || cls.name.includes('Status') || cls.name.includes('Node') || cls.name.includes('Column')) {
+    } else if (cls.name.includes('Handle') || cls.name.includes('Context') || cls.name.includes('Status') || cls.name.includes('Node') || cls.name.includes('Column') || cls.name.includes('Constraint') || cls.name === 'PixelUI.TabControlTab') {
       categories.Types.push(cls);
     } else {
       categories.Widgets.push(cls);
