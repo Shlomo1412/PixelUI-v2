@@ -66,6 +66,9 @@ export default defineConfig({
           { text: 'Slider', link: '/api/slider' },
           { text: 'NotificationToast', link: '/api/notificationtoast' },
           { text: 'LoadingRing', link: '/api/loadingring' },
+          { text: 'FreeDraw', link: '/api/freedraw' },
+          { text: 'Window', link: '/api/window' },
+          { text: 'TabControl', link: '/api/tabcontrol' },
         ]
       },
       {

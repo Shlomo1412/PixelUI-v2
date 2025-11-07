@@ -14,6 +14,7 @@ A hierarchical tree view widget for displaying nested data. Supports expand/coll
 | placeholder | `string?` | Text shown when tree is empty |
 | onSelect | `fun(self:PixelUI.TreeView,` |  |
 | onToggle | `fun(self:PixelUI.TreeView,` |  |
+| scrollbar | `PixelUI.ScrollbarConfig?` | Optional scrollbar configuration |
 
 ## Methods
 
@@ -33,6 +34,12 @@ setOnSelect()
 
 ```lua
 setOnToggle()
+```
+
+### setScrollbar
+
+```lua
+setScrollbar()
 ```
 
 ### _copyNodes
@@ -99,6 +106,12 @@ _getInnerMetrics()
 
 ```lua
 _getInnerHeight()
+```
+
+### _computeLayoutMetrics
+
+```lua
+_computeLayoutMetrics()
 ```
 
 ### _ensureSelectionVisible

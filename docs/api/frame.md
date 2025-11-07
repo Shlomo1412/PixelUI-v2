@@ -34,6 +34,18 @@ addChild(child)
 |------|------|-------------|
 | child | `PixelUI.Widget` |  |
 
+### _applyConstraintsToChildren
+
+```lua
+_applyConstraintsToChildren()
+```
+
+### setSize
+
+```lua
+setSize()
+```
+
 ### removeChild
 
 ```lua

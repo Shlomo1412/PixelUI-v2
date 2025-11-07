@@ -31,7 +31,7 @@ class AnnotationParser {
         this.parseAlias(i);
       }
       // Check for function with annotations
-      else if (line.match(/^function\s+(pixelui\.|App:|Frame:|Widget:|Button:|Label:|CheckBox:|Toggle:|TextBox:|ComboBox:|List:|Table:|TreeView:|Chart:|RadioButton:|ProgressBar:|Slider:|NotificationToast:)/)) {
+      else if (line.match(/^function\s+(pixelui\.|App:|Frame:|Widget:|Window:|Button:|Label:|CheckBox:|Toggle:|TextBox:|ComboBox:|List:|Table:|TreeView:|Chart:|RadioButton:|ProgressBar:|Slider:|NotificationToast:|LoadingRing:|FreeDraw:|TabControl:)/)) {
         this.parseFunction(i);
       }
     }

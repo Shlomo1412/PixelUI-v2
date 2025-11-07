@@ -14,6 +14,7 @@ A scrollable list widget for displaying and selecting items. Supports keyboard a
 | highlightFg | `PixelUI.Color` | Foreground color for selected item |
 | placeholder | `string?` | Text shown when list is empty |
 | onSelect | `fun(self:PixelUI.List,` |  |
+| scrollbar | `PixelUI.ScrollbarConfig?` | Optional scrollbar configuration |
 
 ## Methods
 
@@ -33,6 +34,12 @@ _getInnerMetrics()
 
 ```lua
 _getInnerHeight()
+```
+
+### _computeLayoutMetrics
+
+```lua
+_computeLayoutMetrics()
 ```
 
 ### _clampScroll
@@ -99,6 +106,12 @@ setPlaceholder()
 
 ```lua
 setHighlightColors()
+```
+
+### setScrollbar
+
+```lua
+setScrollbar()
 ```
 
 ### _notifySelect
