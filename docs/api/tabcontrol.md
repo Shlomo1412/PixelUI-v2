@@ -26,3 +26,173 @@ A tabbed navigation widget with an optional body renderer. Renders a strip of se
 | bodyRenderer | `PixelUI.TabControlRenderer?` | Optional custom renderer for the content area |
 | emptyText | `string?` | Message displayed when no tabs are available |
 
+## Methods
+
+### new
+
+```lua
+new()
+```
+
+### _normalizeTabEntry
+
+```lua
+_normalizeTabEntry()
+```
+
+### _normalizeTabs
+
+```lua
+_normalizeTabs()
+```
+
+### _findFirstEnabled
+
+```lua
+_findFirstEnabled()
+```
+
+### _resolveSelectableIndex
+
+```lua
+_resolveSelectableIndex()
+```
+
+### _normalizeSelection
+
+```lua
+_normalizeSelection()
+```
+
+### setTabs
+
+```lua
+setTabs()
+```
+
+### getTabs
+
+```lua
+getTabs()
+```
+
+### addTab
+
+```lua
+addTab()
+```
+
+### removeTab
+
+```lua
+removeTab()
+```
+
+### setTabEnabled
+
+```lua
+setTabEnabled()
+```
+
+### setTabLabel
+
+```lua
+setTabLabel()
+```
+
+### selectTabById
+
+```lua
+selectTabById()
+```
+
+### getSelectedIndex
+
+```lua
+getSelectedIndex()
+```
+
+### getSelectedTab
+
+```lua
+getSelectedTab()
+```
+
+### setSelectedIndex
+
+```lua
+setSelectedIndex()
+```
+
+### setOnSelect
+
+```lua
+setOnSelect()
+```
+
+### setBodyRenderer
+
+```lua
+setBodyRenderer()
+```
+
+### setEmptyText
+
+```lua
+setEmptyText()
+```
+
+### _notifySelect
+
+```lua
+_notifySelect()
+```
+
+### _emitSelect
+
+```lua
+_emitSelect()
+```
+
+### _computeTabLayout
+
+```lua
+_computeTabLayout()
+```
+
+### _tabIndexFromPoint
+
+```lua
+_tabIndexFromPoint()
+```
+
+### _moveSelection
+
+```lua
+_moveSelection()
+```
+
+### _renderBody
+
+```lua
+_renderBody()
+```
+
+### onFocusChanged
+
+```lua
+onFocusChanged()
+```
+
+### draw
+
+```lua
+draw()
+```
+
+### handleEvent
+
+```lua
+handleEvent()
+```
+

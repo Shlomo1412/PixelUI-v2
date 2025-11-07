@@ -11,3 +11,29 @@ A raw drawing surface that exposes ShrekBox layers for custom rendering. Useful 
 | onDraw | `fun(self:PixelUI.FreeDraw,` |  |
 | clear | `boolean` | Whether to clear the region before drawing |
 
+## Methods
+
+### new
+
+```lua
+new()
+```
+
+### setOnDraw
+
+```lua
+setOnDraw()
+```
+
+### setClear
+
+```lua
+setClear()
+```
+
+### draw
+
+```lua
+draw()
+```
+
