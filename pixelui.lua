@@ -1402,6 +1402,29 @@ local function fill_rect(layer, x, y, width, height, fg, bg, char)
 	end
 end
 
+---@param pixelLayer Layer
+---@param x integer
+---@param y integer
+---@param width integer
+---@param height integer
+---@param color PixelUI.Color
+local function fill_rect_pixels(pixelLayer, x, y, width, height, color)
+	if width <= 0 or height <= 0 or not pixelLayer then
+		return
+	end
+	local fillColor = color or colors.black
+	local px = (x - 1) * 2 + 1
+	local py = (y - 1) * 3 + 1
+	local pw = width * 2
+	local ph = height * 3
+	for dy = 0, ph - 1 do
+		local rowY = py + dy
+		for dx = 0, pw - 1 do
+			pixelLayer.pixel(px + dx, rowY, fillColor)
+		end
+	end
+end
+
 ---@param layer Layer
 ---@param x integer
 ---@param y integer
@@ -3079,8 +3102,10 @@ function Frame:draw(textLayer, pixelLayer)
 
 	if innerWidth > 0 and innerHeight > 0 then
 		fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, bg, bg)
+		fill_rect_pixels(pixelLayer, innerX, innerY, innerWidth, innerHeight, bg)
 	elseif width > 0 and height > 0 then
 		fill_rect(textLayer, ax, ay, width, height, bg, bg)
+		fill_rect_pixels(pixelLayer, ax, ay, width, height, bg)
 	end
 
 	clear_border_characters(textLayer, ax, ay, width, height)
@@ -3646,8 +3671,10 @@ function Window:draw(textLayer, pixelLayer)
 
 	if innerWidth > 0 and innerHeight > 0 then
 		fill_rect(textLayer, innerX, innerY, innerWidth, innerHeight, bg, bg)
+		fill_rect_pixels(pixelLayer, innerX, innerY, innerWidth, innerHeight, bg)
 	else
 		fill_rect(textLayer, ax, ay, width, height, bg, bg)
+		fill_rect_pixels(pixelLayer, ax, ay, width, height, bg)
 	end
 
 	clear_border_characters(textLayer, ax, ay, width, height)
