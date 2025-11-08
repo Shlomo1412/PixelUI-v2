@@ -90,7 +90,7 @@ For advanced scenarios you can create multiple PixelUI apps, each bound to a dif
 
 ## Further Reading
 
-- `example.lua` – contains monitor-friendly layout patterns and animation usage.
+- [`example.lua`](https://github.com/Shlomo1412/PixelUI-v2/blob/main/example.lua) – contains monitor-friendly layout patterns and animation usage.
 - [`constraints.md`](./constraints.md) – details adaptive sizing strategies for varying monitor resolutions.
 - [`monitors` peripheral docs](https://tweaked.cc/module/peripheral.html) – official CC:Tweaked reference for monitor APIs.
 
