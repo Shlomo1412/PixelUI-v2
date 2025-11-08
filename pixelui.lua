@@ -60,7 +60,7 @@ local shrekbox = require("shrekbox")
 ---@class PixelUI.ScrollbarConfig
 ---@field enabled boolean? # Whether the scrollbar is enabled
 ---@field alwaysVisible boolean? # Force rendering even when content fits
----@field width integer? # Width i n characters (defaults to 1)
+---@field width integer? # Width in characters (defaults to 1)
 ---@field trackColor PixelUI.Color? # Track background color
 ---@field thumbColor PixelUI.Color? # Thumb color
 ---@field arrowColor PixelUI.Color? # Arrow glyph color

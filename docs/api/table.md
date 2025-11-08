@@ -18,6 +18,7 @@ A data table widget with sorting and selection capabilities. Displays tabular da
 | placeholder | `string` | Text shown when table is empty |
 | onSelect | `fun(self:PixelUI.Table,` |  |
 | onSort | `fun(self:PixelUI.Table,` |  |
+| scrollbar | `PixelUI.ScrollbarConfig?` | Optional scrollbar configuration |
 
 ## Methods
 
@@ -105,6 +106,12 @@ getSort()
 setOnSort()
 ```
 
+### setScrollbar
+
+```lua
+setScrollbar()
+```
+
 ### setOnSelect
 
 ```lua
@@ -139,6 +146,12 @@ _notifySelect()
 
 ```lua
 _getInnerMetrics()
+```
+
+### _computeLayoutMetrics
+
+```lua
+_computeLayoutMetrics()
 ```
 
 ### _getRowsVisible
