@@ -1,15 +1,15 @@
-local Y=assert(rawget(_G,"term"),"term API unavailable")
+local ee=assert(rawget(_G,"term"),"term API unavailable")
 local e=assert(rawget(_G,"colors"),"colors API unavailable")
 local T=assert(rawget(_G,"os"),"os API unavailable")
-local te=assert(T.pullEvent,"os.pullEvent unavailable")
-local ee=assert(rawget(_G,"window"),"window API unavailable")
+local ae=assert(T.pullEvent,"os.pullEvent unavailable")
+local te=assert(rawget(_G,"window"),"window API unavailable")
 local a=assert(rawget(_G,"keys"),"keys API unavailable")
-local B=table.pack or function(...)
+local Q=table.pack or function(...)
 return{n=select("#",...),...}
 end
-local K=assert(table.unpack,"table.unpack unavailable")
+local J=assert(table.unpack,"table.unpack unavailable")
 local t=require("cc.expect").expect
-local Q=require("shrekbox")
+local X=require("shrekbox")
 local y={
 version="0.1.0"
 }
@@ -38,27 +38,27 @@ end
 }
 local n={}
 n.__index=n
-local q={}
-q.__index=q
-setmetatable(q,{__index=n})
+local k={}
+k.__index=k
+setmetatable(k,{__index=n})
 local d={}
 d.__index=d
-setmetatable(d,{__index=q})
+setmetatable(d,{__index=k})
 local N={}
 N.__index=N
 setmetatable(N,{__index=n})
 local E={}
 E.__index=E
 setmetatable(E,{__index=n})
-local z={}
-z.__index=z
-setmetatable(z,{__index=n})
+local _={}
+_.__index=_
+setmetatable(_,{__index=n})
 local b={}
 b.__index=b
 setmetatable(b,{__index=n})
-local k={}
-k.__index=k
-setmetatable(k,{__index=n})
+local q={}
+q.__index=q
+setmetatable(q,{__index=n})
 local l={}
 l.__index=l
 setmetatable(l,{__index=n})
@@ -102,14 +102,14 @@ setmetatable(S,{__index=n})
 local s={}
 s.__index=s
 local p={"top","right","bottom","left"}
-local ae=string.char(7)
+local oe=string.char(7)
 local U={
 info={bg=e.blue,fg=e.white,accent=e.lightBlue,icon="i"},
 success={bg=e.green,fg=e.black,accent=e.lime,icon="+"},
 warning={bg=e.orange,fg=e.black,accent=e.yellow,icon="!"},
 error={bg=e.red,fg=e.white,accent=e.white,icon="x"}
 }
-local function G(e)
+local function B(e)
 if e==nil then
 return"info"
 end
@@ -119,7 +119,7 @@ return e
 end
 return"info"
 end
-local function V(e)
+local function G(e)
 if e==nil then
 return 1,1,1,1
 end
@@ -127,48 +127,48 @@ if type(e)=="number"then
 local e=math.max(0,math.floor(e))
 return e,e,e,e
 end
-local i,s,n,o=1,1,1,1
+local o,n,s,i=1,1,1,1
 if type(e)=="table"then
 local a=e.horizontal or e.x
 local t=e.vertical or e.y
 if a~=nil then
 a=math.max(0,math.floor(a))
-i=a
-s=a
+o=a
+n=a
 end
 if t~=nil then
 t=math.max(0,math.floor(t))
-n=t
-o=t
+s=t
+i=t
 end
 if e.left~=nil then
-i=math.max(0,math.floor(e.left))
+o=math.max(0,math.floor(e.left))
 end
 if e.right~=nil then
-s=math.max(0,math.floor(e.right))
+n=math.max(0,math.floor(e.right))
 end
 if e.top~=nil then
-n=math.max(0,math.floor(e.top))
+s=math.max(0,math.floor(e.top))
 end
 if e.bottom~=nil then
-o=math.max(0,math.floor(e.bottom))
+i=math.max(0,math.floor(e.bottom))
 end
 end
-return i,s,n,o
+return o,n,s,i
 end
-local function _(t,a,e)
+local function z(e,a,t)
 if a<=0 then
-e[#e+1]=""
+t[#t+1]=""
 return
 end
-t=(t or""):gsub("\r","")
-if t==""then
-e[#e+1]=""
+e=(e or""):gsub("\r","")
+if e==""then
+t[#t+1]=""
 return
 end
-local t=t
-while#t>a do
-local n=t:sub(1,a)
+local e=e
+while#e>a do
+local n=e:sub(1,a)
 local o
 for e=a,1,-1 do
 local t=n:sub(e,e)
@@ -178,30 +178,30 @@ break
 end
 end
 if o and o>=1 then
-local i=t:sub(1,o)
+local i=e:sub(1,o)
 i=i:gsub("%s+$","")
 if i==""then
-i=t:sub(1,a)
+i=e:sub(1,a)
 o=a
 end
-e[#e+1]=i
-t=t:sub(o+1)
+t[#t+1]=i
+e=e:sub(o+1)
 else
-e[#e+1]=n
-t=t:sub(a+1)
+t[#t+1]=n
+e=e:sub(a+1)
 end
-t=t:gsub("^%s+","")
-if t==""then
+e=e:gsub("^%s+","")
+if e==""then
 break
 end
 end
-if t~=""then
-e[#e+1]=t
-elseif#e==0 then
-e[#e+1]=""
+if e~=""then
+t[#t+1]=e
+elseif#t==0 then
+t[#t+1]=""
 end
 end
-local function J(e)
+local function K(e)
 if e==nil then
 return nil
 end
@@ -229,43 +229,43 @@ return e
 end
 return nil
 end
-local function F(e)
-local i,a,o,t=1,1,1,1
+local function W(e)
+local a,t,o,i=1,1,1,1
 if e==nil then
-return{top=i,right=a,bottom=o,left=t}
+return{top=a,right=t,bottom=o,left=i}
 end
 if type(e)=="number"then
 local e=math.max(0,math.floor(e))
-i,a,o,t=e,e,e,e
+a,t,o,i=e,e,e,e
 elseif type(e)=="table"then
 if e.all~=nil then
 local e=math.max(0,math.floor(e.all))
-i,a,o,t=e,e,e,e
+a,t,o,i=e,e,e,e
 end
 if e.vertical~=nil then
 local e=math.max(0,math.floor(e.vertical))
-i,o=e,e
+a,o=e,e
 end
 if e.horizontal~=nil then
 local e=math.max(0,math.floor(e.horizontal))
-a,t=e,e
+t,i=e,e
 end
 if e.top~=nil then
-i=math.max(0,math.floor(e.top))
+a=math.max(0,math.floor(e.top))
 end
 if e.right~=nil then
-a=math.max(0,math.floor(e.right))
+t=math.max(0,math.floor(e.right))
 end
 if e.bottom~=nil then
 o=math.max(0,math.floor(e.bottom))
 end
 if e.left~=nil then
-t=math.max(0,math.floor(e.left))
+i=math.max(0,math.floor(e.left))
 end
 end
-return{top=i,right=a,bottom=o,left=t}
+return{top=a,right=t,bottom=o,left=i}
 end
-local function W(t,i)
+local function Y(t,i)
 local e={}
 if i<=0 then
 e[1]=""
@@ -280,10 +280,10 @@ local a=1
 while true do
 local o=t:find("\n",a,true)
 if not o then
-_(t:sub(a),i,e)
+z(t:sub(a),i,e)
 break
 end
-_(t:sub(a,o-1),i,e)
+z(t:sub(a,o-1),i,e)
 a=o+1
 end
 if#e==0 then
@@ -301,7 +301,7 @@ t[a]=e
 end
 return t
 end
-local function C(a,e)
+local function F(a,e)
 t(nil,a,"string")
 t(nil,e,"number")
 if e<1 or e~=math.floor(e)then
@@ -368,15 +368,15 @@ end
 local function A(a)
 local e=a.border
 local t=e and math.max(1,math.floor(e.thickness or 1))or 0
-local o=(e and e.left)and t or 0
-local i=(e and e.right)and t or 0
+local i=(e and e.left)and t or 0
+local o=(e and e.right)and t or 0
 local n=(e and e.top)and t or 0
 local e=(e and e.bottom)and t or 0
-local s=math.max(0,a.width-o-i)
+local s=math.max(0,a.width-i-o)
 local t=math.max(0,a.height-n-e)
-return o,i,n,e,s,t
+return i,o,n,e,s,t
 end
-local function X(e,a)
+local function V(e,a)
 if e==nil then
 return{
 enabled=a~=false,
@@ -438,7 +438,7 @@ end
 local e,t=e:match(p)
 return e,t
 end
-local function _(e,t)
+local function z(e,t)
 local e=tonumber(e)
 if not e then
 error("constraints."..t.." must be numeric",3)
@@ -491,7 +491,7 @@ local e=e.offset and math.floor(e.offset)or 0
 return{kind="relative",target=a,property=o,offset=e}
 end
 if e.percent~=nil then
-local o=_(e.percent,t..".percent")
+local o=z(e.percent,t..".percent")
 local a=e.of or("parent."..t)
 local a,i=i(a)
 if not a then
@@ -546,23 +546,23 @@ end
 return{kind="center",target=e,property=a,offset=0}
 end
 if a=="table"then
-local a=e.reference or e.of or e.target or e.align
-local o=e.offset and math.floor(e.offset)or 0
-if a then
-local e,a=i(a)
+local o=e.reference or e.of or e.target or e.align
+local a=e.offset and math.floor(e.offset)or 0
+if o then
+local e,o=i(o)
 if not e then
 error("constraints.center"..(t=="x"and"X"or"Y").." reference tables must use 'parent.<property>'",3)
 end
 if e~="parent"then
 error("constraints.center"..(t=="x"and"X"or"Y").." currently only supports the parent",3)
 end
-return{kind="center",target=e,property=a,offset=o}
+return{kind="center",target=e,property=o,offset=a}
 end
 return{
 kind="center",
 target="parent",
 property=t=="x"and"centerX"or"centerY",
-offset=o
+offset=a
 }
 end
 return nil
@@ -612,10 +612,10 @@ if e.height~=nil then
 t.height=p(e.height,"height")
 end
 if e.widthPercent~=nil then
-t.widthPercent=_(e.widthPercent,"widthPercent")
+t.widthPercent=z(e.widthPercent,"widthPercent")
 end
 if e.heightPercent~=nil then
-t.heightPercent=_(e.heightPercent,"heightPercent")
+t.heightPercent=z(e.heightPercent,"heightPercent")
 end
 if e.centerX~=nil then
 t.centerX=R(e.centerX,"x")
@@ -640,7 +640,7 @@ return nil
 end
 return t
 end
-local _=string.char(30)
+local z=string.char(30)
 local D=string.char(31)
 local function R(o,h,i)
 if o==false then
@@ -713,34 +713,34 @@ return 0,nil
 end
 return e,t
 end
-local function L(o,i,a,t,l,d,u,e)
+local function L(o,n,a,t,r,s,u,e)
 if not e or t<=0 then
 return
 end
 local h=math.max(1,math.floor(e.width or 1))
-local n=e.trackColor
-local s=e.arrowColor
-local r=e.thumbColor
+local i=e.trackColor
+local l=e.arrowColor
+local d=e.thumbColor
 local m=math.max(1,math.floor(e.minThumbSize or 1))
 local e=math.max(0,h-1)
-local c=_..string.rep(" ",e)
-o.text(i,a,c,s,n)
+local c=z..string.rep(" ",e)
+o.text(n,a,c,l,i)
 if t>=2 then
 local e=D..string.rep(" ",e)
-o.text(i,a+t-1,e,s,n)
+o.text(n,a+t-1,e,l,i)
 end
 local a=a+1
 local e=math.max(0,t-2)
 local t=string.rep(" ",h)
 for e=0,e-1 do
-o.text(i,a+e,t,n,n)
+o.text(n,a+e,t,i,i)
 end
-local s=math.max(0,(l or 0)-(d or 0))
-if s<=0 or e<=0 then
+local i=math.max(0,(r or 0)-(s or 0))
+if i<=0 or e<=0 then
 return
 end
-local u=math.max(0,math.min(s,math.floor((u or 0)+.5)))
-local t=d/l
+local l=math.max(0,math.min(i,math.floor((u or 0)+.5)))
+local t=s/r
 local t=math.max(m,math.floor(e*t+.5))
 if t>e then
 t=e
@@ -749,17 +749,17 @@ if t<1 then
 t=1
 end
 local e=e-t
-local n=a
+local s=a
 if e>0 then
-local t=p(s==0 and 0 or(u/s))
-n=a+math.floor(t*e+.5)
-if n>a+e then
-n=a+e
+local t=p(i==0 and 0 or(l/i))
+s=a+math.floor(t*e+.5)
+if s>a+e then
+s=a+e
 end
 end
 local a=string.rep(" ",h)
 for e=0,t-1 do
-o.text(i,n+e,a,r,r)
+o.text(n,s+e,a,d,d)
 end
 end
 local function D(o,a,e,i,t)
@@ -804,99 +804,115 @@ for e=0,t-1 do
 o.text(n,i+e,a,h,s)
 end
 end
-local function _(e,i,n,o,t)
-if o<=0 or t<=0 then
+local function C(o,s,n,a,t,i)
+if a<=0 or t<=0 or not o then
 return
 end
-local a=Q.transparent
-for o=0,o-1 do
-e.pixel(i+o,n,a)
-if t>1 then
-e.pixel(i+o,n+t-1,a)
-end
-end
-for t=1,math.max(0,t-2)do
-e.pixel(i,n+t,a)
-if o>1 then
-e.pixel(i+o-1,n+t,a)
+local e=i or e.black
+local i=(s-1)*2+1
+local n=(n-1)*3+1
+local a=a*2
+local t=t*3
+for t=0,t-1 do
+local t=n+t
+for a=0,a-1 do
+o.pixel(i+a,t,e)
 end
 end
 end
-local function p(d,s,a,o,i,e,t)
+local function z(e,t,o,a,n)
+if a<=0 or n<=0 then
+return
+end
+local i=X.transparent
+for a=0,a-1 do
+e.pixel(t+a,o,i)
+if n>1 then
+e.pixel(t+a,o+n-1,i)
+end
+end
+for n=1,math.max(0,n-2)do
+e.pixel(t,o+n,i)
+if a>1 then
+e.pixel(t+a-1,o+n,i)
+end
+end
+end
+local function p(s,t,a,o,i,e,h)
 if o<=0 or i<=0 then
 return
 end
 local n=e.color
-local r=t or n
-local t=(s-1)*2+1
+local h=h or n
+local t=(t-1)*2+1
 local a=(a-1)*3+1
 local o=o*2
 local i=i*3
-local l=3
-local u=2
-local s=math.min(e.thickness,i)
-local h=math.min(e.thickness,o)
-local l=math.min(i,math.max(s,l))
-local u=math.min(o,math.max(h,u))
-local function m(n,e,s)
-for e=0,e-1 do
-local e=n+e
+local u=3
+local l=2
+local r=math.min(e.thickness,i)
+local d=math.min(e.thickness,o)
+local u=math.min(i,math.max(r,u))
+local l=math.min(o,math.max(d,l))
+local function c(e,h,n)
+for h=0,h-1 do
+local e=e+h
 if e<a or e>=a+i then break end
 for a=0,o-1 do
-d.pixel(t+a,e,s)
+s.pixel(t+a,e,n)
 end
 end
 end
-local function c(e,s,n)
-for s=0,s-1 do
-local e=e+s
+local function w(h,e,n)
+for e=0,e-1 do
+local e=h+e
 if e<a or e>=a+i then break end
 for a=0,o-1 do
-d.pixel(t+a,e,n)
+s.pixel(t+a,e,n)
 end
 end
 end
-local function f(e,n,s)
-for n=0,n-1 do
-local e=e+n
-if e<t or e>=t+o then break end
-for t=0,i-1 do
-d.pixel(e,a+t,s)
-end
-end
-end
-local function w(s,e,n)
+local function f(h,e,n)
 for e=0,e-1 do
-local e=s+e
+local e=h+e
 if e<t or e>=t+o then break end
 for t=0,i-1 do
-d.pixel(e,a+t,n)
+s.pixel(e,a+t,n)
+end
+end
+end
+local function m(e,h,n)
+for h=0,h-1 do
+local e=e+h
+if e<t or e>=t+o then break end
+for t=0,i-1 do
+s.pixel(e,a+t,n)
 end
 end
 end
 if e.left then
-f(t,u,r)
+f(t,l,h)
 end
 if e.right then
-f(t+o-u,u,r)
+f(t+o-l,l,h)
 end
 if e.top then
-m(a,l,r)
+c(a,u,h)
 end
 if e.bottom then
-m(a+i-l,l,r)
+c(a+i-u,u,h)
 end
 if e.top then
-c(a,s,n)
+w(a,r,n)
 end
 if e.bottom then
-c(a+i-s,s,n)
+w(a+i-r,r,n)
 end
 if e.left then
-w(t,h,n)
+m(t,d,n)
 end
 if e.right then
-w(t+o-h,h,n)
+m(t+o-d,d,n)
 end
 end
 function h:new(i,a)
@@ -916,7 +932,7 @@ local e=setmetatable({},h)
 e:_init_base(i,t)
 e.focusable=false
 local i=a.anchor~=nil
-local t=J(a.anchor)
+local t=K(a.anchor)
 if not t and not i then
 if a.x~=nil or a.y~=nil then
 t=nil
@@ -925,7 +941,7 @@ t="top_right"
 end
 end
 e.anchor=t
-e.anchorMargins=F(a.anchorMargin)
+e.anchorMargins=W(a.anchorMargin)
 e.anchorAnimationDuration=math.max(.05,tonumber(a.anchorAnimationDuration)or .2)
 e.anchorEasing=a.anchorEasing or"easeOutCubic"
 e._anchorDirty=true
@@ -933,7 +949,7 @@ e._anchorAnimationHandle=nil
 e.title=a.title~=nil and tostring(a.title)or nil
 e.message=a.message~=nil and tostring(a.message)or""
 e.icon=a.icon~=nil and tostring(a.icon)or nil
-e.severity=G(a.severity)
+e.severity=B(a.severity)
 local t=a.duration
 if t~=nil then
 t=tonumber(t)or 0
@@ -952,7 +968,7 @@ error("config.onDismiss must be a function",2)
 end
 e.variantOverrides=a.variants and o(a.variants)or nil
 e.styleOverride=a.style and o(a.style)or nil
-e.paddingLeft,e.paddingRight,e.paddingTop,e.paddingBottom=V(a.padding)
+e.paddingLeft,e.paddingRight,e.paddingTop,e.paddingBottom=G(a.padding)
 e._hideTimer=nil
 e._wrappedLines={""}
 e._lastWrapWidth=nil
@@ -961,11 +977,11 @@ e:_refreshWrap(true)
 return e
 end
 function h:_applyPadding(e,i)
-local a,e,t,o=V(e)
-if i or a~=self.paddingLeft or e~=self.paddingRight or t~=self.paddingTop or o~=self.paddingBottom then
-self.paddingLeft=a
+local t,e,a,o=G(e)
+if i or t~=self.paddingLeft or e~=self.paddingRight or a~=self.paddingTop or o~=self.paddingBottom then
+self.paddingLeft=t
 self.paddingRight=e
-self.paddingTop=t
+self.paddingTop=a
 self.paddingBottom=o
 self:_refreshWrap(true)
 self._anchorDirty=true
@@ -992,66 +1008,66 @@ else
 self:_applyAnchorPosition(false)
 end
 end
-function h:setAnchor(e)
-local t=J(e)
-if t==nil and e~=nil then
+function h:setAnchor(t)
+local e=K(t)
+if e==nil and t~=nil then
 self.anchor=nil
 else
-self.anchor=t
+self.anchor=e
 end
 self:refreshAnchor(false)
 end
 function h:setAnchorMargin(e)
-self.anchorMargins=F(e)
+self.anchorMargins=W(e)
 self:refreshAnchor(false)
 end
 function h:_computeAnchorPosition()
-local n=self.anchor
-if not n then
+local i=self.anchor
+if not i then
 return nil,nil
 end
 local e=self.parent
 if not e then
 return nil,nil
 end
-local i=e.width
+local n=e.width
 local o=e.height
-if type(i)~="number"or type(o)~="number"then
+if type(n)~="number"or type(o)~="number"then
 return nil,nil
 end
 local h=self.width
 local s=self.height
-local a=self.anchorMargins or F(nil)
-local t
+local a=self.anchorMargins or W(nil)
 local e
-if n=="top_right"then
-t=i-h-(a.right or 0)+1
-e=(a.top or 0)+1
-elseif n=="top_left"then
-t=(a.left or 0)+1
-e=(a.top or 0)+1
-elseif n=="bottom_right"then
-t=i-h-(a.right or 0)+1
-e=o-s-(a.bottom or 0)+1
-elseif n=="bottom_left"then
-t=(a.left or 0)+1
-e=o-s-(a.bottom or 0)+1
+local t
+if i=="top_right"then
+e=n-h-(a.right or 0)+1
+t=(a.top or 0)+1
+elseif i=="top_left"then
+e=(a.left or 0)+1
+t=(a.top or 0)+1
+elseif i=="bottom_right"then
+e=n-h-(a.right or 0)+1
+t=o-s-(a.bottom or 0)+1
+elseif i=="bottom_left"then
+e=(a.left or 0)+1
+t=o-s-(a.bottom or 0)+1
 else
 return nil,nil
-end
-if t<1 then
-t=1
 end
 if e<1 then
 e=1
 end
-if t+h-1>i then
-t=math.max(1,i-h+1)
+if t<1 then
+t=1
 end
-if e+s-1>o then
-e=math.max(1,o-s+1)
+if e+h-1>n then
+e=math.max(1,n-h+1)
 end
-return t,e
+if t+s-1>o then
+t=math.max(1,o-s+1)
+end
+return e,t
 end
 function h:getAnchorTargetPosition()
 return self:_computeAnchorPosition()
@@ -1072,34 +1088,34 @@ end
 if a and self.app and self.app.animate then
 local s=math.max(2,math.floor(self.width/6))
 local i=math.max(1,math.floor(self.height/3))
-local o=e
-local a=t
+local a=e
+local o=t
 if self.anchor=="top_right"then
-o=e+s
-a=math.max(1,t-i)
+a=e+s
+o=math.max(1,t-i)
 elseif self.anchor=="top_left"then
-o=e-s
-a=math.max(1,t-i)
+a=e-s
+o=math.max(1,t-i)
 elseif self.anchor=="bottom_right"then
-o=e+s
-a=t+i
+a=e+s
+o=t+i
 elseif self.anchor=="bottom_left"then
-o=e-s
-a=t+i
+a=e-s
+o=t+i
 end
-n.setPosition(self,o,a)
-local s=self.anchorAnimationDuration or .2
-local i=self.anchorEasing or"easeOutCubic"
-local o=o
-local a=a
-local r=e-o
-local h=t-a
+n.setPosition(self,a,o)
+local h=self.anchorAnimationDuration or .2
+local r=self.anchorEasing or"easeOutCubic"
+local i=a
+local a=o
+local s=e-i
+local o=t-a
 self._anchorAnimationHandle=self.app:animate({
-duration=s,
-easing=i,
+duration=h,
+easing=r,
 update=function(e)
-local t=math.floor(o+r*e+.5)
-local e=math.floor(a+h*e+.5)
+local t=math.floor(i+s*e+.5)
+local e=math.floor(a+o*e+.5)
 n.setPosition(self,t,e)
 end,
 onComplete=function()
@@ -1125,7 +1141,7 @@ return self.border
 end
 return nil
 end
-function h:_refreshWrap(o,t)
+function h:_refreshWrap(a,t)
 local e
 if t~=nil then
 e=math.max(0,math.floor(t))
@@ -1138,10 +1154,10 @@ end
 if e<0 then
 e=0
 end
-if not o and self._lastWrapWidth==e and self._lastMessage==self.message then
+if not a and self._lastWrapWidth==e and self._lastMessage==self.message then
 return
 end
-self._wrappedLines=W(self.message,e)
+self._wrappedLines=Y(self.message,e)
 self._lastWrapWidth=e
 self._lastMessage=self.message
 end
@@ -1221,7 +1237,7 @@ function h:getMessage()
 return self.message
 end
 function h:setSeverity(e)
-local e=G(e)
+local e=B(e)
 if self.severity~=e then
 self.severity=e
 end
@@ -1353,8 +1369,8 @@ if t~=false and e and self.onDismiss then
 self.onDismiss(self)
 end
 end
-function h:setSize(e,t)
-n.setSize(self,e,t)
+function h:setSize(t,e)
+n.setSize(self,t,e)
 self:_refreshWrap(true)
 self._anchorDirty=true
 if self.anchor then
@@ -1366,7 +1382,7 @@ n.setBorder(self,e)
 self:_refreshWrap(true)
 self._anchorDirty=true
 end
-function h:_renderLine(s,n,i,t,e,o,a)
+function h:_renderLine(o,n,i,t,e,s,a)
 if t<=0 then
 return
 end
@@ -1377,33 +1393,33 @@ end
 if#e<t then
 e=e..string.rep(" ",t-#e)
 end
-s.text(n,i,e,o,a)
+o.text(n,i,e,s,a)
 end
-function h:draw(o,u)
+function h:draw(s,l)
 if not self.visible then
 return
 end
 if self._anchorDirty and not self._anchorAnimationHandle then
 self:_applyAnchorPosition(false)
 end
-local h,r,a,n=self:getAbsoluteRect()
-if a<=0 or n<=0 then
+local r,h,n,a=self:getAbsoluteRect()
+if n<=0 or a<=0 then
 return
 end
-local s=self:_getStyle()or U.info
-local t=s.bg or self.bg or e.gray
-local d=s.fg or self.fg or e.white
-local l=s.accent or d
-local m=s.titleColor or d
-local c=s.iconColor or l
-i(o,h,r,a,n,t,t)
-_(o,h,r,a,n)
+local o=self:_getStyle()or U.info
+local t=o.bg or self.bg or e.gray
+local d=o.fg or self.fg or e.white
+local u=o.accent or d
+local f=o.titleColor or d
+local c=o.iconColor or u
+i(s,r,h,n,a,t,t)
+z(s,r,h,n,a)
 local e=self.border
 if e then
-p(u,h,r,a,n,e,t)
+p(l,r,h,n,a,e,t)
 else
-p(u,h,r,a,n,{
-color=l,
+p(l,r,h,n,a,{
+color=u,
 top=true,
 right=true,
 bottom=true,
@@ -1412,52 +1428,52 @@ thickness=1
 },t)
 end
 local e=e
-local i=(e and e.left)and e.thickness or 0
-local u=(e and e.right)and e.thickness or 0
-local l=(e and e.top)and e.thickness or 0
-local e=(e and e.bottom)and e.thickness or 0
+local l=(e and e.left)and e.thickness or 0
+local m=(e and e.right)and e.thickness or 0
+local i=(e and e.top)and e.thickness or 0
+local u=(e and e.bottom)and e.thickness or 0
+local r=r+l
 local h=h+i
-local f=r+l
+local e=math.max(0,n-l-m)
 local a=math.max(0,a-i-u)
-local e=math.max(0,n-l-e)
-local r=h+(self.paddingLeft or 0)
-local l=f+(self.paddingTop or 0)
-local h=math.max(0,a-(self.paddingLeft or 0)-(self.paddingRight or 0))
-local i=math.max(0,e-(self.paddingTop or 0)-(self.paddingBottom or 0))
+local n=r+(self.paddingLeft or 0)
+local l=h+(self.paddingTop or 0)
+local h=math.max(0,e-(self.paddingLeft or 0)-(self.paddingRight or 0))
+local i=math.max(0,a-(self.paddingTop or 0)-(self.paddingBottom or 0))
 if h<=0 or i<=0 then
 return
 end
 local a=self.icon
 if not a or a==""then
-a=s.icon or""
+a=o.icon or""
 end
 a=tostring(a or"")
-local n=0
-local s=r
+local o=0
+local r=n
 local e=l
 if a~=""and h>0 then
 local a=a:sub(1,1)
-o.text(r,e,a,c,t)
+s.text(n,e,a,c,t)
 if h>=3 then
-o.text(r+1,e," ",c,t)
-n=2
+s.text(n+1,e," ",c,t)
+o=2
 else
-n=1
+o=1
 end
-s=r+n
+r=n+o
 end
-local a=math.max(0,h-n)
+local a=math.max(0,h-o)
 self:_refreshWrap(false,a)
 if self.title and self.title~=""and i>0 and a>0 then
-self:_renderLine(o,s,e,a,self.title,m,t)
+self:_renderLine(s,r,e,a,self.title,f,t)
 e=e+1
 i=i-1
 end
 if i>0 and a>0 then
-local n=self._wrappedLines or{""}
-local i=math.min(i,#n)
+local o=self._wrappedLines or{""}
+local i=math.min(i,#o)
 for i=1,i do
-self:_renderLine(o,s,e,a,n[i],d,t)
+self:_renderLine(s,r,e,a,o[i],d,t)
 e=e+1
 end
 end
@@ -1474,8 +1490,8 @@ self:hide(true)
 return true
 end
 elseif e=="mouse_click"then
-local a,t,e=...
-if self.dismissOnClick and self:containsPoint(t,e)then
+local a,e,t=...
+if self.dismissOnClick and self:containsPoint(e,t)then
 self:hide(true)
 return true
 end
@@ -1715,34 +1731,34 @@ e[1]=self.color
 end
 return e
 end
-function v:draw(h,d)
+function v:draw(s,r)
 if not self.visible then
 return
 end
-local n,o,a,t=self:getAbsoluteRect()
-if a<=0 or t<=0 then
+local n,o,t,a=self:getAbsoluteRect()
+if t<=0 or a<=0 then
 return
 end
 local e=self.bg or self.app.background
-i(h,n,o,a,t,e,e)
-_(h,n,o,a,t)
+i(s,n,o,t,a,e,e)
+z(s,n,o,t,a)
 if self.border then
-p(d,n,o,a,t,self.border,e)
+p(r,n,o,t,a,self.border,e)
 end
-local r=(self.border and self.border.left)and 1 or 0
-local c=(self.border and self.border.right)and 1 or 0
+local d=(self.border and self.border.left)and 1 or 0
+local u=(self.border and self.border.right)and 1 or 0
 local l=(self.border and self.border.top)and 1 or 0
-local u=(self.border and self.border.bottom)and 1 or 0
-local n=n+r
-local s=o+l
-local o=math.max(0,a-r-c)
-local a=math.max(0,t-l-u)
+local c=(self.border and self.border.bottom)and 1 or 0
+local n=n+d
+local h=o+l
+local o=math.max(0,t-d-u)
+local a=math.max(0,a-l-c)
 if o<=0 or a<=0 then
 return
 end
-i(h,n,s,o,a,e,e)
-local c=n+(o-1)/2
-local u=s+(a-1)/2
+i(s,n,h,o,a,e,e)
+local u=n+(o-1)/2
+local d=h+(a-1)/2
 local i=math.floor(math.min(o,a)/2)
 local t=self.radiusPixels and math.floor(self.radiusPixels)or i
 if t>i then
@@ -1751,47 +1767,47 @@ end
 if t<1 then
 t=1
 end
-local h=math.max(1,math.min(math.floor(self.thickness or 1),t))
+local s=math.max(1,math.min(math.floor(self.thickness or 1),t))
 local i=t+.35
-local t=math.max(0,t-h+.35)
+local t=math.max(0,t-s+.35)
 local m=i*i
-local w=t*t
+local c=t*t
 local t=math.max(3,math.floor(self.segmentCount or 12))
-local h=self._phase%t
+local l=self._phase%t
 local f=self.direction>=0 and 1 or-1
-local r=math.pi*2
-local y=self:_computeTrailColors()
+local s=math.pi*2
+local w=self:_computeTrailColors()
 for a=0,a-1 do
-local l=s+a
-local a=l-u
+local h=h+a
+local a=h-d
 for o=0,o-1 do
-local n=n+o
-local i=n-c
-local s=i*i+a*a
-local o=e
-if s<=m and s>=w then
-local a=math.atan(a,i)
+local d=n+o
+local o=d-u
+local n=o*o+a*a
+local i=e
+if n<=m and n>=c then
+local a=math.atan(a,o)
 if a<0 then
-a=a+r
+a=a+s
 end
-local i=math.floor(a/r*t)%t
+local o=math.floor(a/s*t)%t
 local a
 if f>=0 then
-a=(h-i)%t
+a=(l-o)%t
 else
-a=(i-h)%t
+a=(o-l)%t
 end
 if a==0 then
-o=self.color or e
+i=self.color or e
 else
 local t=math.floor(a+1e-4)
 if t<1 then
 t=1
 end
-o=y[t]or e
+i=w[t]or e
 end
 end
-d.pixel(n,l,o)
+r.pixel(d,h,i)
 end
 end
 end
@@ -1816,14 +1832,14 @@ end
 return n.handleEvent(self,a,...)
 end
 local function U(e)
-local t,a=e.x,e.y
+local a,t=e.x,e.y
 local e=e.parent
 while e do
-t=t+e.x-1
-a=a+e.y-1
+a=a+e.x-1
+t=t+e.y-1
 e=e.parent
 end
-return t,a
+return a,t
 end
 function n:_init_base(o,a)
 t(1,o,"table")
@@ -1844,25 +1860,25 @@ self.border=I(a.border)
 self.focusable=a.focusable==true
 self._focused=false
 self.constraints=nil
-C("width",self.width)
-C("height",self.height)
+F("width",self.width)
+F("height",self.height)
 if a.constraints~=nil then
 self.constraints=P(a.constraints)
-local e,t=self:_applySizeConstraints(self.width,self.height)
-self.width=e
-self.height=t
+local t,e=self:_applySizeConstraints(self.width,self.height)
+self.width=t
+self.height=e
 end
 end
-function n:setSize(t,e)
-C("width",t)
-C("height",e)
-local t,e=self:_applySizeConstraints(t,e)
+function n:setSize(e,t)
+F("width",e)
+F("height",t)
+local t,e=self:_applySizeConstraints(e,t)
 self.width=t
 self.height=e
 end
 function n:_applyConstraintLayout()
-local t=self.constraints
-if not t then
+local a=self.constraints
+if not a then
 return
 end
 local e=self.parent
@@ -1893,7 +1909,7 @@ return 1
 end
 return nil
 end
-local function a(e,t)
+local function i(e,t)
 if not e then
 return nil
 end
@@ -1920,21 +1936,21 @@ return math.max(1,e)
 end
 return nil
 end
-local o=a(t.width,"width")
-local a=a(t.height,"height")
+local o=i(a.width,"width")
+local t=i(a.height,"height")
 local i=e and e.width or nil
 local n=e and e.height or nil
-if not o and t.widthPercent and i then
-o=math.max(1,math.floor(i*t.widthPercent+.5))
+if not o and a.widthPercent and i then
+o=math.max(1,math.floor(i*a.widthPercent+.5))
 end
-if not a and t.heightPercent and n then
-a=math.max(1,math.floor(n*t.heightPercent+.5))
+if not t and a.heightPercent and n then
+t=math.max(1,math.floor(n*a.heightPercent+.5))
 end
 local o=o or self.width
-local a=a or self.height
-local o,a=self:_applySizeConstraints(o,a)
-if o~=self.width or a~=self.height then
-self:setSize(o,a)
+local t=t or self.height
+local o,t=self:_applySizeConstraints(o,t)
+if o~=self.width or t~=self.height then
+self:setSize(o,t)
 end
 i=e and e.width or nil
 n=e and e.height or nil
@@ -1972,47 +1988,47 @@ e=t
 end
 return e
 end
-local o=math.floor(t.offsetX or 0)
-local s=math.floor(t.offsetY or 0)
-local a=self.x
+local o=math.floor(a.offsetX or 0)
+local s=math.floor(a.offsetY or 0)
+local t=self.x
 local e=self.y
-local o=h(t.centerX,"x",i,self.width,o)
+local o=h(a.centerX,"x",i,self.width,o)
 if o then
-a=o
+t=o
 end
-local t=h(t.centerY,"y",n,self.height,s)
-if t then
-e=t
+local a=h(a.centerY,"y",n,self.height,s)
+if a then
+e=a
 end
-if a~=self.x or e~=self.y then
-self:setPosition(a,e)
+if t~=self.x or e~=self.y then
+self:setPosition(t,e)
 end
 end
-function n:_applySizeConstraints(e,t)
-local a=math.floor(e)
+function n:_applySizeConstraints(t,e)
 local t=math.floor(t)
-if a<1 then
-a=1
-end
+local a=math.floor(e)
 if t<1 then
 t=1
 end
+if a<1 then
+a=1
+end
 local e=self.constraints
 if e then
-if e.minWidth and a<e.minWidth then
-a=e.minWidth
+if e.minWidth and t<e.minWidth then
+t=e.minWidth
 end
-if e.maxWidth and a>e.maxWidth then
-a=e.maxWidth
+if e.maxWidth and t>e.maxWidth then
+t=e.maxWidth
 end
-if e.minHeight and t<e.minHeight then
-t=e.minHeight
+if e.minHeight and a<e.minHeight then
+a=e.minHeight
 end
-if e.maxHeight and t>e.maxHeight then
-t=e.maxHeight
+if e.maxHeight and a>e.maxHeight then
+a=e.maxHeight
 end
 end
-return a,t
+return t,a
 end
 function n:setConstraints(e)
 if e==nil or e==false then
@@ -2048,7 +2064,7 @@ return t
 end
 return nil
 end
-local function C(e)
+local function W(e)
 if not e then
 return nil
 end
@@ -2090,11 +2106,11 @@ end
 if e.heightPercent then
 t.heightPercent=e.heightPercent
 end
-local a=C(e.centerX)
+local a=W(e.centerX)
 if a~=nil then
 t.centerX=a
 end
-local a=C(e.centerY)
+local a=W(e.centerY)
 if a~=nil then
 t.centerY=a
 end
@@ -2109,11 +2125,11 @@ return t
 end
 return nil
 end
-function n:setPosition(a,e)
-t(1,a,"number")
-t(2,e,"number")
-self.x=math.floor(a)
-self.y=math.floor(e)
+function n:setPosition(e,a)
+t(1,e,"number")
+t(2,a,"number")
+self.x=math.floor(e)
+self.y=math.floor(a)
 end
 function n:setZ(e)
 t(1,e,"number")
@@ -2152,9 +2168,9 @@ function n:getAbsoluteRect()
 local t,e=U(self)
 return t,e,self.width,self.height
 end
-function n:containsPoint(o,a)
-local t,e,n,i=self:getAbsoluteRect()
-return o>=t and o<t+n and a>=e and a<e+i
+function n:containsPoint(e,t)
+local o,a,n,i=self:getAbsoluteRect()
+return e>=o and e<o+n and t>=a and t<a+i
 end
 function n:draw(e,e)
 error("draw needs implementation for widget",2)
@@ -2162,8 +2178,8 @@ end
 function n:handleEvent(e,...)
 return false
 end
-function q:new(a,t)
-local e=setmetatable({},q)
+function k:new(a,t)
+local e=setmetatable({},k)
 e:_init_base(a,t)
 e._children={}
 e._orderCounter=0
@@ -2171,7 +2187,7 @@ e.title=t and t.title or nil
 e.focusable=false
 return e
 end
-function q:addChild(e)
+function k:addChild(e)
 t(1,e,"table")
 if e.app~=self.app then
 error("Cannot add widget from a different PixelUI app",2)
@@ -2195,7 +2211,7 @@ t(e)
 end
 return e
 end
-function q:_applyConstraintsToChildren()
+function k:_applyConstraintsToChildren()
 local e=self._children
 if not e then
 return
@@ -2211,11 +2227,11 @@ end
 end
 end
 end
-function q:setSize(e,t)
-n.setSize(self,e,t)
+function k:setSize(t,e)
+n.setSize(self,t,e)
 self:_applyConstraintsToChildren()
 end
-function q:removeChild(e)
+function k:removeChild(e)
 for t=1,#self._children do
 if self._children[t]==e then
 table.remove(self._children,t)
@@ -2228,14 +2244,14 @@ end
 end
 return false
 end
-local function C(a)
-local t={}
-for e=1,#a do
-t[e]=a[e]
+local function F(t)
+local e={}
+for a=1,#t do
+e[a]=t[a]
 end
-return t
+return e
 end
-local function F(e)
+local function W(e)
 table.sort(e,function(e,t)
 if e.z==t.z then
 return(e._orderIndex or 0)<(t._orderIndex or 0)
@@ -2243,64 +2259,66 @@ end
 return e.z<t.z
 end)
 end
-function q:getChildren()
-return C(self._children)
+function k:getChildren()
+return F(self._children)
 end
-function q:setTitle(e)
+function k:setTitle(e)
 if e~=nil then
 t(1,e,"string")
 end
 self.title=e
 end
-function q:draw(h,l)
+function k:draw(h,r)
 if not self.visible then
 return
 end
-local s,t,a,o=self:getAbsoluteRect()
-local n=self.bg or self.app.background
-local d,u=s+1,t+1
-local e=math.max(0,a-2)
-local r=math.max(0,o-2)
-if e>0 and r>0 then
-i(h,d,u,e,r,n,n)
-elseif a>0 and o>0 then
-i(h,s,t,a,o,n,n)
+local s,a,n,o=self:getAbsoluteRect()
+local e=self.bg or self.app.background
+local l,u=s+1,a+1
+local t=math.max(0,n-2)
+local d=math.max(0,o-2)
+if t>0 and d>0 then
+i(h,l,u,t,d,e,e)
+C(r,l,u,t,d,e)
+elseif n>0 and o>0 then
+i(h,s,a,n,o,e,e)
+C(r,s,a,n,o,e)
 end
-_(h,s,t,a,o)
-local i=self.title
-if type(i)=="string"and#i>0 then
-local a=e>0 and e or a
-local s=e>0 and d or s
-local t=(o>2)and(t+1)or t
-if a>0 then
-local e=i
-if#e>a then
-e=e:sub(1,a)
+z(h,s,a,n,o)
+local d=self.title
+if type(d)=="string"and#d>0 then
+local i=t>0 and t or n
+local n=t>0 and l or s
+local a=(o>2)and(a+1)or a
+if i>0 then
+local t=d
+if#t>i then
+t=t:sub(1,i)
 end
-if#e<a then
-e=e..string.rep(" ",a-#e)
+if#t<i then
+t=t..string.rep(" ",i-#t)
 end
-h.text(s,t,e,self.fg,n)
+h.text(n,a,t,self.fg,e)
 end
 end
 if self.border then
-p(l,s,t,a,o,self.border,n)
+p(r,s,a,n,o,self.border,e)
 end
-local e=C(self._children)
-F(e)
+local e=F(self._children)
+W(e)
 for t=1,#e do
-e[t]:draw(h,l)
+e[t]:draw(h,r)
 end
 end
-function q:handleEvent(t,...)
+function k:handleEvent(t,...)
 if not self.visible then
 return false
 end
 if n.handleEvent(self,t,...)then
 return true
 end
-local e=C(self._children)
-F(e)
+local e=F(self._children)
+W(e)
 for a=#e,1,-1 do
 if e[a]:handleEvent(t,...)then
 return true
@@ -2310,13 +2328,13 @@ return false
 end
 function d:new(e,t)
 t=t or{}
-local e=q.new(q,e,t)
+local e=k.new(k,e,t)
 setmetatable(e,d)
 e.draggable=t.draggable~=false
 e.resizable=t.resizable~=false
 e.closable=t.closable~=false
 e.maximizable=t.maximizable~=false
-e._titleBar=X(t.titleBar,nil)
+e._titleBar=V(t.titleBar,nil)
 e:_refreshTitleBarState()
 e:_invalidateTitleLayout()
 e._dragging=false
@@ -2411,13 +2429,13 @@ self._titleLayoutCache=e
 self._titleButtonRects=e.buttonRects
 return e
 end
-function d:_hitTestTitleButton(a,t)
+function d:_hitTestTitleButton(t,a)
 local e=self._titleLayoutCache or self:_computeTitleLayout()
 if not e then
 return nil
 end
 for o,e in pairs(e.buttonRects)do
-if a>=e.x1 and a<=e.x2 and t>=e.y1 and t<=e.y2 then
+if t>=e.x1 and t<=e.x2 and a>=e.y1 and a<=e.y2 then
 return o
 end
 end
@@ -2428,35 +2446,35 @@ if not t or not e then
 return
 end
 local a=(e.barX-1)*2+1
-local n=(e.barY-1)*3+1
-local i=e.barWidth*2
+local i=(e.barY-1)*3+1
+local n=e.barWidth*2
 local e=math.min(e.barHeight*3,self.height*3)
-for e=0,e-1 do
-for i=0,i-1 do
-t.pixel(a+i,n+e,o)
+for s=0,e-1 do
+for e=0,n-1 do
+t.pixel(a+e,i+s,o)
 end
 end
 end
-function d:_hitTestResize(t,s)
+function d:_hitTestResize(a,s)
 if not self.resizable then
 return nil
 end
 local o,e=U(self)
 local n=o+math.max(0,self.width-1)
 local i=e+math.max(0,self.height-1)
-local a=1
+local t=1
 if self.border and self.border.thickness then
-a=math.max(1,math.floor(self.border.thickness))
+t=math.max(1,math.floor(self.border.thickness))
 end
 local e={}
-local n=t>=n-a+1 and t<=n
-local t=t>=o and t<=o+a-1
+local n=a>=n-t+1 and a<=n
+local a=a>=o and a<=o+t-1
 if n then
 e.right=true
-elseif t then
+elseif a then
 e.left=true
 end
-if s>=i-a+1 and s<=i then
+if s>=i-t+1 and s<=i then
 e.bottom=true
 end
 if not e.right and not e.left and not e.bottom then
@@ -2464,19 +2482,19 @@ return nil
 end
 return e
 end
-function d:_beginResize(t,a,i,o,e)
+function d:_beginResize(i,o,a,t,e)
 if not e then
 return
 end
 self:_restoreFromMaximize()
 self._resizing=true
-self._resizeSource=t
-self._resizeIdentifier=a
+self._resizeSource=i
+self._resizeIdentifier=o
 self._resizeEdges=e
 local e=self.constraints or{}
 self._resizeStart={
-pointerX=i,
-pointerY=o,
+pointerX=a,
+pointerY=t,
 width=self.width,
 height=self.height,
 x=self.x,
@@ -2489,13 +2507,13 @@ if self.app then
 self.app:setFocus(nil)
 end
 end
-function d:_updateResize(a,t)
+function d:_updateResize(t,a)
 if not self._resizing or not self._resizeStart then
 return
 end
 local e=self._resizeStart
-local o=a-e.pointerX
-local i=t-e.pointerY
+local o=t-e.pointerX
+local i=a-e.pointerY
 local t=e.width
 local a=e.height
 if self._resizeEdges.right then
@@ -2558,9 +2576,9 @@ end
 function d:_computeMaximizedGeometry()
 local e=self.parent
 if e then
-local t,i,a,o=A(e)
-local i=math.max(1,e.width-t-i)
-local o=math.max(1,e.height-a-o)
+local t,o,a,n=A(e)
+local i=math.max(1,e.width-t-o)
+local o=math.max(1,e.height-a-n)
 local t=t+1
 local e=a+1
 return{x=t,y=e,width=i,height=o}
@@ -2636,7 +2654,7 @@ end
 return t
 end
 function d:setTitleBar(e)
-self._titleBar=X(e,nil)
+self._titleBar=V(e,nil)
 self:_refreshTitleBarState()
 self:_invalidateTitleLayout()
 end
@@ -2671,16 +2689,16 @@ function d:isMaximizable()
 return not not self.maximizable
 end
 function d:setTitle(e)
-q.setTitle(self,e)
+k.setTitle(self,e)
 self:_invalidateTitleLayout()
 end
 function d:getContentOffset()
-local e,a,t=A(self)
-local a=self:_getVisibleTitleBarHeight()
-return e,t+a
+local a,e,t=A(self)
+local e=self:_getVisibleTitleBarHeight()
+return a,t+e
 end
 function d:setSize(e,t)
-q.setSize(self,e,t)
+k.setSize(self,e,t)
 self:_refreshTitleBarState()
 self:_invalidateTitleLayout()
 end
@@ -2715,41 +2733,41 @@ local n=i+math.max(0,e.barWidth-1)
 local e=o+math.max(0,e.barHeight-1)
 return t>=i and t<=n and a>=o and a<=e
 end
-function d:_beginDrag(n,i,o,a)
+function d:_beginDrag(t,e,a,o)
 self:_restoreFromMaximize()
-local e,t=U(self)
+local n,i=U(self)
 self._dragging=true
-self._dragSource=n
-self._dragIdentifier=i
-self._dragOffsetX=o-e
-self._dragOffsetY=a-t
+self._dragSource=t
+self._dragIdentifier=e
+self._dragOffsetX=a-n
+self._dragOffsetY=o-i
 self:bringToFront()
 if self.app then
 self.app:setFocus(nil)
 end
 end
-function d:_updateDragPosition(e,o)
+function d:_updateDragPosition(t,o)
 if not self._dragging then
 return
 end
-local t=self.parent
-local a=self._dragOffsetX or 0
+local a=self.parent
+local e=self._dragOffsetX or 0
 local i=self._dragOffsetY or 0
-local e=e-a
-local a=o-i
-if t then
-local o,i=U(t)
-local n=o
-local s=i
-local h=o+math.max(0,t.width-self.width)
-local t=i+math.max(0,t.height-self.height)
-e=Z(e,n,h)
-a=Z(a,s,t)
-local e=e-o+1
-local t=a-i+1
-self:setPosition(e,t)
+local t=t-e
+local e=o-i
+if a then
+local o,i=U(a)
+local s=o
+local n=i
+local h=o+math.max(0,a.width-self.width)
+local a=i+math.max(0,a.height-self.height)
+t=Z(t,s,h)
+e=Z(e,n,a)
+local t=t-o+1
+local e=e-i+1
+self:setPosition(t,e)
 else
-self:setPosition(e,a)
+self:setPosition(t,e)
 end
 end
 function d:_endDrag()
@@ -2759,31 +2777,33 @@ self._dragIdentifier=nil
 self._dragOffsetX=0
 self._dragOffsetY=0
 end
-function d:draw(n,u)
+function d:draw(o,d)
 if not self.visible then
 return
 end
-local d,r,l,c=self:getAbsoluteRect()
-local s,h,o,h,a,t=A(self)
-local h=d+s
-local o=r+o
-local s=self.bg or self.app.background
-if a>0 and t>0 then
-i(n,h,o,a,t,s,s)
+local l,r,u,c=self:getAbsoluteRect()
+local s,h,n,h,t,a=A(self)
+local s=l+s
+local h=r+n
+local n=self.bg or self.app.background
+if t>0 and a>0 then
+i(o,s,h,t,a,n,n)
+C(d,s,h,t,a,n)
 else
-i(n,d,r,l,c,s,s)
+i(o,l,r,u,c,n,n)
+C(d,l,r,u,c,n)
 end
-_(n,d,r,l,c)
+z(o,l,r,u,c)
 local h=self._titleBar
 local t=nil
-local o=nil
+local s=nil
 if h then
 t=self:_computeTitleLayout()
 if t then
-o=h.bg or s
+s=h.bg or n
 local r=h.fg or self.fg or e.white
 if t.textWidth>0 then
-i(n,t.textX,t.textBaseline,t.textWidth,t.barHeight,o,o)
+i(o,t.textX,t.textBaseline,t.textWidth,t.barHeight,s,s)
 end
 local i=t.titleWidth or 0
 local a=self.title or""
@@ -2792,47 +2812,47 @@ if#a>i then
 a=a:sub(1,i)
 end
 local e=i-#a
-local s=h.align or"left"
+local n=h.align or"left"
 local i=a
 if e>0 then
-if s=="center"then
+if n=="center"then
 local t=math.floor(e/2)
 local e=e-t
 i=string.rep(" ",t)..a..string.rep(" ",e)
-elseif s=="right"then
+elseif n=="right"then
 i=string.rep(" ",e)..a
 else
 i=a..string.rep(" ",e)
 end
 end
-n.text(t.titleStart,t.textBaseline,i,r,o)
+o.text(t.titleStart,t.textBaseline,i,r,s)
 end
 local a=h.fg or self.fg or e.white
 if self.maximizable then
 local e=t.buttonRects.maximize
 if e then
 local t=t.maximizeState=="restore"and"[-]"or"[+]"
-n.text(e.x1,e.y1,t,a,o)
+o.text(e.x1,e.y1,t,a,s)
 end
 end
 if self.closable then
 local e=t.buttonRects.close
 if e then
-n.text(e.x1,e.y1,"[X]",a,o)
+o.text(e.x1,e.y1,"[X]",a,s)
 end
 end
 end
 end
 if self.border then
-p(u,d,r,l,c,self.border,s)
-if t and o then
-self:_fillTitleBarPixels(u,t,o)
+p(d,l,r,u,c,self.border,n)
+if t and s then
+self:_fillTitleBarPixels(d,t,s)
 end
 end
-local e=C(self._children)
-F(e)
+local e=F(self._children)
+W(e)
 for t=1,#e do
-e[t]:draw(n,u)
+e[t]:draw(o,d)
 end
 end
 function d:handleEvent(e,...)
@@ -2840,8 +2860,8 @@ if not self.visible then
 return false
 end
 if e=="mouse_click"then
-local a,e,t=...
-local o=self:_hitTestTitleButton(e,t)
+local a,t,e=...
+local o=self:_hitTestTitleButton(t,e)
 if o=="close"and self.closable then
 self:close()
 return true
@@ -2849,23 +2869,23 @@ elseif o=="maximize"and self.maximizable then
 self:toggleMaximize()
 return true
 end
-local o=self:_hitTestResize(e,t)
+local o=self:_hitTestResize(t,e)
 if o then
-self:_beginResize("mouse",a,e,t,o)
+self:_beginResize("mouse",a,t,e,o)
 return true
 end
-if self.draggable and self:_pointInTitleBar(e,t)then
-self:_beginDrag("mouse",a,e,t)
+if self.draggable and self:_pointInTitleBar(t,e)then
+self:_beginDrag("mouse",a,t,e)
 return true
 end
 elseif e=="mouse_drag"then
-local a,t,e=...
+local a,e,t=...
 if self._resizing and self._resizeSource=="mouse"and a==self._resizeIdentifier then
-self:_updateResize(t,e)
+self:_updateResize(e,t)
 return true
 end
 if self._dragging and self._dragSource=="mouse"and a==self._dragIdentifier then
-self:_updateDragPosition(t,e)
+self:_updateDragPosition(e,t)
 return true
 end
 elseif e=="mouse_up"then
@@ -2879,8 +2899,8 @@ self:_endDrag()
 return true
 end
 elseif e=="monitor_touch"then
-local o,t,e=...
-local a=self:_hitTestTitleButton(t,e)
+local o,e,t=...
+local a=self:_hitTestTitleButton(e,t)
 if a=="close"and self.closable then
 self:close()
 return true
@@ -2888,13 +2908,13 @@ elseif a=="maximize"and self.maximizable then
 self:toggleMaximize()
 return true
 end
-local a=self:_hitTestResize(t,e)
+local a=self:_hitTestResize(e,t)
 if a then
-self:_beginResize("monitor",o,t,e,a)
+self:_beginResize("monitor",o,e,t,a)
 return true
 end
-if self.draggable and self:_pointInTitleBar(t,e)then
-self:_beginDrag("monitor",o,t,e)
+if self.draggable and self:_pointInTitleBar(e,t)then
+self:_beginDrag("monitor",o,e,t)
 return true
 end
 elseif e=="monitor_drag"then
@@ -2918,7 +2938,7 @@ self:_endDrag()
 return true
 end
 end
-return q.handleEvent(self,e,...)
+return k.handleEvent(self,e,...)
 end
 function N:new(a,e)
 local t=setmetatable({},N)
@@ -2946,32 +2966,32 @@ t(1,e,"function")
 end
 self.onClick=e
 end
-function N:draw(h,c)
+function N:draw(r,c)
 if not self.visible then
 return
 end
-local n,o,a,t=self:getAbsoluteRect()
-local r=self.bg or e.gray
-local s=self.fg or e.white
-local e=r
-local d=s
+local s,n,a,t=self:getAbsoluteRect()
+local o=self.bg or e.gray
+local h=self.fg or e.white
+local e=o
+local d=h
 if self.clickEffect and self._pressed then
 e,d=d,e
 end
-local l,u=n+1,o+1
-local s=math.max(0,a-2)
-local r=math.max(0,t-2)
-if s>0 and r>0 then
-i(h,l,u,s,r,e,e)
+local u,l=s+1,n+1
+local o=math.max(0,a-2)
+local h=math.max(0,t-2)
+if o>0 and h>0 then
+i(r,u,l,o,h,e,e)
 else
-i(h,n,o,a,t,e,e)
+i(r,s,n,a,t,e,e)
 end
-_(h,n,o,a,t)
+z(r,s,n,a,t)
 if self.border then
-p(c,n,o,a,t,self.border,e)
+p(c,s,n,a,t,self.border,e)
 end
 local t=self.label or""
-local a=s>0 and s or a
+local a=o>0 and o or a
 if#t>a then
 t=t:sub(1,a)
 end
@@ -2983,14 +3003,14 @@ local t=string.rep(" ",i)..t
 if#t<a then
 t=t..string.rep(" ",a-#t)
 end
-local i=s>0 and l or n
+local o=o>0 and u or s
 local a
-if r>0 then
-a=u+math.floor((r-1)/2)
+if h>0 then
+a=l+math.floor((h-1)/2)
 else
-a=o
+a=n
 end
-h.text(i,a,t,d,e)
+r.text(o,a,t,d,e)
 end
 function N:handleEvent(e,...)
 if not self.visible then
@@ -3007,12 +3027,12 @@ end
 return true
 end
 elseif e=="mouse_drag"then
-local a,e,t=...
+local a,t,e=...
 if self._pressed then
-if not self:containsPoint(e,t)then
+if not self:containsPoint(t,e)then
 self._pressed=false
 if self.onRelease then
-self.onRelease(self,a,e,t)
+self.onRelease(self,a,t,e)
 end
 return false
 end
@@ -3096,19 +3116,19 @@ local n=math.max(0,self.width-o-a)
 local i=math.max(0,self.height-t-e)
 return o,a,t,e,n,i
 end
-function E:_wrapLine(t,a,e)
+function E:_wrapLine(e,a,t)
 if a<=0 then
-e[#e+1]=""
+t[#t+1]=""
 return
 end
-t=t:gsub("\r","")
-if t==""then
-e[#e+1]=""
+e=e:gsub("\r","")
+if e==""then
+t[#t+1]=""
 return
 end
-local t=t
-while#t>a do
-local n=t:sub(1,a)
+local e=e
+while#e>a do
+local n=e:sub(1,a)
 local o
 for e=a,1,-1 do
 local t=n:sub(e,e)
@@ -3118,61 +3138,61 @@ break
 end
 end
 if o and o>=1 then
-local i=t:sub(1,o)
+local i=e:sub(1,o)
 i=i:gsub("%s+$","")
 if i==""then
-i=t:sub(1,a)
+i=e:sub(1,a)
 o=a
 end
-e[#e+1]=i
-t=t:sub(o+1)
+t[#t+1]=i
+e=e:sub(o+1)
 else
-e[#e+1]=n
-t=t:sub(a+1)
+t[#t+1]=n
+e=e:sub(a+1)
 end
-t=t:gsub("^%s+","")
-if t==""then
+e=e:gsub("^%s+","")
+if e==""then
 break
 end
 end
-if t~=""then
-e[#e+1]=t
-elseif#e==0 then
-e[#e+1]=""
+if e~=""then
+t[#t+1]=e
+elseif#t==0 then
+t[#t+1]=""
 end
 end
 function E:_updateLines(e)
 local t=tostring(self.text or"")
-local a=not not self.wrap
-local i,i,i,i,o=self:_getInnerMetrics()
-if not e and self._lastText==t and self._lastWrap==a and self._lastInnerWidth==o then
+local i=not not self.wrap
+local o,o,o,o,a=self:_getInnerMetrics()
+if not e and self._lastText==t and self._lastWrap==i and self._lastInnerWidth==a then
 return
 end
 local e={}
 if t==""then
 e[1]=""
 else
-local i=1
+local o=1
 while true do
-local n=t:find("\n",i,true)
+local n=t:find("\n",o,true)
 if not n then
-local t=t:sub(i)
+local t=t:sub(o)
 t=t:gsub("\r","")
-if a then
-self:_wrapLine(t,o,e)
+if i then
+self:_wrapLine(t,a,e)
 else
 e[#e+1]=t
 end
 break
 end
-local t=t:sub(i,n-1)
+local t=t:sub(o,n-1)
 t=t:gsub("\r","")
-if a then
-self:_wrapLine(t,o,e)
+if i then
+self:_wrapLine(t,a,e)
 else
 e[#e+1]=t
 end
-i=n+1
+o=n+1
 end
 end
 if#e==0 then
@@ -3180,8 +3200,8 @@ e[1]=""
 end
 self._lines=e
 self._lastText=t
-self._lastWrap=a
-self._lastInnerWidth=o
+self._lastWrap=i
+self._lastInnerWidth=a
 end
 function E:setText(e)
 if e==nil then
@@ -3206,18 +3226,18 @@ end
 function E:isWrapping()
 return self.wrap
 end
-function E:setHorizontalAlign(e)
-if e==nil then
-e="left"
+function E:setHorizontalAlign(a)
+if a==nil then
+a="left"
 else
-t(1,e,"string")
+t(1,a,"string")
 end
-local t=e:lower()
-if t~="left"and t~="center"and t~="right"then
-error("Invalid horizontal alignment '"..e.."'",2)
+local e=a:lower()
+if e~="left"and e~="center"and e~="right"then
+error("Invalid horizontal alignment '"..a.."'",2)
 end
-if self.align~=t then
-self.align=t
+if self.align~=e then
+self.align=e
 end
 end
 function E:setVerticalAlign(a)
@@ -3245,33 +3265,33 @@ function E:setBorder(e)
 n.setBorder(self,e)
 self:_updateLines(true)
 end
-function E:draw(d,c)
+function E:draw(u,f)
 if not self.visible then
 return
 end
-local s,n,l,r=self:getAbsoluteRect()
-local h=self.bg or self.app.background or e.black
+local s,h,l,d=self:getAbsoluteRect()
+local n=self.bg or self.app.background or e.black
 local m=self.fg or e.white
-i(d,s,n,l,r,h,h)
-_(d,s,n,l,r)
-local e,a,t,a,o,i=self:_getInnerMetrics()
-local a=s+e
-local f=n+t
+i(u,s,h,l,d,n,n)
+z(u,s,h,l,d)
+local t,o,e,o,a,i=self:_getInnerMetrics()
+local o=s+t
+local c=h+e
 self:_updateLines(false)
-local u=self._lines or{""}
-local t=#u
+local r=self._lines or{""}
+local t=#r
 if t==0 then
-u={""}
+r={""}
 t=1
 end
-if o>0 and i>0 then
+if a>0 and i>0 then
 local e=math.min(t,i)
-local n=1
+local s=1
 if t>e then
 if self.verticalAlign=="bottom"then
-n=t-e+1
+s=t-e+1
 elseif self.verticalAlign=="middle"then
-n=math.floor((t-e)/2)+1
+s=math.floor((t-e)/2)+1
 end
 end
 local t=0
@@ -3282,35 +3302,35 @@ elseif self.verticalAlign=="middle"then
 t=math.floor((i-e)/2)
 end
 end
-local i=f+t
+local i=c+t
 for e=0,e-1 do
-local e=u[n+e]or""
-if#e>o then
-e=e:sub(1,o)
+local e=r[s+e]or""
+if#e>a then
+e=e:sub(1,a)
 end
-local t=a
+local t=o
 if self.align=="center"then
-t=a+math.floor((o-#e)/2)
+t=o+math.floor((a-#e)/2)
 elseif self.align=="right"then
-t=a+o-#e
+t=o+a-#e
 end
-if t<a then
-t=a
+if t<o then
+t=o
 end
-if t+#e>a+o then
-t=a+o-#e
+if t+#e>o+a then
+t=o+a-#e
 end
 if#e>0 then
-d.text(t,i,e,m,h)
+u.text(t,i,e,m,n)
 end
 i=i+1
 end
 end
 if self.border then
-p(c,s,n,l,r,self.border,h)
+p(f,s,h,l,d,self.border,n)
 end
 end
-function z:new(n,t)
+function _:new(n,t)
 t=t or{}
 local o=o(t)or{}
 local i="Option"
@@ -3320,7 +3340,7 @@ end
 o.focusable=true
 o.height=o.height or 1
 o.width=o.width or math.max(4,#i+4)
-local a=setmetatable({},z)
+local a=setmetatable({},_)
 a:_init_base(n,o)
 a.focusable=true
 a.label=i
@@ -3335,12 +3355,12 @@ a.focusBg=t and t.focusBg or e.lightGray
 a.focusFg=t and t.focusFg or e.black
 return a
 end
-function z:_notifyChange()
+function _:_notifyChange()
 if self.onChange then
 self.onChange(self,self.checked,self.indeterminate)
 end
 end
-function z:_setState(t,e,o)
+function _:_setState(t,e,a)
 t=not not t
 e=not not e
 if e then
@@ -3349,28 +3369,28 @@ end
 if not self.allowIndeterminate then
 e=false
 end
-local a=(self.checked~=t)or(self.indeterminate~=e)
-if not a then
+local o=(self.checked~=t)or(self.indeterminate~=e)
+if not o then
 return false
 end
 self.checked=t
 self.indeterminate=e
-if not o then
+if not a then
 self:_notifyChange()
 end
 return true
 end
-function z:setLabel(e)
+function _:setLabel(e)
 t(1,e,"string")
 self.label=e
 end
-function z:setOnChange(e)
+function _:setOnChange(e)
 if e~=nil then
 t(1,e,"function")
 end
 self.onChange=e
 end
-function z:setAllowIndeterminate(e)
+function _:setAllowIndeterminate(e)
 e=not not e
 if self.allowIndeterminate==e then
 return
@@ -3381,14 +3401,14 @@ self:_setState(self.checked,false,true)
 self:_notifyChange()
 end
 end
-function z:setChecked(e)
+function _:setChecked(e)
 t(1,e,"boolean")
 self:_setState(e,false,false)
 end
-function z:isChecked()
+function _:isChecked()
 return self.checked
 end
-function z:setIndeterminate(e)
+function _:setIndeterminate(e)
 if not self.allowIndeterminate then
 if e then
 error("Indeterminate state is disabled for this CheckBox",2)
@@ -3398,13 +3418,13 @@ end
 t(1,e,"boolean")
 self:_setState(self.checked,e,false)
 end
-function z:isIndeterminate()
+function _:isIndeterminate()
 return self.indeterminate
 end
-function z:toggle()
+function _:toggle()
 self:_activate()
 end
-function z:_activate()
+function _:_activate()
 if self.allowIndeterminate then
 if self.indeterminate then
 self:_setState(false,false,false)
@@ -3421,7 +3441,7 @@ self:_setState(not self.checked,false,false)
 end
 end
 end
-function z:draw(d,a)
+function _:draw(r,a)
 if not self.visible then
 return
 end
@@ -3429,13 +3449,13 @@ local h,s,t,n=self:getAbsoluteRect()
 local o=self.bg or e.black
 local e=self.fg or e.white
 local o=o
-local r=e
+local d=e
 if self:isFocused()then
 o=self.focusBg or o
-r=self.focusFg or r
+d=self.focusFg or d
 end
-i(d,h,s,t,n,o,o)
-_(d,h,s,t,n)
+i(r,h,s,t,n,o,o)
+z(r,h,s,t,n)
 if self.border then
 p(a,h,s,t,n,self.border,o)
 end
@@ -3448,33 +3468,33 @@ e="-"
 elseif self.checked then
 e="x"
 end
-local a="["..e.."]"
-local e={}
-e[#e+1]=a
-local a=#a
-if t>a then
-e[#e+1]=" "
-a=a+1
+local e="["..e.."]"
+local a={}
+a[#a+1]=e
+local e=#e
+if t>e then
+a[#a+1]=" "
+e=e+1
 end
-if t>a then
+if t>e then
 local o=self.label or""
-local t=t-a
+local t=t-e
 if#o>t then
 o=o:sub(1,t)
 end
-e[#e+1]=o
-a=a+#o
+a[#a+1]=o
+e=e+#o
 end
-local e=table.concat(e)
+local e=table.concat(a)
 if#e<t then
 e=e..string.rep(" ",t-#e)
 elseif#e>t then
 e=e:sub(1,t)
 end
 local t=s+math.floor((n-1)/2)
-d.text(h,t,e,r,o)
+r.text(h,t,e,d,o)
 end
-function z:handleEvent(e,...)
+function _:handleEvent(e,...)
 if not self.visible then
 return false
 end
@@ -3684,26 +3704,26 @@ end
 function b:isDisabled()
 return self.disabled
 end
-function b:setColors(s,h,n,i,o,e,a)
-if s~=nil then
-t(1,s,"number")
-self.trackColorOn=s
-end
+function b:setColors(h,s,n,o,i,e,a)
 if h~=nil then
-t(2,h,"number")
-self.trackColorOff=h
+t(1,h,"number")
+self.trackColorOn=h
+end
+if s~=nil then
+t(2,s,"number")
+self.trackColorOff=s
 end
 if n~=nil then
 t(3,n,"number")
 self.thumbColor=n
 end
-if i~=nil then
-t(4,i,"number")
-self.onLabelColor=i
-end
 if o~=nil then
-t(5,o,"number")
-self.offLabelColor=o
+t(4,o,"number")
+self.onLabelColor=o
+end
+if i~=nil then
+t(5,i,"number")
+self.offLabelColor=i
 end
 if e~=nil then
 t(6,e,"number")
@@ -3733,35 +3753,35 @@ error("Toggle transition easing must be a function or easing name",2)
 end
 end
 end
-function b:setKnobStyle(a,e)
-if a~=nil then
-t(1,a,"number")
-self.knobWidth=math.max(1,math.floor(a))
-end
+function b:setKnobStyle(e,a)
 if e~=nil then
-t(2,e,"number")
-self.knobMargin=math.max(0,math.floor(e))
+t(1,e,"number")
+self.knobWidth=math.max(1,math.floor(e))
+end
+if a~=nil then
+t(2,a,"number")
+self.knobMargin=math.max(0,math.floor(a))
 end
 end
 function b:draw(l,d)
 if not self.visible then
 return
 end
-local t,o,s,n=self:getAbsoluteRect()
-local a=self.bg or e.black
-local y=self.fg or e.white
-i(l,t,o,s,n,a,a)
-_(l,t,o,s,n)
+local a,t,o,n=self:getAbsoluteRect()
+local s=self.bg or e.black
+local w=self.fg or e.white
+i(l,a,t,o,n,s,s)
+z(l,a,t,o,n)
 if self.border then
-p(d,t,o,s,n,self.border,a)
+p(d,a,t,o,n,self.border,s)
 end
-local a,r,n,r,h,s=A(self)
-if h<=0 or s<=0 then
+local h,r,n,r,o,s=A(self)
+if o<=0 or s<=0 then
 return
 end
-local a=t+a
-local n=o+n
-local t=h
+local a=a+h
+local n=t+n
+local t=o
 local o=s
 local s=self._thumbProgress
 if s==nil then
@@ -3772,50 +3792,50 @@ s=0
 elseif s>1 then
 s=1
 end
-local w=self.trackColorOn or e.green
-local f=self.trackColorOff or e.red
-local c=self.trackColorDisabled or f
-local h=self.disabled and c or f
+local y=self.trackColorOn or e.green
+local m=self.trackColorOff or e.red
+local c=self.trackColorDisabled or m
+local h=self.disabled and c or m
 i(l,a,n,t,o,h,h)
 local h=math.floor(t*s+.5)
 if h>0 then
 if h>t then
 h=t
 end
-local e=self.disabled and c or w
+local e=self.disabled and c or y
 i(l,a,n,h,o,e,e)
 end
-local r=self.knobMargin or 0
-if r<0 then
-r=0
+local h=self.knobMargin or 0
+if h<0 then
+h=0
 end
-if r*2>=t then
-r=math.max(0,math.floor((t-1)/2))
+if h*2>=t then
+h=math.max(0,math.floor((t-1)/2))
 end
-local u=math.max(1,t-r*2)
-local h=self.knobWidth and math.max(1,math.min(math.floor(self.knobWidth),u))
-if not h then
-h=math.max(1,math.floor(u/2))
+local u=math.max(1,t-h*2)
+local r=self.knobWidth and math.max(1,math.min(math.floor(self.knobWidth),u))
+if not r then
+r=math.max(1,math.floor(u/2))
 if u>=4 then
-h=math.max(2,h)
+r=math.max(2,r)
 end
 end
-local m=math.max(0,u-h)
-local u=math.floor(m*s+.5)
-if u>m then
-u=m
+local f=math.max(0,u-r)
+local u=math.floor(f*s+.5)
+if u>f then
+u=f
 end
-local u=a+r+u
-if u+h-1>a+t-1 then
-u=a+t-h
-elseif u<a+r then
-u=a+r
+local u=a+h+u
+if u+r-1>a+t-1 then
+u=a+t-r
+elseif u<a+h then
+u=a+h
 end
-local r=self.thumbColor or e.white
+local h=self.thumbColor or e.white
 if self.disabled then
-r=self.knobColorDisabled or r
+h=self.knobColorDisabled or h
 end
-i(l,u,n,h,o,r,r)
+i(l,u,n,r,o,h,h)
 local i=""
 if self.showLabel then
 i=self.value and(self.labelOn or"On")or(self.labelOff or"Off")
@@ -3825,12 +3845,12 @@ local e=math.max(0,t-2)
 if e>0 and#i>e then
 i=i:sub(1,e)
 end
-local r=self.value and(self.onLabelColor or y)or(self.offLabelColor or y)
+local r=self.value and(self.onLabelColor or w)or(self.offLabelColor or w)
 local h
 if s>=.5 then
-h=self.disabled and c or w
+h=self.disabled and c or y
 else
-h=self.disabled and c or f
+h=self.disabled and c or m
 end
 local o=n+math.floor((o-1)/2)
 local e=a+math.floor((t-#i)/2)
@@ -3879,8 +3899,8 @@ if not self.visible then
 return false
 end
 if e=="mouse_click"or e=="monitor_touch"then
-local a,e,t=...
-if self:containsPoint(e,t)then
+local a,t,e=...
+if self:containsPoint(t,e)then
 if self.disabled then
 return true
 end
@@ -3941,7 +3961,7 @@ t.onChange=a and a.onChange or nil
 t.focusBg=a and a.focusBg or e.lightGray
 t.focusFg=a and a.focusFg or e.black
 t._registeredGroup=nil
-t._dotChar=ae
+t._dotChar=oe
 if t.group and t.app then
 t:_registerWithGroup()
 if t.selected then
@@ -4047,7 +4067,7 @@ else
 self:setSelected(not self.selected)
 end
 end
-function g:draw(h,d)
+function g:draw(r,d)
 if not self.visible then
 return
 end
@@ -4055,13 +4075,13 @@ local s,n,t,o=self:getAbsoluteRect()
 local a=self.bg or e.black
 local e=self.fg or e.white
 local a=a
-local r=e
+local h=e
 if self:isFocused()then
 a=self.focusBg or a
-r=self.focusFg or r
+h=self.focusFg or h
 end
-i(h,s,n,t,o,a,a)
-_(h,s,n,t,o)
+i(r,s,n,t,o,a,a)
+z(r,s,n,t,o)
 if self.border then
 p(d,s,n,t,o,self.border,a)
 end
@@ -4079,7 +4099,7 @@ elseif#e<t then
 e=e..string.rep(" ",t-#e)
 end
 if t>0 then
-h.text(s,i,e,r,a)
+r.text(s,i,e,h,a)
 end
 end
 function g:handleEvent(e,...)
@@ -4094,8 +4114,8 @@ self:_activate()
 return true
 end
 elseif e=="monitor_touch"then
-local a,t,e=...
-if self:containsPoint(t,e)then
+local a,e,t=...
+if self:containsPoint(e,t)then
 self.app:setFocus(self)
 self:_activate()
 return true
@@ -4112,13 +4132,13 @@ end
 end
 return false
 end
-function k:new(i,a)
+function q:new(i,a)
 a=a or{}
 local o=o(a)or{}
 o.focusable=false
 o.height=o.height or 1
 o.width=o.width or 12
-local t=setmetatable({},k)
+local t=setmetatable({},q)
 t:_init_base(i,o)
 t.focusable=false
 t.min=type(a.min)=="number"and a.min or 0
@@ -4148,7 +4168,7 @@ t:_startIndeterminateAnimation()
 end
 return t
 end
-function k:_clampValue(e)
+function q:_clampValue(e)
 if type(e)~="number"then
 e=self.min
 end
@@ -4160,14 +4180,14 @@ return self.max
 end
 return e
 end
-function k:_stopIndeterminateAnimation()
+function q:_stopIndeterminateAnimation()
 if self._animationHandle then
 self._animationHandle:cancel()
 self._animationHandle=nil
 end
 self._indeterminateProgress=0
 end
-function k:_startIndeterminateAnimation()
+function q:_startIndeterminateAnimation()
 if not self.app or self._animationHandle then
 return
 end
@@ -4191,20 +4211,20 @@ self._animationHandle=nil
 end
 })
 end
-function k:setRange(e,a)
-t(1,e,"number")
-t(2,a,"number")
-if a<=e then
+function q:setRange(a,e)
+t(1,a,"number")
+t(2,e,"number")
+if e<=a then
 error("ProgressBar max must be greater than min",2)
 end
-self.min=e
-self.max=a
+self.min=a
+self.max=e
 self.value=self:_clampValue(self.value)
 end
-function k:getRange()
+function q:getRange()
 return self.min,self.max
 end
-function k:setValue(e)
+function q:setValue(e)
 if self.indeterminate then
 return
 end
@@ -4214,17 +4234,17 @@ if e~=self.value then
 self.value=e
 end
 end
-function k:getValue()
+function q:getValue()
 return self.value
 end
-function k:getPercent()
+function q:getPercent()
 local e=self.max-self.min
 if e<=0 then
 return 0
 end
 return(self.value-self.min)/e
 end
-function k:setIndeterminate(e)
+function q:setIndeterminate(e)
 e=not not e
 if self.indeterminate==e then
 return
@@ -4236,79 +4256,79 @@ else
 self:_stopIndeterminateAnimation()
 end
 end
-function k:isIndeterminate()
+function q:isIndeterminate()
 return self.indeterminate
 end
-function k:setLabel(e)
+function q:setLabel(e)
 if e~=nil then
 t(1,e,"string")
 end
 self.label=e
 end
-function k:setShowPercent(e)
+function q:setShowPercent(e)
 self.showPercent=not not e
 end
-function k:setColors(e,a,o)
+function q:setColors(o,e,a)
+if o~=nil then
+t(1,o,"number")
+self.trackColor=o
+end
 if e~=nil then
-t(1,e,"number")
-self.trackColor=e
+t(2,e,"number")
+self.fillColor=e
 end
 if a~=nil then
-t(2,a,"number")
-self.fillColor=a
-end
-if o~=nil then
-t(3,o,"number")
-self.textColor=o
+t(3,a,"number")
+self.textColor=a
 end
 end
-function k:draw(o,d)
+function q:draw(s,a)
 if not self.visible then
 return
 end
-local a,t,s,r=self:getAbsoluteRect()
-local h=self.trackColor or(self.bg or e.gray)
-local n=self.fillColor or e.lightBlue
-local c=self.textColor or(self.fg or e.white)
-i(o,a,t,s,r,h,h)
-_(o,a,t,s,r)
+local t,n,o,l=self:getAbsoluteRect()
+local r=self.trackColor or(self.bg or e.gray)
+local h=self.fillColor or e.lightBlue
+local f=self.textColor or(self.fg or e.white)
+i(s,t,n,o,l,r,r)
+z(s,t,n,o,l)
 if self.border then
-p(d,a,t,s,r,self.border,h)
+p(a,t,n,o,l,self.border,r)
 end
 local e=self.border
-local u=(e and e.left)and 1 or 0
+local c=(e and e.left)and 1 or 0
 local m=(e and e.right)and 1 or 0
-local l=(e and e.top)and 1 or 0
+local u=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local a=a+u
-local d=t+l
-local t=math.max(0,s-u-m)
-local s=math.max(0,r-l-e)
-if t<=0 or s<=0 then
+local a=t+c
+local d=n+u
+local t=math.max(0,o-c-m)
+local n=math.max(0,l-u-e)
+if t<=0 or n<=0 then
 return
 end
-i(o,a,d,t,s,h,h)
+i(s,a,d,t,n,r,r)
 local l=0
 local u=0
-local r=0
+local o=0
 if self.indeterminate then
-r=math.max(1,math.floor(t/3))
-if r>t then
-r=t
+o=math.max(1,math.floor(t/3))
+if o>t then
+o=t
 end
-local t=t-r
+local t=t-o
 local e=self._indeterminateProgress or 0
 if e<0 then e=0 end
 if e>1 then e=1 end
 u=math.floor(t*e+.5)
-i(o,a+u,d,r,s,n,n)
+i(s,a+u,d,o,n,h,h)
 else
 local e=self:getPercent()
 if e<0 then e=0 end
 if e>1 then e=1 end
 l=math.floor(t*e+.5)
 if l>0 then
-i(o,a,d,l,s,n,n)
+i(s,a,d,l,n,h,h)
 end
 end
 local e=self.label or""
@@ -4321,33 +4341,33 @@ else
 e=t
 end
 end
-if e~=""and s>0 then
+if e~=""and n>0 then
 if#e>t then
 e=e:sub(1,t)
 end
-local d=d+math.floor((s-1)/2)
+local d=d+math.floor((n-1)/2)
 local i=a+math.floor((t-#e)/2)
 if i<a then
 i=a
 end
 for t=1,#e do
-local s=e:sub(t,t)
-local a=(i-a)+(t-1)
-local e=h
+local n=e:sub(t,t)
+local e=(i-a)+(t-1)
+local a=r
 if self.indeterminate then
-if a>=u and a<u+r then
-e=n
+if e>=u and e<u+o then
+a=h
 end
 else
-if a<l then
-e=n
+if e<l then
+a=h
 end
 end
-o.text(i+t-1,d,s,c,e)
+s.text(i+t-1,d,n,f,a)
 end
 end
 end
-function k:handleEvent(e,...)
+function q:handleEvent(e,...)
 return false
 end
 function S:new(i,t)
@@ -4375,13 +4395,13 @@ function S:draw(h,r)
 if not self.visible then
 return
 end
-local n,s,a,o=self:getAbsoluteRect()
+local s,n,a,o=self:getAbsoluteRect()
 if a<=0 or o<=0 then
 return
 end
 if self.clear then
 local e=self.bg or self.app.background or e.black
-i(h,n,s,a,o,e,e)
+i(h,s,n,a,o,e,e)
 end
 if self.onDraw then
 local t=self._ctx or{}
@@ -4389,17 +4409,17 @@ t.app=self.app
 t.box=self.app.box
 t.textLayer=h
 t.pixelLayer=r
-t.x=n
-t.y=s
+t.x=s
+t.y=n
 t.width=a
 t.height=o
-local d=self.bg or self.app.background or e.black
-local l=self.fg or e.white
+local l=self.bg or self.app.background or e.black
+local d=self.fg or e.white
 t.fill=function(e)
-local e=e or d
-i(h,n,s,a,o,e,e)
+local e=e or l
+i(h,s,n,a,o,e,e)
 end
-t.write=function(i,r,e,c,u)
+t.write=function(i,r,e,u,c)
 local i=math.floor(i or 1)
 local r=math.floor(r or 1)
 if type(e)~="string"then
@@ -4428,21 +4448,21 @@ end
 if#e>a then
 e=e:sub(1,a)
 end
-h.text(n+i-1,s+r-1,e,c or l,u or d)
+h.text(s+i-1,n+r-1,e,u or d,c or l)
 end
-t.pixel=function(e,t,i)
-local e=math.floor(e or 1)
+t.pixel=function(t,e,i)
 local t=math.floor(t or 1)
-if e<1 or e>a or t<1 or t>o then
+local e=math.floor(e or 1)
+if t<1 or t>a or e<1 or e>o then
 return
 end
-r.pixel(n+e-1,s+t-1,i or l)
+r.pixel(s+t-1,n+e-1,i or d)
 end
 self._ctx=t
 self.onDraw(self,t)
 end
 if self.border then
-p(r,n,s,a,o,self.border,self.bg or self.app.background or e.black)
+p(r,s,n,a,o,self.border,self.bg or self.app.background or e.black)
 end
 end
 function l:new(i,a)
@@ -4549,32 +4569,32 @@ return e
 end
 function l:_getInnerMetrics()
 local e=self.border
-local a=(e and e.left)and 1 or 0
-local i=(e and e.right)and 1 or 0
-local t=(e and e.top)and 1 or 0
+local t=(e and e.left)and 1 or 0
+local o=(e and e.right)and 1 or 0
+local a=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local o,n=self:getAbsoluteRect()
-local i=math.max(0,self.width-a-i)
-local s=math.max(0,self.height-t-e)
-local o=o+a
+local n,i=self:getAbsoluteRect()
+local s=math.max(0,self.width-t-o)
+local o=math.max(0,self.height-a-e)
 local n=n+t
-return o,n,i,s,a,t,e
+local i=i+a
+return n,i,s,o,t,a,e
 end
-function l:_valueToPosition(o,a)
-if a<=1 then
+function l:_valueToPosition(o,t)
+if t<=1 then
 return 0
 end
-local t=self.max-self.min
+local a=self.max-self.min
 local e=0
-if t>0 then
-e=(o-self.min)/t
+if a>0 then
+e=(o-self.min)/a
 end
 if e<0 then
 e=0
 elseif e>1 then
 e=1
 end
-return math.floor(e*(a-1)+.5)
+return math.floor(e*(t-1)+.5)
 end
 function l:_positionToValue(e,t)
 if t<=1 then
@@ -4733,18 +4753,18 @@ end
 function l:setShowValue(e)
 self.showValue=not not e
 end
-function l:setColors(a,o,e)
-if a~=nil then
-t(1,a,"number")
-self.trackColor=a
-end
+function l:setColors(o,e,a)
 if o~=nil then
-t(2,o,"number")
-self.fillColor=o
+t(1,o,"number")
+self.trackColor=o
 end
 if e~=nil then
-t(3,e,"number")
-self.handleColor=e
+t(2,e,"number")
+self.fillColor=e
+end
+if a~=nil then
+t(3,a,"number")
+self.handleColor=a
 end
 end
 function l:_formatNumber(o)
@@ -4911,35 +4931,35 @@ self._focusedHandle="single"
 end
 end
 end
-function l:draw(n,f)
+function l:draw(o,f)
 if not self.visible then
 return
 end
-local l,d,u,h=self:getAbsoluteRect()
+local r,h,d,l=self:getAbsoluteRect()
 local s=self.bg or self.app.background or e.black
-i(n,l,d,u,h,s,s)
-_(n,l,d,u,h)
-local a,c,t,r=self:_getInnerMetrics()
-if t<=0 or r<=0 then
+i(o,r,h,d,l,s,s)
+z(o,r,h,d,l)
+local n,c,t,u=self:_getInnerMetrics()
+if t<=0 or u<=0 then
 if self.border then
-p(f,l,d,u,h,self.border,s)
+p(f,r,h,d,l,self.border,s)
 end
 return
 end
-local o
+local a
 local m=nil
-if self.showValue and r>=2 then
+if self.showValue and u>=2 then
 m=c
-o=c+r-1
+a=c+u-1
 else
-o=c+math.floor((r-1)/2)
+a=c+math.floor((u-1)/2)
 end
-i(n,a,o,t,1,self.trackColor,self.trackColor)
+i(o,n,a,t,1,self.trackColor,self.trackColor)
 local c
 if self:isFocused()then
 c=self._activeHandle or self._focusedHandle
 end
-local function r(i,s)
+local function u(i,s)
 if i<0 or i>=t then
 return
 end
@@ -4947,7 +4967,7 @@ local t=self.handleColor or e.white
 if c and s==c then
 t=self.fg or e.white
 end
-n.text(a+i,o," ",t,t)
+o.text(n+i,a," ",t,t)
 end
 if self.range then
 local e=self:_valueToPosition(self.lowerValue,t)
@@ -4957,33 +4977,33 @@ e,t=t,e
 end
 local s=t-e+1
 if s>0 then
-i(n,a+e,o,s,1,self.fillColor,self.fillColor)
+i(o,n+e,a,s,1,self.fillColor,self.fillColor)
 end
-r(e,"lower")
-r(t,"upper")
+u(e,"lower")
+u(t,"upper")
 else
-local t=self:_valueToPosition(self.value,t)
-local e=t+1
-if e>0 then
-i(n,a,o,e,1,self.fillColor,self.fillColor)
+local e=self:_valueToPosition(self.value,t)
+local t=e+1
+if t>0 then
+i(o,n,a,t,1,self.fillColor,self.fillColor)
 end
-r(t,"single")
+u(e,"single")
 end
 if self.showValue and m then
-local o=self:_formatDisplayValue()
-if o and o~=""then
-if#o>t then
-o=o:sub(1,t)
+local a=self:_formatDisplayValue()
+if a and a~=""then
+if#a>t then
+a=a:sub(1,t)
 end
-local t=a+math.floor((t-#o)/2)
-if t<a then
-t=a
+local t=n+math.floor((t-#a)/2)
+if t<n then
+t=n
 end
-n.text(t,m,o,self.fg or e.white,s)
+o.text(t,m,a,self.fg or e.white,s)
 end
 end
 if self.border then
-p(f,l,d,u,h,self.border,s)
+p(f,r,h,d,l,self.border,s)
 end
 end
 function l:handleEvent(t,...)
@@ -5024,8 +5044,8 @@ self:_endInteraction()
 return true
 end
 elseif t=="mouse_scroll"then
-local e,a,t=...
-if self:containsPoint(a,t)then
+local e,t,a=...
+if self:containsPoint(t,a)then
 self.app:setFocus(self)
 if e>0 then
 self:_nudgeValue(1)
@@ -5204,13 +5224,13 @@ accessor=function(t)
 if type(t)=="table"then
 local e={}
 local a=0
-for o,t in pairs(t)do
+for t,o in pairs(t)do
 a=a+1
 if a>4 then
 e[#e+1]="..."
 break
 end
-e[#e+1]=tostring(o).."="..tostring(t)
+e[#e+1]=tostring(t).."="..tostring(o)
 end
 table.sort(e,function(e,t)
 return e<t
@@ -5266,11 +5286,11 @@ self:_ensureColumnsForData()
 self:_refreshRows()
 end
 function r:getData()
-local e={}
-for t=1,#self.data do
-e[t]=self.data[t]
+local t={}
+for e=1,#self.data do
+t[e]=self.data[e]
 end
-return e
+return t
 end
 function r:_refreshRows()
 self._rows={}
@@ -5292,53 +5312,53 @@ end
 self:_clampScroll()
 self:_ensureSelectionVisible()
 end
-function r:_getColumnById(e)
-if not e then
+function r:_getColumnById(t)
+if not t then
 return nil
 end
-for t=1,#self.columns do
-if self.columns[t].id==e then
-return self.columns[t]
+for e=1,#self.columns do
+if self.columns[e].id==t then
+return self.columns[e]
 end
 end
 return nil
 end
-function r:_applySort(t,e,l)
+function r:_applySort(t,e,u)
 local t=self:_getColumnById(t)
 if not t or t.sortable==false then
 return
 end
 self.sortColumn=t.id
 self.sortDirection=e=="desc"and"desc"or"asc"
-local u=self.sortDirection=="desc"
-local s=t.comparator
-table.sort(self._rows,function(d,n)
-local h=self.data[d]
-local i=self.data[n]
+local l=self.sortDirection=="desc"
+local n=t.comparator
+table.sort(self._rows,function(i,s)
+local d=self.data[i]
+local h=self.data[s]
+local o=r._resolveColumnValue(t,d)
 local a=r._resolveColumnValue(t,h)
-local o=r._resolveColumnValue(t,i)
 local e=0
-if s then
-local a,t=pcall(s,a,o,h,i,t)
+if n then
+local a,t=pcall(n,o,a,d,h,t)
 if a and type(t)=="number"then
 e=t
 end
 end
 if e==0 then
-if type(a)=="number"and type(o)=="number"then
-if a<o then
+if type(o)=="number"and type(a)=="number"then
+if o<a then
 e=-1
-elseif a>o then
+elseif o>a then
 e=1
 else
 e=0
 end
 else
-local a=tostring(a or""):lower()
-local t=tostring(o or""):lower()
-if a<t then
+local o=tostring(o or""):lower()
+local t=tostring(a or""):lower()
+if o<t then
 e=-1
-elseif a>t then
+elseif o>t then
 e=1
 else
 e=0
@@ -5346,26 +5366,26 @@ end
 end
 end
 if e==0 then
-return d<n
+return i<s
 end
-if u then
+if l then
 return e>0
 end
 return e<0
 end)
-if not l and self.onSort then
+if not u and self.onSort then
 self.onSort(self,self.sortColumn,self.sortDirection)
 end
 self:_ensureSelectionVisible()
 end
-function r:setSort(e,a,t)
+function r:setSort(e,t,a)
 if e==nil then
 self.sortColumn=nil
 self.sortDirection="asc"
 self:_refreshRows()
 return
 end
-self:_applySort(e,a or self.sortDirection,t)
+self:_applySort(e,t or self.sortDirection,a)
 end
 function r:getSort()
 return self.sortColumn,self.sortDirection
@@ -5426,60 +5446,60 @@ end
 end
 function r:_getInnerMetrics()
 local e=self.border
-local a=(e and e.left)and 1 or 0
-local i=(e and e.right)and 1 or 0
-local t=(e and e.top)and 1 or 0
-local o=(e and e.bottom)and 1 or 0
-local n,e=self:getAbsoluteRect()
-local i=math.max(0,self.width-a-i)
-local o=math.max(0,self.height-t-o)
-local a=n+a
-local e=e+t
-return a,e,i,o
+local t=(e and e.left)and 1 or 0
+local o=(e and e.right)and 1 or 0
+local a=(e and e.top)and 1 or 0
+local e=(e and e.bottom)and 1 or 0
+local i,n=self:getAbsoluteRect()
+local o=math.max(0,self.width-t-o)
+local e=math.max(0,self.height-a-e)
+local i=i+t
+local t=n+a
+return i,t,o,e
 end
 function r:_computeLayoutMetrics()
-local i,s,e,a=self:_getInnerMetrics()
-if e<=0 or a<=0 then
+local o,h,t,a=self:_getInnerMetrics()
+if t<=0 or a<=0 then
 return{
-innerX=i,
-innerY=s,
-innerWidth=e,
+innerX=o,
+innerY=h,
+innerWidth=t,
 innerHeight=a,
 headerHeight=0,
 rowsHeight=0,
 contentWidth=0,
 scrollbarWidth=0,
 scrollbarStyle=nil,
-scrollbarX=i
+scrollbarX=o
 }
 end
-local h=a>=1 and 1 or 0
-local r=math.max(0,a-h)
-local t,n=M(self.scrollbar,#self._rows,r,e)
-if t>0 and e-t<1 then
-t=math.max(0,e-1)
-if t<=0 then
-t=0
+local s=a>=1 and 1 or 0
+local r=math.max(0,a-s)
+local e,n=M(self.scrollbar,#self._rows,r,t)
+if e>0 and t-e<1 then
+e=math.max(0,t-1)
+if e<=0 then
+e=0
 n=nil
 end
 end
-local o=e-t
-if o<1 then
-o=e
-t=0
+local i=t-e
+if i<1 then
+i=t
+e=0
 n=nil
 end
 return{
-innerX=i,
-innerY=s,
-innerWidth=e,
+innerX=o,
+innerY=h,
+innerWidth=t,
 innerHeight=a,
-headerHeight=h,
+headerHeight=s,
 rowsHeight=r,
-contentWidth=o,
-scrollbarWidth=t,
+contentWidth=i,
+scrollbarWidth=e,
 scrollbarStyle=n,
-scrollbarX=i+o
+scrollbarX=o+i
 }
 end
 function r:_getRowsVisible()
@@ -5584,9 +5604,9 @@ return nil
 end
 function r._resolveColumnValue(e,t)
 if e.accessor then
-local t,e=pcall(e.accessor,t,e)
-if t then
-return e
+local e,t=pcall(e.accessor,t,e)
+if e then
+return t
 end
 end
 if type(t)=="table"then
@@ -5607,35 +5627,35 @@ e=""
 end
 return tostring(e)
 end
-function r:draw(a,g)
+function r:draw(a,b)
 if not self.visible then
 return
 end
-local c,u,m,f=self:getAbsoluteRect()
+local u,f,c,m=self:getAbsoluteRect()
 local s=self.bg or e.black
-local b=self.fg or e.white
-i(a,c,u,m,f,s,s)
-_(a,c,u,m,f)
+local k=self.fg or e.white
+i(a,u,f,c,m,s,s)
+z(a,u,f,c,m)
 local t=self:_computeLayoutMetrics()
 local n=t.innerWidth
-local k=t.innerHeight
+local g=t.innerHeight
 local o=t.contentWidth
-if n<=0 or k<=0 or o<=0 then
+if n<=0 or g<=0 or o<=0 then
 if self.border then
-p(g,c,u,m,f,self.border,s)
+p(b,u,f,c,m,self.border,s)
 end
 return
 end
 local n=t.innerX
 local l=t.innerY
-local y=t.headerHeight
+local v=t.headerHeight
 local j=t.rowsHeight
-local v=t.scrollbarWidth
+local w=t.scrollbarWidth
 local d=t.scrollbarStyle
-local w=self.headerBg or s
-local q=self.headerFg or b
-if y>0 then
-a.text(n,l,string.rep(" ",o),w,w)
+local y=self.headerBg or s
+local q=self.headerFg or k
+if v>0 then
+a.text(n,l,string.rep(" ",o),y,y)
 local h=n
 local s=o
 for e=1,#self.columns do
@@ -5662,7 +5682,7 @@ e=e..string.rep(" ",t-#e)
 else
 e=e:sub(1,t)
 end
-a.text(h,l,e,q,w)
+a.text(h,l,e,q,y)
 h=h+t
 s=o-(h-n)
 if s<=0 then
@@ -5670,24 +5690,24 @@ break
 end
 end
 end
-local y=l+y
+local y=l+v
 local h=j
-local w=self.rowBg or s
-local b=self.rowFg or b
+local v=self.rowBg or s
+local k=self.rowFg or k
 if h<=0 then
-if v>0 then
+if w>0 then
 local e=(d and d.background)or s
-i(a,t.scrollbarX,l,v,k,e,e)
+i(a,t.scrollbarX,l,w,g,e,e)
 end
 if self.border then
-p(g,c,u,m,f,self.border,s)
+p(b,u,f,c,m,self.border,s)
 end
 return
 end
 if#self._rows==0 then
 for e=0,h-1 do
 local e=y+e
-a.text(n,e,string.rep(" ",o),b,w)
+a.text(n,e,string.rep(" ",o),k,v)
 end
 if self.placeholder and self.placeholder~=""then
 local t=self.placeholder
@@ -5700,33 +5720,33 @@ local o=n+math.floor((o-#t)/2)
 if o<n then
 o=n
 end
-a.text(o,i,t,e.lightGray,w)
+a.text(o,i,t,e.lightGray,v)
 end
 else
 for i=0,h-1 do
 local t=self.scrollOffset+i
-local m=y+i
+local u=y+i
 if t>#self._rows then
-a.text(n,m,string.rep(" ",o),b,w)
+a.text(n,u,string.rep(" ",o),k,v)
 else
 local i=self._rows[t]
 local l=self.data[i]
-local u=self.allowRowSelection and t==self.selectedIndex
-local s=w
-local c=b
-if u then
-s=self.highlightBg or e.lightGray
+local m=self.allowRowSelection and t==self.selectedIndex
+local d=v
+local c=k
+if m then
+d=self.highlightBg or e.lightGray
 c=self.highlightFg or e.black
 elseif self.zebra and(t%2==0)then
-s=self.zebraBg or s
+d=self.zebraBg or d
 end
 local h=n
-local d=o
+local s=o
 for e=1,#self.columns do
 local t=self.columns[e]
-local i=math.max(1,math.min(t.width,d))
+local i=math.max(1,math.min(t.width,s))
 if e==#self.columns then
-i=math.max(1,d)
+i=math.max(1,s)
 end
 if i<=0 then
 break
@@ -5741,10 +5761,10 @@ if#e<i then
 e=string.rep(" ",i-#e)..e
 end
 elseif t.align=="center"then
-local t=i-#e
-local a=math.floor(t/2)
-local t=t-a
-e=string.rep(" ",a)..e..string.rep(" ",t)
+local a=i-#e
+local t=math.floor(a/2)
+local a=a-t
+e=string.rep(" ",t)..e..string.rep(" ",a)
 else
 if#e<i then
 e=e..string.rep(" ",i-#e)
@@ -5755,32 +5775,32 @@ if t.color then
 if type(t.color)=="number"then
 r=t.color
 elseif type(t.color)=="function"then
-local t,e=pcall(t.color,e,l,t,u)
+local t,e=pcall(t.color,e,l,t,m)
 if t and type(e)=="number"then
 r=e
 end
 end
 end
-a.text(h,m,e,r,s)
+a.text(h,u,e,r,d)
 h=h+i
-d=o-(h-n)
-if d<=0 then
+s=o-(h-n)
+if s<=0 then
 break
 end
 end
 end
 end
 end
-if v>0 then
+if w>0 then
 local e=(d and d.background)or s
-i(a,t.scrollbarX,l,v,k,e,e)
+i(a,t.scrollbarX,l,w,g,e,e)
 if d and h>0 then
 local e=math.max(0,self.scrollOffset-1)
 L(a,t.scrollbarX,y,h,#self._rows,h,e,d)
 end
 end
 if self.border then
-p(g,c,u,m,f,self.border,s)
+p(b,u,f,c,m,self.border,s)
 end
 end
 function r:_handleTypeSearch(t)
@@ -5808,9 +5828,9 @@ end
 if#self._rows==0 then
 return
 end
-local a=self.selectedIndex>=1 and self.selectedIndex or 0
-for t=1,#self._rows do
-local t=((a+t-1)%#self._rows)+1
+local t=self.selectedIndex>=1 and self.selectedIndex or 0
+for a=1,#self._rows do
+local t=((t+a-1)%#self._rows)+1
 local o=self.data[self._rows[t]]
 local a=self.columns[1]
 local a=r._resolveColumnValue(a,o)
@@ -5831,7 +5851,7 @@ function r:handleEvent(o,...)
 if not self.visible then
 return false
 end
-local function n(a,t)
+local function i(a,t)
 if not self:containsPoint(a,t)then
 return false
 end
@@ -5873,14 +5893,14 @@ return false
 end
 if o=="mouse_click"then
 local a,e,t=...
-return n(e,t)
+return i(e,t)
 elseif o=="monitor_touch"then
-local a,e,t=...
-return n(e,t)
+local a,t,e=...
+return i(t,e)
 elseif o=="mouse_scroll"then
-local e,a,t=...
-if self:containsPoint(a,t)then
-self.scrollOffset=self.scrollOffset+e
+local a,t,e=...
+if self:containsPoint(t,e)then
+self.scrollOffset=self.scrollOffset+a
 self:_clampScroll()
 return true
 end
@@ -6049,15 +6069,15 @@ end
 function u:setNodes(e)
 e=e or{}
 t(1,e,"table")
-local t=self.selectedNode
-local a=self._selectedIndex
+local a=self.selectedNode
+local t=self._selectedIndex
 self.nodes=self:_copyNodes(e,nil)
 self.scrollOffset=1
 self.selectedNode=nil
 self._selectedIndex=0
 self:_rebuildFlatNodes()
 local e=self.selectedNode
-if t~=e or self._selectedIndex~=a then
+if a~=e or self._selectedIndex~=t then
 self:_notifySelect()
 end
 end
@@ -6113,23 +6133,23 @@ function u:_findVisibleIndex(e)
 if e==nil then
 return nil
 end
-local t=self._flatNodes
-for a=1,#t do
-if t[a].node==e then
-return a
+local a=self._flatNodes
+for t=1,#a do
+if a[t].node==e then
+return t
 end
 end
 return nil
 end
 function u:_getInnerMetrics()
 local e=self.border
-local o=(e and e.left)and 1 or 0
-local a=(e and e.right)and 1 or 0
+local a=(e and e.left)and 1 or 0
+local o=(e and e.right)and 1 or 0
 local t=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local n=math.max(0,self.width-o-a)
-local i=math.max(0,self.height-t-e)
-return o,a,t,e,n,i
+local i=math.max(0,self.width-a-o)
+local n=math.max(0,self.height-t-e)
+return a,o,t,e,i,n
 end
 function u:_getInnerHeight()
 local t,t,t,t,t,e=self:_getInnerMetrics()
@@ -6139,45 +6159,45 @@ end
 return e
 end
 function u:_computeLayoutMetrics()
-local i,n=self:getAbsoluteRect()
-local a,s,e,s,t,o=self:_getInnerMetrics()
-local i=i+a
-local s=n+e
-if t<=0 or o<=0 then
+local o,i=self:getAbsoluteRect()
+local t,s,n,s,e,a=self:_getInnerMetrics()
+local o=o+t
+local s=i+n
+if e<=0 or a<=0 then
 return{
-innerX=i,
+innerX=o,
 innerY=s,
-innerWidth=t,
-innerHeight=o,
+innerWidth=e,
+innerHeight=a,
 contentWidth=0,
 scrollbarWidth=0,
 scrollbarStyle=nil,
-scrollbarX=i
+scrollbarX=o
 }
 end
-local e,n=M(self.scrollbar,#self._flatNodes,o,t)
-if e>0 and t-e<1 then
-e=math.max(0,t-1)
-if e<=0 then
-e=0
+local t,n=M(self.scrollbar,#self._flatNodes,a,e)
+if t>0 and e-t<1 then
+t=math.max(0,e-1)
+if t<=0 then
+t=0
 n=nil
 end
 end
-local a=t-e
-if a<1 then
-a=t
-e=0
+local i=e-t
+if i<1 then
+i=e
+t=0
 n=nil
 end
 return{
-innerX=i,
+innerX=o,
 innerY=s,
-innerWidth=t,
-innerHeight=o,
-contentWidth=a,
-scrollbarWidth=e,
+innerWidth=e,
+innerHeight=a,
+contentWidth=i,
+scrollbarWidth=t,
 scrollbarStyle=n,
-scrollbarX=i+a
+scrollbarX=o+i
 }
 end
 function u:_ensureSelectionVisible()
@@ -6339,18 +6359,18 @@ function u:_searchForPrefix(e)
 if not e or e==""then
 return
 end
-local a=self._flatNodes
-local t=#a
+local o=self._flatNodes
+local t=#o
 if t==0 then
 return
 end
 local i=self._selectedIndex>=1 and self._selectedIndex or 0
-for o=1,t do
-local t=((i+o-1)%t)+1
-local a=a[t].node
-local a=a and a.label or""
-if a:lower():sub(1,#e)==e then
-self:_setSelectedIndex(t,false)
+for a=1,t do
+local a=((i+a-1)%t)+1
+local t=o[a].node
+local t=t and t.label or""
+if t:lower():sub(1,#e)==e then
+self:_setSelectedIndex(a,false)
 return
 end
 end
@@ -6377,13 +6397,13 @@ function u:draw(s,h)
 if not self.visible then
 return
 end
-local n,o,a,t=self:getAbsoluteRect()
+local a,t,n,o=self:getAbsoluteRect()
 local r=self.bg or e.black
 local m=self.fg or e.white
-i(s,n,o,a,t,r,r)
-_(s,n,o,a,t)
+i(s,a,t,n,o,r,r)
+z(s,a,t,n,o)
 if self.border then
-p(h,n,o,a,t,self.border,r)
+p(h,a,t,n,o,self.border,r)
 end
 local o=self:_computeLayoutMetrics()
 local t=o.innerWidth
@@ -6396,9 +6416,9 @@ return
 end
 local u=o.innerX
 local l=o.innerY
-local f=self._flatNodes
-local w=#f
-if w==0 then
+local w=self._flatNodes
+local f=#w
+if f==0 then
 for e=0,h-1 do
 s.text(u,l+e,string.rep(" ",n),m,r)
 end
@@ -6426,10 +6446,10 @@ end
 for t=0,h-1 do
 local d=l+t
 local h=self.scrollOffset+t
-if h>w then
+if h>f then
 s.text(u,d,string.rep(" ",n),m,r)
 else
-local t=f[h]
+local t=w[h]
 local o=t.node
 local t=t.depth or 0
 local t=t*self.indentWidth
@@ -6471,13 +6491,13 @@ a=a..string.rep(" ",t)
 elseif#a>n then
 a=a:sub(1,n)
 end
-local o=r
-local t=m
+local t=r
+local o=m
 if h==self._selectedIndex then
-o=self.highlightBg or e.lightGray
-t=self.highlightFg or e.black
+t=self.highlightBg or e.lightGray
+o=self.highlightFg or e.black
 end
-s.text(u,d,a,t,o)
+s.text(u,d,a,o,t)
 end
 end
 if c>0 then
@@ -6493,49 +6513,6 @@ if not self.visible then
 return false
 end
 if t=="mouse_click"then
-local e,a,t=...
-local i,n,o=self:_rowFromPoint(a,t)
-if i then
-self.app:setFocus(self)
-local e=self:_computeLayoutMetrics()
-if e.scrollbarStyle and e.scrollbarWidth>0 then
-local o=e.scrollbarX
-if a>=o and a<o+e.scrollbarWidth and t>=e.innerY and t<e.innerY+e.innerHeight then
-local a=t-e.innerY
-local t=math.max(0,self.scrollOffset-1)
-local e=D(a,e.innerHeight,#self._flatNodes,e.innerHeight,t)
-if e~=t then
-self.scrollOffset=e+1
-self:_ensureSelectionVisible()
-end
-return true
-end
-end
-local e=self._flatNodes[i]
-if e then
-local t=e.depth*self.indentWidth
-if t<0 then
-t=0
-end
-if t>o-1 then
-t=o-1
-end
-local i=n+t
-if e.node and e.node.children and#e.node.children>0 and t<o then
-local t=#tostring(self.toggleSymbols.collapsed or"+")
-if t<1 then
-t=1
-end
-if a>=i and a<i+t then
-self:_toggleNode(e.node,nil)
-return true
-end
-end
-end
-self:_setSelectedIndex(i,false)
-return true
-end
-elseif t=="monitor_touch"then
 local e,a,t=...
 local i,n,o=self:_rowFromPoint(a,t)
 if i then
@@ -6578,9 +6555,52 @@ end
 self:_setSelectedIndex(i,false)
 return true
 end
-elseif t=="mouse_scroll"then
+elseif t=="monitor_touch"then
 local e,a,t=...
-if self:containsPoint(a,t)then
+local o,n,i=self:_rowFromPoint(a,t)
+if o then
+self.app:setFocus(self)
+local e=self:_computeLayoutMetrics()
+if e.scrollbarStyle and e.scrollbarWidth>0 then
+local o=e.scrollbarX
+if a>=o and a<o+e.scrollbarWidth and t>=e.innerY and t<e.innerY+e.innerHeight then
+local a=t-e.innerY
+local t=math.max(0,self.scrollOffset-1)
+local e=D(a,e.innerHeight,#self._flatNodes,e.innerHeight,t)
+if e~=t then
+self.scrollOffset=e+1
+self:_ensureSelectionVisible()
+end
+return true
+end
+end
+local t=self._flatNodes[o]
+if t then
+local e=t.depth*self.indentWidth
+if e<0 then
+e=0
+end
+if e>i-1 then
+e=i-1
+end
+local o=n+e
+if t.node and t.node.children and#t.node.children>0 and e<i then
+local e=#tostring(self.toggleSymbols.collapsed or"+")
+if e<1 then
+e=1
+end
+if a>=o and a<o+e then
+self:_toggleNode(t.node,nil)
+return true
+end
+end
+end
+self:_setSelectedIndex(o,false)
+return true
+end
+elseif t=="mouse_scroll"then
+local e,t,a=...
+if self:containsPoint(t,a)then
 self.app:setFocus(self)
 if e>0 then
 self:_scrollBy(1)
@@ -6660,38 +6680,38 @@ end
 end
 return false
 end
-local function A(e,t,a)
-if e<t then
-return t
-end
-if e>a then
+local function A(e,a,t)
+if e<a then
 return a
+end
+if e>t then
+return t
 end
 return e
 end
-local function U(r,a,t,o,i,n)
+local function U(r,a,t,h,s,n)
 if not r then
 return
 end
 n=n or e.white
-local h=math.abs(o-a)
-local d=a<o and 1 or-1
-local s=-math.abs(i-t)
-local l=t<i and 1 or-1
-local e=h+s
+local i=math.abs(h-a)
+local l=a<h and 1 or-1
+local o=-math.abs(s-t)
+local d=t<s and 1 or-1
+local e=i+o
 while true do
 r.pixel(a,t,n)
-if a==o and t==i then
+if a==h and t==s then
 break
 end
-local o=2*e
-if o>=s then
-e=e+s
-a=a+d
+local n=2*e
+if n>=o then
+e=e+o
+a=a+l
 end
-if o<=h then
-e=e+h
-t=t+l
+if n<=i then
+e=e+i
+t=t+d
 end
 end
 end
@@ -6786,15 +6806,15 @@ end
 end
 function w:setData(e)
 t(1,e,"table")
-local a={}
-for t=1,#e do
-local e=e[t]
+local t={}
+for a=1,#e do
+local e=e[a]
 if type(e)~="number"then
 e=tonumber(e)or 0
 end
-a[t]=e
+t[a]=e
 end
-self.data=a
+self.data=t
 self:_clampSelection(false)
 end
 function w:getData()
@@ -6850,15 +6870,15 @@ t(1,e,"string")
 end
 self.placeholder=e or""
 end
-function w:setRange(a,e)
-if a~=nil then
-t(1,a,"number")
-end
+function w:setRange(e,a)
 if e~=nil then
-t(2,e,"number")
+t(1,e,"number")
 end
-self.minValue=a
-self.maxValue=e
+if a~=nil then
+t(2,a,"number")
+end
+self.minValue=e
+self.maxValue=a
 end
 function w:setRangePadding(e)
 t(1,e,"number")
@@ -6930,10 +6950,10 @@ if not e or not e.bars then
 return nil
 end
 local a=e.bars
-for o=1,#a do
-local e=a[o]
-if t>=e.left and t<=e.right then
-return o
+for e=1,#a do
+local a=a[e]
+if t>=a.left and t<=a.right then
+return e
 end
 end
 if t<e.innerX or t>=e.innerX+e.innerWidth then
@@ -6970,94 +6990,94 @@ function w:draw(r,v)
 if not self.visible then
 return
 end
-local n,h,d,o=self:getAbsoluteRect()
+local a,n,h,d=self:getAbsoluteRect()
 local s=self.bg or e.black
 local f=self.fg or e.white
-i(r,n,h,d,o,s,s)
-_(r,n,h,d,o)
+i(r,a,n,h,d,s,s)
+z(r,a,n,h,d)
 if self.border then
-p(v,n,h,d,o,self.border,s)
+p(v,a,n,h,d,self.border,s)
 end
 local t=self.border
-local a=(t and t.thickness)or 0
-local u=(t and t.left)and a or 0
-local c=(t and t.right)and a or 0
-local l=(t and t.top)and a or 0
-local t=(t and t.bottom)and a or 0
-local n=n+u
-local h=h+l
-local a=math.max(0,d-u-c)
-local t=math.max(0,o-l-t)
+local o=(t and t.thickness)or 0
+local u=(t and t.left)and o or 0
+local c=(t and t.right)and o or 0
+local l=(t and t.top)and o or 0
+local t=(t and t.bottom)and o or 0
+local o=a+u
+local y=n+l
+local a=math.max(0,h-u-c)
+local t=math.max(0,d-l-t)
 self._lastLayout=nil
 if a<=0 or t<=0 then
 return
 end
 local d=#self.data
 if d==0 then
-local o=self.placeholder or""
-if o~=""then
-local o=o
-if#o>a then
-o=o:sub(1,a)
+local i=self.placeholder or""
+if i~=""then
+local i=i
+if#i>a then
+i=i:sub(1,a)
 end
-local a=n+math.floor((a-#o)/2)
-if a<n then
-a=n
+local a=o+math.floor((a-#i)/2)
+if a<o then
+a=o
 end
-local t=h+math.floor((t-1)/2)
-r.text(a,t,o,e.lightGray,s)
+local t=y+math.floor((t-1)/2)
+r.text(a,t,i,e.lightGray,s)
 end
 return
 end
-local o=(self.showLabels and t>=2)and 1 or 0
-local u=(self.showAxis and(t-o)>=2)and 1 or 0
-local l=t-u-o
+local n=(self.showLabels and t>=2)and 1 or 0
+local h=(self.showAxis and(t-n)>=2)and 1 or 0
+local l=t-h-n
 if l<1 then
 l=t
-u=0
-o=0
+h=0
+n=0
 end
-local m=h
+local m=y
 local c=m+l-1
-local w=u>0 and(c+1)or nil
+local w=h>0 and(c+1)or nil
 local u
-if o>0 then
+if n>0 then
 if w then
 u=w+1
 else
 u=c+1
 end
-if u>h+t-1 then
-u=h+t-1
+if u>y+t-1 then
+u=y+t-1
 end
 end
 local t=math.huge
-local o=-math.huge
+local n=-math.huge
 for e=1,d do
 local e=self.data[e]or 0
 if e<t then
 t=e
 end
-if e>o then
-o=e
+if e>n then
+n=e
 end
 end
 if t==math.huge then
 t=0
 end
-if o==-math.huge then
-o=0
+if n==-math.huge then
+n=0
 end
 local t=type(self.minValue)=="number"and self.minValue or t
-local h=type(self.maxValue)=="number"and self.maxValue or o
+local h=type(self.maxValue)=="number"and self.maxValue or n
 if h==t then
 h=h+1
 t=t-1
 end
-local o=h-t
-if o<=0 then
-o=1
-h=t+o
+local n=h-t
+if n<=0 then
+n=1
+h=t+n
 end
 local y=self.rangePadding or 0
 if y>0 then
@@ -7068,27 +7088,27 @@ e=y
 end
 t=t-e
 h=h+e
-o=h-t
-if o<=0 then
-o=1
-h=t+o
+n=h-t
+if n<=0 then
+n=1
+h=t+n
 end
 end
 local h={}
-for o=1,d do
-local t=n+math.floor((o-1)*a/d)
-local e=n+math.floor(o*a/d)-1
+for i=1,d do
+local t=o+math.floor((i-1)*a/d)
+local e=o+math.floor(i*a/d)-1
 if e<t then
 e=t
 end
-if e>n+a-1 then
-e=n+a-1
+if e>o+a-1 then
+e=o+a-1
 end
 local a=e-t+1
 if a<1 then
 a=1
 end
-h[o]={
+h[i]={
 left=t,
 right=e,
 width=a,
@@ -7097,14 +7117,14 @@ center=t+math.floor((a-1)/2)
 end
 if self.chartType=="bar"then
 for a=1,d do
-local n=self.data[a]or 0
+local o=self.data[a]or 0
 local e=0
-if o>0 then
-e=(n-t)/o
+if n>0 then
+e=(o-t)/n
 end
 e=A(e,0,1)
 local e=math.floor(e*l+.5)
-if l>0 and e<=0 and n>t then
+if l>0 and e<=0 and o>t then
 e=1
 end
 if e>l then
@@ -7126,11 +7146,11 @@ i(r,h[a].left,o,h[a].width,e,t,t)
 end
 else
 local a={}
-for i=1,d do
-local n=self.data[i]or 0
+for o=1,d do
+local i=self.data[o]or 0
 local e=0
-if o>0 then
-e=(n-t)/o
+if n>0 then
+e=(i-t)/n
 end
 e=A(e,0,1)
 local t=math.max(l-1,0)
@@ -7141,31 +7161,31 @@ end
 if e>c then
 e=c
 end
-a[i]={x=h[i].center,y=e}
+a[o]={x=h[o].center,y=e}
 end
-for e=2,#a do
-local t=a[e-1]
-local e=a[e]
-U(v,t.x,t.y,e.x,e.y,self.lineColor or f)
+for t=2,#a do
+local e=a[t-1]
+local t=a[t]
+U(v,e.x,e.y,t.x,t.y,self.lineColor or f)
 end
-for t=1,#a do
-local a=a[t]
-local o=self.lineColor or f
-local i="o"
-if self.selectedIndex==t then
-o=self.highlightColor or e.orange
-i="O"
+for i=1,#a do
+local a=a[i]
+local t=self.lineColor or f
+local o="o"
+if self.selectedIndex==i then
+t=self.highlightColor or e.orange
+o="O"
 end
-r.text(a.x,a.y,i,o,s)
+r.text(a.x,a.y,o,t,s)
 end
 end
 if w then
-i(r,n,w,a,1,s,s)
+i(r,o,w,a,1,s,s)
 local e=string.rep("-",a)
-r.text(n,w,e,self.axisColor or f,s)
+r.text(o,w,e,self.axisColor or f,s)
 end
 if u then
-i(r,n,u,a,1,s,s)
+i(r,o,u,a,1,s,s)
 local t=self.labels or{}
 for i=1,d do
 local t=t[i]
@@ -7189,7 +7209,7 @@ end
 end
 end
 self._lastLayout={
-innerX=n,
+innerX=o,
 innerWidth=a,
 dataCount=d,
 bars=h
@@ -7288,13 +7308,13 @@ return t
 end
 function f:_getInnerMetrics()
 local e=self.border
-local o=(e and e.left)and 1 or 0
-local a=(e and e.right)and 1 or 0
+local a=(e and e.left)and 1 or 0
+local o=(e and e.right)and 1 or 0
 local t=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local n=math.max(0,self.width-o-a)
-local i=math.max(0,self.height-t-e)
-return o,a,t,e,n,i
+local i=math.max(0,self.width-a-o)
+local n=math.max(0,self.height-t-e)
+return a,o,t,e,i,n
 end
 function f:_getInnerHeight()
 local t,t,t,t,t,e=self:_getInnerMetrics()
@@ -7304,10 +7324,10 @@ end
 return e
 end
 function f:_computeLayoutMetrics()
-local t,a=self:getAbsoluteRect()
-local o,s,n,s,e,i=self:_getInnerMetrics()
-local o=t+o
-local s=a+n
+local t,n=self:getAbsoluteRect()
+local a,o,s,o,e,i=self:_getInnerMetrics()
+local o=t+a
+local s=n+s
 if e<=0 or i<=0 then
 return{
 innerX=o,
@@ -7486,8 +7506,8 @@ self._typeSearch.buffer=""
 self._typeSearch.lastTime=0
 end
 end
-function f:_itemIndexFromPoint(o,t)
-if not self:containsPoint(o,t)then
+function f:_itemIndexFromPoint(a,t)
+if not self:containsPoint(a,t)then
 return nil
 end
 local e=self:_computeLayoutMetrics()
@@ -7495,14 +7515,14 @@ if e.innerWidth<=0 or e.innerHeight<=0 or e.contentWidth<=0 then
 return nil
 end
 local i=e.innerX
-local a=e.innerY
-if o<i or o>=i+e.contentWidth then
+local o=e.innerY
+if a<i or a>=i+e.contentWidth then
 return nil
 end
-if t<a or t>=a+e.innerHeight then
+if t<o or t>=o+e.innerHeight then
 return nil
 end
-local e=t-a
+local e=t-o
 local e=self.scrollOffset+e
 if e<1 or e>#self.items then
 return nil
@@ -7572,13 +7592,13 @@ function f:draw(a,h)
 if not self.visible then
 return
 end
-local t,s,o,n=self:getAbsoluteRect()
+local s,n,o,t=self:getAbsoluteRect()
 local d=self.bg or e.black
 local u=self.fg or e.white
-i(a,t,s,o,n,d,d)
-_(a,t,s,o,n)
+i(a,s,n,o,t,d,d)
+z(a,s,n,o,t)
 if self.border then
-p(h,t,s,o,n,self.border,d)
+p(h,s,n,o,t,self.border,d)
 end
 local t=self:_computeLayoutMetrics()
 local s=t.innerWidth
@@ -7593,8 +7613,8 @@ local l=t.scrollbarWidth
 local s=t.scrollbarStyle
 local c=#self.items
 local d=d
-local f=self.highlightBg or e.lightGray
-local m=self.highlightFg or e.black
+local m=self.highlightBg or e.lightGray
+local f=self.highlightFg or e.black
 if c==0 then
 for e=0,n-1 do
 a.text(r,h+e,string.rep(" ",o),u,d)
@@ -7621,10 +7641,10 @@ end
 return
 end
 for e=0,n-1 do
-local n=h+e
+local i=h+e
 local t=self.scrollOffset+e
 if t>c then
-a.text(r,n,string.rep(" ",o),u,d)
+a.text(r,i,string.rep(" ",o),u,d)
 else
 local e=self.items[t]or""
 if#e>o then
@@ -7634,13 +7654,13 @@ local e=e
 if#e<o then
 e=e..string.rep(" ",o-#e)
 end
-local i=d
-local o=u
+local o=d
+local n=u
 if t==self.selectedIndex then
-i=f
 o=m
+n=f
 end
-a.text(r,n,e,o,i)
+a.text(r,i,e,n,o)
 end
 end
 if l>0 then
@@ -7718,8 +7738,8 @@ end
 return true
 end
 elseif o=="mouse_scroll"then
-local e,t,a=...
-if self:containsPoint(t,a)then
+local e,a,t=...
+if self:containsPoint(a,t)then
 self.app:setFocus(self)
 if e>0 then
 self:_scrollBy(1)
@@ -7833,12 +7853,12 @@ if t~=nil then
 e[#e+1]=tostring(t)
 end
 end
-local t=self:getSelectedItem()
-local a=self.selectedIndex
+local a=self:getSelectedItem()
+local t=self.selectedIndex
 self.items=e
 if#e==0 then
 self.selectedIndex=0
-if a~=0 or t~=nil then
+if t~=0 or a~=nil then
 self:_notifyChange()
 end
 self:_setOpen(false)
@@ -7846,7 +7866,7 @@ return
 end
 self:_normalizeSelection()
 local e=self:getSelectedItem()
-if a~=self.selectedIndex or t~=e then
+if t~=self.selectedIndex or a~=e then
 self:_notifyChange()
 end
 if self._open then
@@ -7927,13 +7947,13 @@ if not e then
 self:_setOpen(false)
 end
 end
-function j:_isPointInDropdown(o,a)
+function j:_isPointInDropdown(o,t)
 if not self._open or#self.items==0 then
 return false
 end
-local t,e,n,i=self:getAbsoluteRect()
-local e=e+i
-return o>=t and o<t+n and a>=e and a<e+#self.items
+local a,e,i,n=self:getAbsoluteRect()
+local e=e+n
+return o>=a and o<a+i and t>=e and t<e+#self.items
 end
 function j:_indexFromPoint(t,e)
 if not self:_isPointInDropdown(t,e)then
@@ -7946,12 +7966,12 @@ return nil
 end
 return e
 end
-function j:_handlePress(e,t)
-local i,i,a,o=self:getAbsoluteRect()
-if a<=0 or o<=0 then
+function j:_handlePress(t,e)
+local i,i,o,a=self:getAbsoluteRect()
+if o<=0 or a<=0 then
 return false
 end
-if self:containsPoint(e,t)then
+if self:containsPoint(t,e)then
 self.app:setFocus(self)
 if self._open then
 self:_setOpen(false)
@@ -7960,8 +7980,8 @@ self:_setOpen(true)
 end
 return true
 end
-if self:_isPointInDropdown(e,t)then
-local e=self:_indexFromPoint(e,t)
+if self:_isPointInDropdown(t,e)then
+local e=self:_indexFromPoint(t,e)
 if e then
 self:setSelectedIndex(e)
 end
@@ -7974,34 +7994,34 @@ self:_setOpen(false)
 end
 return false
 end
-function j:draw(s,d)
+function j:draw(s,r)
 if not self.visible then
 return
 end
-local h,t,o,n=self:getAbsoluteRect()
-local a=self.bg or e.black
-local r=self.fg or e.white
-i(s,h,t,o,n,a,a)
-_(s,h,t,o,n)
+local h,a,n,o=self:getAbsoluteRect()
+local t=self.bg or e.black
+local d=self.fg or e.white
+i(s,h,a,n,o,t,t)
+z(s,h,a,n,o)
 if self.border then
-p(d,h,t,o,n,self.border,a)
+p(r,h,a,n,o,self.border,t)
 end
 local e=self.border
 local i=(e and e.left)and 1 or 0
-local u=(e and e.right)and 1 or 0
-local d=(e and e.top)and 1 or 0
+local l=(e and e.right)and 1 or 0
+local r=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local l=h+i
-local h=math.max(0,o-i-u)
-local u=t+d
-local e=math.max(0,n-d-e)
-local n=h>0 and 1 or 0
-local i=math.max(0,h-n)
+local h=h+i
+local n=math.max(0,n-i-l)
+local l=a+r
+local e=math.max(0,o-r-e)
+local r=n>0 and 1 or 0
+local i=math.max(0,n-r)
 local o
 if e>0 then
-o=u+math.floor((e-1)/2)
+o=l+math.floor((e-1)/2)
 else
-o=t
+o=a
 end
 local e=self:getSelectedItem()
 if not e or e==""then
@@ -8011,89 +8031,89 @@ if i>0 then
 if#e>i then
 e=e:sub(1,i)
 end
-local t=math.max(0,i-#e)
-local e=e..string.rep(" ",t)
-s.text(l,o,e,r,a)
+local a=math.max(0,i-#e)
+local e=e..string.rep(" ",a)
+s.text(h,o,e,d,t)
 end
-if n>0 then
-local t=self._open and string.char(30)or string.char(31)
-local e=l+h-1
-s.text(e,o,t,r,a)
+if r>0 then
+local e=self._open and string.char(30)or string.char(31)
+local a=h+n-1
+s.text(a,o,e,d,t)
 end
 end
 function j:_drawDropdown(r,u)
 if not self._open or#self.items==0 or self.visible==false then
 return
 end
-local a,e,s,t=self:getAbsoluteRect()
-local n=e+t
+local a,n,t,e=self:getAbsoluteRect()
+local n=n+e
 local l=#self.items
 local e=self.border
-local t=(e and e.left)and 1 or 0
+local s=(e and e.left)and 1 or 0
 local h=(e and e.right)and 1 or 0
-local c=a+t
-local t=math.max(0,s-t-h)
+local c=a+s
+local s=math.max(0,t-s-h)
 local d=self._hoverIndex or(self.selectedIndex>0 and self.selectedIndex or nil)
 local e=(e and e.bottom)and 1 or 0
 local h=l+e
-i(r,a,n,s,h,self.dropdownBg,self.dropdownBg)
-_(r,a,n,s,h)
+i(r,a,n,t,h,self.dropdownBg,self.dropdownBg)
+z(r,a,n,t,h)
 for e=1,l do
 local a=n+e-1
-local o=self.items[e]or""
+local t=self.items[e]or""
 local e=d~=nil and d==e
-local n=e and(self.highlightBg or self.dropdownBg)or self.dropdownBg
+local o=e and(self.highlightBg or self.dropdownBg)or self.dropdownBg
 local i=e and(self.highlightFg or self.dropdownFg)or self.dropdownFg
-if t>0 then
-local e=o
-if#e>t then
-e=e:sub(1,t)
+if s>0 then
+local e=t
+if#e>s then
+e=e:sub(1,s)
 end
-local t=math.max(0,t-#e)
+local t=math.max(0,s-#e)
 local e=e..string.rep(" ",t)
-r.text(c,a,e,i,n)
+r.text(c,a,e,i,o)
 end
 end
 if self.border then
 local e=o(self.border)
 if e then
 e.top=false
-p(u,a,n,s,h,e,self.dropdownBg)
+p(u,a,n,t,h,e,self.dropdownBg)
 end
 end
 end
-function j:handleEvent(t,...)
+function j:handleEvent(e,...)
 if not self.visible then
 return false
 end
-if t=="mouse_click"then
-local a,e,t=...
-return self:_handlePress(e,t)
-elseif t=="monitor_touch"then
+if e=="mouse_click"then
 local a,t,e=...
 return self:_handlePress(t,e)
-elseif t=="mouse_scroll"then
-local a,t,e=...
-if self:containsPoint(t,e)or self:_isPointInDropdown(t,e)then
+elseif e=="monitor_touch"then
+local a,e,t=...
+return self:_handlePress(e,t)
+elseif e=="mouse_scroll"then
+local e,t,a=...
+if self:containsPoint(t,a)or self:_isPointInDropdown(t,a)then
 self.app:setFocus(self)
-if a>0 then
+if e>0 then
 self:setSelectedIndex(self.selectedIndex+1)
-elseif a<0 then
+elseif e<0 then
 self:setSelectedIndex(self.selectedIndex-1)
 end
 return true
 end
-elseif t=="mouse_move"then
+elseif e=="mouse_move"then
 local t,e=...
 if self._open then
 self._hoverIndex=self:_indexFromPoint(t,e)
 end
-elseif t=="mouse_drag"then
-local a,e,t=...
+elseif e=="mouse_drag"then
+local a,t,e=...
 if self._open then
-self._hoverIndex=self:_indexFromPoint(e,t)
+self._hoverIndex=self:_indexFromPoint(t,e)
 end
-elseif t=="key"then
+elseif e=="key"then
 if not self:isFocused()then
 return false
 end
@@ -8123,19 +8143,19 @@ self:_setOpen(false)
 return true
 end
 end
-elseif t=="char"then
+elseif e=="char"then
 if not self:isFocused()or#self.items==0 then
 return false
 end
 local e=...
 if e and#e>0 then
 local a=e:sub(1,1):lower()
-local t=self.selectedIndex>=1 and self.selectedIndex or 0
-for e=1,#self.items do
-local e=((t+e-1)%#self.items)+1
-local t=self.items[e]
-if t and t:sub(1,1):lower()==a then
-self:setSelectedIndex(e)
+local e=self.selectedIndex>=1 and self.selectedIndex or 0
+for t=1,#self.items do
+local t=((e+t-1)%#self.items)+1
+local e=self.items[t]
+if e and e:sub(1,1):lower()==a then
+self:setSelectedIndex(t)
 return true
 end
 end
@@ -8250,10 +8270,10 @@ end
 return e
 end
 function c:_findFirstEnabled()
-for t=1,#self.tabs do
-local e=self.tabs[t]
-if e and not e.disabled then
-return t
+for e=1,#self.tabs do
+local t=self.tabs[e]
+if t and not t.disabled then
+return e
 end
 end
 return 0
@@ -8318,16 +8338,16 @@ end
 end
 function c:setTabs(o)
 t(1,o,"table")
-local n=self.selectedIndex or 0
+local i=self.selectedIndex or 0
 local e=self:getSelectedTab()
-local i=e and e.id
+local t=e and e.id
 local a=e and e.label
 self.tabs=self:_normalizeTabs(o)
-if i~=nil then
-for t=1,#self.tabs do
-local e=self.tabs[t]
-if e and e.id==i and not e.disabled then
-self.selectedIndex=t
+if t~=nil then
+for a=1,#self.tabs do
+local e=self.tabs[a]
+if e and e.id==t and not e.disabled then
+self.selectedIndex=a
 break
 end
 end
@@ -8344,17 +8364,17 @@ end
 end
 end
 if(self.selectedIndex or 0)<1 or(self.selectedIndex or 0)>#self.tabs then
-self.selectedIndex=n
+self.selectedIndex=i
 end
 self:_normalizeSelection(false)
 self._tabRects={}
 end
 function c:getTabs()
-local t={}
-for e=1,#self.tabs do
-t[e]=o(self.tabs[e])
+local e={}
+for t=1,#self.tabs do
+e[t]=o(self.tabs[t])
 end
-return t
+return e
 end
 function c:addTab(e)
 local e=self:_normalizeTabEntry(e,#self.tabs+1)
@@ -8437,10 +8457,10 @@ self._tabRects={}
 end
 end
 function c:selectTabById(o,a)
-for t=1,#self.tabs do
-local e=self.tabs[t]
-if e and e.id==o then
-self:setSelectedIndex(t,a)
+for e=1,#self.tabs do
+local t=self.tabs[e]
+if t and t.id==o then
+self:setSelectedIndex(e,a)
 return true
 end
 end
@@ -8521,64 +8541,64 @@ self.onSelect(self,self:getSelectedTab(),self.selectedIndex or 0)
 end
 end
 function c:_computeTabLayout()
-local n,i,o,s=self:getAbsoluteRect()
+local n,i,h,s=self:getAbsoluteRect()
 local e=self.border
 local t=(e and e.left)and 1 or 0
-local h=(e and e.right)and 1 or 0
+local o=(e and e.right)and 1 or 0
 local a=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
 local n=n+t
 local i=i+a
-local o=math.max(0,o-t-h)
-local s=math.max(0,s-a-e)
-local e=math.min(s,self.tabHeight or 3)
+local o=math.max(0,h-t-o)
+local h=math.max(0,s-a-e)
+local e=math.min(h,self.tabHeight or 3)
 if e<0 then
 e=0
 end
-local d=math.max(0,s-e)
-local h={}
+local r=math.max(0,h-e)
+local s={}
 if o>0 and e>0 then
-local t=n
+local a=n
 local n=n+o-1
-local r=math.max(0,self.tabSpacing or 0)
-local s=math.max(0,self.tabPadding or 0)
+local h=math.max(0,self.tabSpacing or 0)
+local r=math.max(0,self.tabPadding or 0)
 for o=1,#self.tabs do
-if t>n then
-break
-end
-local a=self.tabs[o]
-local a=a and a.label and tostring(a.label)or string.format("Tab %d",o)
-local a=math.max(3,#a+s*2)
-local n=n-t+1
 if a>n then
-a=n
-end
-if a<=0 then
 break
 end
-h[o]={
-x1=t,
+local t=self.tabs[o]
+local t=t and t.label and tostring(t.label)or string.format("Tab %d",o)
+local t=math.max(3,#t+r*2)
+local n=n-a+1
+if t>n then
+t=n
+end
+if t<=0 then
+break
+end
+s[o]={
+x1=a,
 y1=i,
-x2=t+a-1,
+x2=a+t-1,
 y2=i+e-1,
-width=a
+width=t
 }
-t=t+a+r
+a=a+t+h
 end
 end
-self._tabRects=h
+self._tabRects=s
 self._layoutCache={
 innerX=n,
 innerY=i,
 innerWidth=o,
-innerHeight=s,
+innerHeight=h,
 tabHeight=e,
 bodyX=n,
 bodyY=i+e,
 bodyWidth=o,
-bodyHeight=d
+bodyHeight=r
 }
-return self._layoutCache,h
+return self._layoutCache,s
 end
 function c:_tabIndexFromPoint(a,t)
 self:_computeTabLayout()
@@ -8589,21 +8609,21 @@ end
 end
 return nil
 end
-function c:_moveSelection(a)
-if#self.tabs==0 or a==0 then
+function c:_moveSelection(t)
+if#self.tabs==0 or t==0 then
 return
 end
-a=a>0 and 1 or-1
-local t=#self.tabs
+t=t>0 and 1 or-1
+local a=#self.tabs
 local e=self.selectedIndex
-if e<1 or e>t then
-e=a>0 and 0 or t+1
+if e<1 or e>a then
+e=t>0 and 0 or a+1
 end
-for o=1,t do
-e=e+a
+for o=1,a do
+e=e+t
 if e<1 then
-e=t
-elseif e>t then
+e=a
+elseif e>a then
 e=1
 end
 local t=self.tabs[e]
@@ -8613,7 +8633,7 @@ return
 end
 end
 end
-function c:_renderBody(i,s,a)
+function c:_renderBody(i,n,a)
 local o=a.bodyWidth or 0
 local h=a.bodyHeight or 0
 if o<=0 or h<=0 then
@@ -8623,21 +8643,21 @@ local t=self:getSelectedTab()
 if not t then
 return
 end
-local n=t.contentRenderer
-if n~=nil and type(n)=="function"then
-n(self,t,i,s,a)
+local s=t.contentRenderer
+if s~=nil and type(s)=="function"then
+s(self,t,i,n,a)
 return
 end
 if type(t.content)=="function"then
-t.content(self,t,i,s,a)
+t.content(self,t,i,n,a)
 return
 end
 if self.bodyRenderer then
-self.bodyRenderer(self,t,i,s,a)
+self.bodyRenderer(self,t,i,n,a)
 return
 end
 if type(t.content)=="string"then
-local n=W(t.content,o)
+local n=Y(t.content,o)
 local t=math.min(h,#n)
 local h=self.bodyFg or self.tabFg or e.white
 local s=self.bodyBg or self.bg or e.black
@@ -8658,52 +8678,52 @@ if not e then
 self._hoverIndex=nil
 end
 end
-function c:draw(n,d)
+function c:draw(n,r)
 if not self.visible then
 return
 end
-local a,t,o,h=self:getAbsoluteRect()
+local o,h,t,a=self:getAbsoluteRect()
 local s=self.bodyBg or self.bg or e.black
-local r=self.bodyFg or self.fg or e.white
-i(n,a,t,o,h,s,s)
-_(n,a,t,o,h)
+local d=self.bodyFg or self.fg or e.white
+i(n,o,h,t,a,s,s)
+z(n,o,h,t,a)
 if self.border then
-p(d,a,t,o,h,self.border,s)
+p(r,o,h,t,a,self.border,s)
 end
 local e=select(1,self:_computeTabLayout())
 if not e or e.innerWidth<=0 or e.innerHeight<=0 then
 return
 end
 local a=self.tabBg or s
-local o=self.tabFg or r
+local o=self.tabFg or d
 if e.tabHeight>0 and e.innerWidth>0 then
 i(n,e.innerX,e.innerY,e.innerWidth,e.tabHeight,a,a)
 end
 if self._hoverIndex and not self._tabRects[self._hoverIndex]then
 self._hoverIndex=nil
 end
-for s,t in pairs(self._tabRects)do
-local h=self.tabs[s]
-if h and t then
+for h,t in pairs(self._tabRects)do
+local s=self.tabs[h]
+if s and t then
 local a=a
 local o=o
-if s==self.selectedIndex and self.selectedIndex>0 then
+if h==self.selectedIndex and self.selectedIndex>0 then
 a=self.activeTabBg or a
 o=self.activeTabFg or o
 if self:isFocused()then
 a=self.hoverTabBg or a
 o=self.hoverTabFg or o
 end
-elseif self._hoverIndex and self._hoverIndex==s and not h.disabled then
+elseif self._hoverIndex and self._hoverIndex==h and not s.disabled then
 a=self.hoverTabBg or a
 o=self.hoverTabFg or o
 end
-if h.disabled then
+if s.disabled then
 o=self.disabledTabFg or o
 end
 i(n,t.x1,t.y1,t.width,e.tabHeight,a,a)
 local r=math.max(0,self.tabPadding or 0)
-local i=h.label or string.format("Tab %d",s)
+local i=s.label or string.format("Tab %d",h)
 i=tostring(i)
 local s=t.width-r*2
 local i=i
@@ -8731,9 +8751,9 @@ if e.bodyHeight>0 and e.bodyWidth>0 then
 i(n,e.bodyX,e.bodyY,e.bodyWidth,e.bodyHeight,s,s)
 local t=self:getSelectedTab()
 if t then
-self:_renderBody(n,d,e)
+self:_renderBody(n,r,e)
 elseif self.emptyText then
-local t=W(self.emptyText,e.bodyWidth)
+local t=Y(self.emptyText,e.bodyWidth)
 local a=math.min(e.bodyHeight,#t)
 for a=1,a do
 local t=t[a]
@@ -8743,7 +8763,7 @@ end
 if#t<e.bodyWidth then
 t=t..string.rep(" ",e.bodyWidth-#t)
 end
-n.text(e.bodyX,e.bodyY+a-1,t,r,s)
+n.text(e.bodyX,e.bodyY+a-1,t,d,s)
 end
 end
 end
@@ -8753,10 +8773,10 @@ if not self.visible then
 return false
 end
 if e=="mouse_click"then
-local a,e,t=...
-if self:containsPoint(e,t)then
+local a,t,e=...
+if self:containsPoint(t,e)then
 self.app:setFocus(self)
-local e=self:_tabIndexFromPoint(e,t)
+local e=self:_tabIndexFromPoint(t,e)
 if e then
 local t=self.tabs[e]
 if t and not t.disabled then
@@ -8798,16 +8818,16 @@ end
 return true
 end
 elseif e=="mouse_move"then
-local t,e=...
-if self:containsPoint(t,e)then
-self._hoverIndex=self:_tabIndexFromPoint(t,e)
+local e,t=...
+if self:containsPoint(e,t)then
+self._hoverIndex=self:_tabIndexFromPoint(e,t)
 elseif self._hoverIndex then
 self._hoverIndex=nil
 end
 elseif e=="mouse_drag"then
-local a,t,e=...
-if self:containsPoint(t,e)then
-self._hoverIndex=self:_tabIndexFromPoint(t,e)
+local a,e,t=...
+if self:containsPoint(e,t)then
+self._hoverIndex=self:_tabIndexFromPoint(e,t)
 elseif self._hoverIndex then
 self._hoverIndex=nil
 end
@@ -8973,14 +8993,14 @@ e=math.max(4,e)
 end
 return e
 end
-function m:_measureItems(n,r)
-if not n or#n==0 then
+function m:_measureItems(i,r)
+if not i or#i==0 then
 return nil
 end
 local o=0
 local t=0
-for e=1,#n do
-local e=n[e]
+for e=1,#i do
+local e=i[e]
 if e.type=="item"then
 local a=#(e.label or"")
 if a>o then
@@ -9000,8 +9020,8 @@ local h=(self.border and self.border.right)and 1 or 0
 local u=(self.border and self.border.top)and 1 or 0
 local l=(self.border and self.border.bottom)and 1 or 0
 local a=2
-local i=(t>0)and 2 or 0
-local e=o+a+i+t
+local n=(t>0)and 2 or 0
+local e=o+a+n+t
 if e<a+2 then
 e=a+2
 end
@@ -9016,41 +9036,41 @@ e=r-s-h
 if e<a+2 then
 e=a+2
 end
-local n=math.max(0,e-a-1)
-if t>n then
-t=n
+local i=math.max(0,e-a-1)
+if t>i then
+t=i
 end
-i=(t>0)and 2 or 0
-local n=e-a-i-t
-if n<1 then
-n=1
+n=(t>0)and 2 or 0
+local i=e-a-n-t
+if i<1 then
+i=1
 end
-if o>n then
-o=n
+if o>i then
+o=i
 end
-e=o+a+i+t
+e=o+a+n+t
 d=e+s+h
 end
 end
 if t==0 then
-i=0
+n=0
 end
 return{
 itemWidth=e,
 labelWidth=o,
 shortcutWidth=t,
-shortcutGap=i,
+shortcutGap=n,
 arrowWidth=a,
 leftPad=s,
 rightPad=h,
 topPad=u,
 bottomPad=l,
-itemCount=#n,
+itemCount=#i,
 totalWidth=d,
-totalHeight=#n+u+l
+totalHeight=#i+u+l
 }
 end
-function m:_buildLevel(r,a,o,l,u,e)
+function m:_buildLevel(r,a,o,u,l,e)
 e=e or self:_measureItems(r,self:_maxWidthForLevel())
 if not e or e.itemCount==0 then
 return nil
@@ -9058,24 +9078,24 @@ end
 local t=self.app and self.app.root or nil
 local i=t and t.width or nil
 local t=t and t.height or nil
-local s=e.totalWidth
-local h=e.totalHeight
+local h=e.totalWidth
+local s=e.totalHeight
 local a=math.floor(a)
 local o=math.floor(o)
 if i then
 if a<1 then
 a=1
 end
-if a+s-1>i then
-a=math.max(1,i-s+1)
+if a+h-1>i then
+a=math.max(1,i-h+1)
 end
 end
 if t then
 if o<1 then
 o=1
 end
-if o+h-1>t then
-o=math.max(1,t-h+1)
+if o+s-1>t then
+o=math.max(1,t-s+1)
 end
 end
 local t=a+e.leftPad
@@ -9094,14 +9114,14 @@ end
 return{
 items=r,
 metrics=e,
-rect={x=a,y=o,width=s,height=h},
+rect={x=a,y=o,width=h,height=s},
 contentX=t,
 contentY=d,
 arrowX=n,
 shortcutX=i,
 highlightIndex=self:_firstEnabledIndex(r),
-parentLevel=l,
-parentIndex=u
+parentLevel=u,
+parentIndex=l
 }
 end
 function m:_closeLevelsAfter(t)
@@ -9114,18 +9134,18 @@ e[t]=nil
 end
 end
 function m:_openSubmenu(e,i)
-local o=self._levels
-local a=o and o[e]
-if not a then
+local a=self._levels
+local o=a and a[e]
+if not o then
 return
 end
-local t=a.items[i]
+local t=o.items[i]
 if not t or t.type~="item"or not t.submenu or#t.submenu==0 then
 self:_closeLevelsAfter(e)
 return
 end
-local o=o[e+1]
-if o and o.parentLevel==e and o.parentIndex==i then
+local a=a[e+1]
+if a and a.parentLevel==e and a.parentIndex==i then
 return
 end
 local n=self:_measureItems(t.submenu,self:_maxWidthForLevel())
@@ -9133,25 +9153,25 @@ if not n then
 self:_closeLevelsAfter(e)
 return
 end
-local o=a.rect.x+a.rect.width
-local h=a.contentY+i-1-n.topPad
-local o=self:_buildLevel(t.submenu,o,h,e,i,n)
-if not o then
+local a=o.rect.x+o.rect.width
+local h=o.contentY+i-1-n.topPad
+local a=self:_buildLevel(t.submenu,a,h,e,i,n)
+if not a then
 self:_closeLevelsAfter(e)
 return
 end
 local s=self.app and self.app.root or nil
 local s=s and s.width or nil
-if s and o.rect.x+o.rect.width-1>s then
+if s and a.rect.x+a.rect.width-1>s then
 local s=((self.border and self.border.left)and 1 or 0)
-local a=a.rect.x-o.rect.width+s
-local e=self:_buildLevel(t.submenu,a,h,e,i,n)
+local o=o.rect.x-a.rect.width+s
+local e=self:_buildLevel(t.submenu,o,h,e,i,n)
 if e then
-o=e
+a=e
 end
 end
 self:_closeLevelsAfter(e)
-self._levels[#self._levels+1]=o
+self._levels[#self._levels+1]=a
 end
 function m:_findItemAtPoint(i,a)
 local e=self._levels
@@ -9173,41 +9193,41 @@ end
 end
 return nil
 end
-function m:_setHighlight(e,o,i)
-local a=self._levels[e]
-if not a then
+function m:_setHighlight(t,o,i)
+local e=self._levels[t]
+if not e then
 return
 end
 if not o then
-a.highlightIndex=nil
-self:_closeLevelsAfter(e)
+e.highlightIndex=nil
+self:_closeLevelsAfter(t)
 return
 end
-local t=a.items[o]
-if not t or t.type~="item"or t.disabled then
-a.highlightIndex=nil
-self:_closeLevelsAfter(e)
+local a=e.items[o]
+if not a or a.type~="item"or a.disabled then
+e.highlightIndex=nil
+self:_closeLevelsAfter(t)
 return
 end
-a.highlightIndex=o
-if t.submenu and#t.submenu>0 then
+e.highlightIndex=o
+if a.submenu and#a.submenu>0 then
 if i then
-self:_openSubmenu(e,o)
+self:_openSubmenu(t,o)
 end
 else
-self:_closeLevelsAfter(e)
+self:_closeLevelsAfter(t)
 end
 end
-function m:_handlePointerHover(t,e)
-local e,t=self:_findItemAtPoint(t,e)
+function m:_handlePointerHover(e,t)
+local e,t=self:_findItemAtPoint(e,t)
 if not e then
 return false
 end
 self:_setHighlight(e,t,true)
 return true
 end
-function m:_handlePointerPress(a,e,t)
-local e,a=self:_findItemAtPoint(e,t)
+function m:_handlePointerPress(a,t,e)
+local e,a=self:_findItemAtPoint(t,e)
 if not e then
 self:close()
 return false
@@ -9274,16 +9294,16 @@ local e=self._levels
 if not e or#e==0 then
 return
 end
-local a=#e
-local e=e[a]
-local t=e.highlightIndex
-if not t then
+local t=#e
+local a=e[t]
+local e=a.highlightIndex
+if not e then
 return
 end
-local e=e.items[t]
-if e and e.submenu and#e.submenu>0 then
-self:_openSubmenu(a,t)
-local e=self._levels[a+1]
+local a=a.items[e]
+if a and a.submenu and#a.submenu>0 then
+self:_openSubmenu(t,e)
+local e=self._levels[t+1]
 if e and not e.highlightIndex then
 e.highlightIndex=self:_firstEnabledIndex(e.items)
 end
@@ -9386,9 +9406,9 @@ self._previousFocus=nil
 self._levels={}
 end
 end
-function m:open(o,i,a)
-t(1,o,"number")
-t(2,i,"number")
+function m:open(i,o,a)
+t(1,i,"number")
+t(2,o,"number")
 if a~=nil then
 t(3,a,"table")
 end
@@ -9407,9 +9427,9 @@ if not t then
 self:close()
 return false
 end
-local o=math.floor(o)
-local a=math.floor(i)
-local o=o-t.leftPad
+local i=math.floor(i)
+local a=math.floor(o)
+local o=i-t.leftPad
 local a=a-t.topPad
 local e=self:_buildLevel(e,o,a,nil,nil,t)
 if not e then
@@ -9435,7 +9455,7 @@ for a=1,#t do
 local t=t[a]
 local a=t.rect
 i(o,a.x,a.y,a.width,a.height,self.menuBg,self.menuBg)
-_(o,a.x,a.y,a.width,a.height)
+z(o,a.x,a.y,a.width,a.height)
 local n=t.items
 for i=1,#n do
 local a=n[i]
@@ -9444,9 +9464,9 @@ local h=t.highlightIndex==i and a.type=="item"and not a.disabled
 local i=h and(self.highlightBg or self.menuBg)or self.menuBg
 local s=self.menuFg or e.white
 if a.type=="separator"then
-local a=self.separatorColor or s
-local e=string.rep("-",t.metrics.itemWidth)
-o.text(t.contentX,n,e,a,i)
+local e=self.separatorColor or s
+local a=string.rep("-",t.metrics.itemWidth)
+o.text(t.contentX,n,a,e,i)
 else
 local s=a.disabled and(self.disabledFg or e.lightGray)or(h and(self.highlightFg or s)or s)
 o.text(t.contentX,n,string.rep(" ",t.metrics.itemWidth),s,i)
@@ -9484,17 +9504,17 @@ if not self.visible or not self._open then
 return false
 end
 if e=="mouse_click"then
-local e,t,a=...
-return self:_handlePointerPress(e,t,a)
-elseif e=="monitor_touch"then
 local a,t,e=...
-return self:_handlePointerPress(1,t,e)
+return self:_handlePointerPress(a,t,e)
+elseif e=="monitor_touch"then
+local a,e,t=...
+return self:_handlePointerPress(1,e,t)
 elseif e=="mouse_move"then
 local t,e=...
 return self:_handlePointerHover(t,e)
 elseif e=="mouse_drag"then
-local a,e,t=...
-return self:_handlePointerHover(e,t)
+local a,t,e=...
+return self:_handlePointerHover(t,e)
 elseif e=="mouse_scroll"then
 self:close()
 return false
@@ -9550,7 +9570,7 @@ end
 local o={}
 o.__index=o
 setmetatable(o,{__index=n})
-local W={
+local C={
 ["and"]=true,
 ["break"]=true,
 ["do"]=true,
@@ -9574,7 +9594,7 @@ local W={
 ["until"]=true,
 ["while"]=true
 }
-local F={
+local W={
 print=true,
 ipairs=true,
 pairs=true,
@@ -9591,22 +9611,22 @@ pcall=true,
 xpcall=true,
 select=true
 }
-local function C(a)
-if a==nil or a==""then
+local function F(t)
+if t==nil or t==""then
 return{""}
 end
 local e={}
-local t=1
-local i=#a
-while t<=i do
-local o=a:find("\n",t,true)
+local a=1
+local i=#t
+while a<=i do
+local o=t:find("\n",a,true)
 if not o then
-e[#e+1]=a:sub(t)
+e[#e+1]=t:sub(a)
 break
 end
-e[#e+1]=a:sub(t,o-1)
-t=o+1
-if t>i then
+e[#e+1]=t:sub(a,o-1)
+a=o+1
+if a>i then
 e[#e+1]=""
 break
 end
@@ -9628,26 +9648,26 @@ return a
 end
 return e
 end
-local function U(a,t,e,o)
+local function U(o,a,t,e)
+if o<t then
+return-1
+end
+if o>t then
+return 1
+end
 if a<e then
 return-1
 end
 if a>e then
 return 1
 end
-if t<o then
-return-1
-end
-if t>o then
-return 1
-end
 return 0
 end
-local function G(e,t,i,o,a,n)
-if U(e,t,i,o)<0 then
+local function Y(t,e,n,o,i,a)
+if U(t,e,n,o)<0 then
 return false
 end
-if U(e,t,a,n)>=0 then
+if U(t,e,i,a)>=0 then
 return false
 end
 return true
@@ -9663,8 +9683,8 @@ if type(a)=="string"then
 if a=="lua"then
 return{
 language="lua",
-keywords=W,
-builtins=F,
+keywords=C,
+builtins=W,
 keywordColor=e.orange,
 commentColor=e.lightGray,
 stringColor=e.yellow,
@@ -9680,8 +9700,8 @@ for a,e in pairs(a)do
 t[a]=e
 end
 if t.language=="lua"then
-t.keywords=t.keywords or W
-t.builtins=t.builtins or F
+t.keywords=t.keywords or C
+t.builtins=t.builtins or W
 if t.keywordColor==nil then
 t.keywordColor=e.orange
 end
@@ -9809,12 +9829,12 @@ end
 function o:_syncTextFromLines()
 self.text=P(self._lines)
 end
-function o:_setTextInternal(e,a,t)
+function o:_setTextInternal(e,t,a)
 e=tostring(e or"")
 e=self:_applyMaxLength(e)
-self._lines=C(e)
+self._lines=F(e)
 self:_syncTextFromLines()
-if a then
+if t then
 self._cursorLine=#self._lines
 self._cursorCol=(#self._lines[#self._lines]or 0)+1
 else
@@ -9825,7 +9845,7 @@ end
 self._preferredCol=self._cursorCol
 self._selectionAnchor=nil
 self:_ensureCursorVisible()
-if not t then
+if not a then
 self:_notifyChange()
 self:_notifyCursorChange()
 end
@@ -9833,21 +9853,21 @@ end
 function o:_indexToPosition(e)
 e=A(e or 1,1,#self.text+1)
 local e=e-1
-for a=1,#self._lines do
-local t=self._lines[a]
-local t=#t
-if e<=t then
-return a,e+1
+for t=1,#self._lines do
+local a=self._lines[t]
+local a=#a
+if e<=a then
+return t,e+1
 end
-e=e-(t+1)
+e=e-(a+1)
 end
 local e=#self._lines
 local t=#self._lines[e]
 return e,t+1
 end
 function o:_moveCursorToIndex(e)
-local t,e=self:_indexToPosition(e)
-self:_setCursorPosition(t,e)
+local e,t=self:_indexToPosition(e)
+self:_setCursorPosition(e,t)
 end
 function o:getCursorPosition()
 return self._cursorLine,self._cursorCol
@@ -9858,15 +9878,15 @@ end
 function o:_getInnerMetrics()
 local e=self.border
 local a=(e and e.left)and 1 or 0
-local n=(e and e.right)and 1 or 0
+local o=(e and e.right)and 1 or 0
 local t=(e and e.top)and 1 or 0
 local e=(e and e.bottom)and 1 or 0
-local o,i=self:getAbsoluteRect()
-local o=o+a
-local i=i+t
-local s=math.max(0,self.width-a-n)
-local n=math.max(0,self.height-t-e)
-return o,i,s,n,a,t,e
+local i,n=self:getAbsoluteRect()
+local i=i+a
+local n=n+t
+local o=math.max(0,self.width-a-o)
+local s=math.max(0,self.height-t-e)
+return i,n,o,s,a,t,e
 end
 function o:_getOverlayHeight(e)
 if not self._find.visible then
@@ -9875,16 +9895,16 @@ end
 return math.min(2,e)
 end
 function o:_computeLayoutMetrics()
-local i,n,a,e=self:getAbsoluteRect()
-local s,r,t,o=self:_getInnerMetrics()
+local e,i,a,n=self:getAbsoluteRect()
+local s,h,t,o=self:_getInnerMetrics()
 if t<=0 or o<=0 then
-s=i
-r=n
+s=e
+h=i
 t=math.max(1,a)
-o=math.max(1,e)
+o=math.max(1,n)
 end
-local h=self:_getOverlayHeight(o)
-local n=math.max(1,o-h)
+local r=self:_getOverlayHeight(o)
+local n=math.max(1,o-r)
 local e,a=M(self.scrollbar,#self._lines,n,t)
 if e>0 and t-e<1 then
 if a and(a.alwaysVisible or#self._lines>n)then
@@ -9906,12 +9926,12 @@ a=nil
 end
 return{
 innerX=s,
-innerY=r,
+innerY=h,
 innerWidth=t,
 innerHeight=o,
 contentWidth=i,
 contentHeight=n,
-overlayHeight=h,
+overlayHeight=r,
 scrollbarWidth=e,
 scrollbarStyle=a,
 scrollbarX=s+i
@@ -9976,28 +9996,28 @@ function o:getSelectionLength()
 if not self:_hasSelection()then
 return 0
 end
-local t,e,a,o=self:_getSelectionRange()
-local e=self:_collectRange(t,e,a,o)
+local o,a,t,e=self:_getSelectionRange()
+local e=self:_collectRange(o,a,t,e)
 return#e
 end
 function o:getSelectionText()
 if not self:_hasSelection()then
 return""
 end
-local o,a,e,t=self:_getSelectionRange()
-return self:_collectRange(o,a,e,t)
+local e,a,t,o=self:_getSelectionRange()
+return self:_collectRange(e,a,t,o)
 end
 function o:_getSelectionRange()
 if not self:_hasSelection()then
 return nil
 end
 local e=self._selectionAnchor
-local t,e=e.line,e.col
-local o,a=self._cursorLine,self._cursorCol
-if U(t,e,o,a)<=0 then
-return t,e,o,a
-else
+local o,a=e.line,e.col
+local t,e=self._cursorLine,self._cursorCol
+if U(o,a,t,e)<=0 then
 return o,a,t,e
+else
+return t,e,o,a
 end
 end
 function o:_collectRange(t,i,a,o)
@@ -10020,41 +10040,41 @@ if e==t then
 local t=self._lines[e]
 self._lines[e]=t:sub(1,a-1)..t:sub(o)
 else
-local a=self._lines[e]:sub(1,a-1)
-local o=self._lines[t]:sub(o)
+local i=self._lines[e]:sub(1,a-1)
+local a=self._lines[t]:sub(o)
 for e=t,e+1,-1 do
 table.remove(self._lines,e)
 end
-self._lines[e]=a..o
+self._lines[e]=i..a
 end
 if#self._lines==0 then
 self._lines[1]=""
 end
 end
-function o:_insertAt(e,a,t)
-if t==nil or t==""then
-return e,a
-end
-local t=C(t)
-local o=self._lines[e]
-local i=o:sub(1,a-1)
-local a=o:sub(a)
-self._lines[e]=i..t[1]
-local e=e
-for a=2,#t do
-e=e+1
-table.insert(self._lines,e,t[a])
-end
-self._lines[e]=self._lines[e]..a
-local t=(#self._lines[e]-#a)+1
+function o:_insertAt(e,t,a)
+if a==nil or a==""then
 return e,t
 end
-function o:_deleteSelection(i)
+local a=F(a)
+local o=self._lines[e]
+local i=o:sub(1,t-1)
+local t=o:sub(t)
+self._lines[e]=i..a[1]
+local e=e
+for t=2,#a do
+e=e+1
+table.insert(self._lines,e,a[t])
+end
+self._lines[e]=self._lines[e]..t
+local t=(#self._lines[e]-#t)+1
+return e,t
+end
+function o:_deleteSelection(n)
 local e,t,a,o=self:_getSelectionRange()
 if not e then
 return 0
 end
-local n=self:_collectRange(e,t,a,o)
+local i=self:_collectRange(e,t,a,o)
 self:_removeRange(e,t,a,o)
 self._cursorLine=e
 self._cursorCol=t
@@ -10062,11 +10082,11 @@ self._preferredCol=self._cursorCol
 self:_clearSelection()
 self:_syncTextFromLines()
 self:_ensureCursorVisible()
-if not i then
+if not n then
 self:_notifyChange()
 end
 self:_notifyCursorChange()
-return#n
+return#i
 end
 function o:_replaceSelection(e,a)
 local t=0
@@ -10162,11 +10182,11 @@ self:_notifyChange()
 self:_notifyCursorChange()
 return true
 end
-function o:_setCursorPosition(t,a,e)
+function o:_setCursorPosition(a,t,e)
 e=e or{}
-t=A(t,1,#self._lines)
-local o=self._lines[t]or""
-a=A(a,1,#o+1)
+a=A(a,1,#self._lines)
+local o=self._lines[a]or""
+t=A(t,1,#o+1)
 if e.extendSelection then
 if not self._selectionAnchor then
 self._selectionAnchor={line=self._cursorLine,col=self._cursorCol}
@@ -10174,10 +10194,10 @@ end
 else
 self:_clearSelection()
 end
-self._cursorLine=t
-self._cursorCol=a
+self._cursorLine=a
+self._cursorCol=t
 if not e.preservePreferred then
-self._preferredCol=a
+self._preferredCol=t
 end
 if self._selectionAnchor and self._selectionAnchor.line==self._cursorLine and self._selectionAnchor.col==self._cursorCol then
 self:_clearSelection()
@@ -10190,8 +10210,8 @@ end
 end
 function o:_moveCursorLeft(e)
 if self:_hasSelection()and not e then
-local e,t=self:_getSelectionRange()
-self:_setCursorPosition(e,t)
+local t,e=self:_getSelectionRange()
+self:_setCursorPosition(t,e)
 return
 end
 if self._cursorCol>1 then
@@ -10215,11 +10235,11 @@ elseif self._cursorLine<#self._lines then
 self:_setCursorPosition(self._cursorLine+1,1,{extendSelection=e})
 end
 end
-function o:_moveCursorVertical(e,t)
+function o:_moveCursorVertical(e,a)
 local e=A(self._cursorLine+e,1,#self._lines)
-local a=self._lines[e]or""
-local a=A(self._preferredCol,1,#a+1)
-self:_setCursorPosition(e,a,{extendSelection=t,preservePreferred=true})
+local t=self._lines[e]or""
+local t=A(self._preferredCol,1,#t+1)
+self:_setCursorPosition(e,t,{extendSelection=a,preservePreferred=true})
 end
 function o:_moveCursorUp(e)
 self:_moveCursorVertical(-1,e)
@@ -10237,10 +10257,10 @@ end
 function o:_moveCursorDocumentStart(e)
 self:_setCursorPosition(1,1,{extendSelection=e})
 end
-function o:_moveCursorDocumentEnd(t)
+function o:_moveCursorDocumentEnd(a)
 local e=#self._lines
-local a=#self._lines[e]
-self:_setCursorPosition(e,a+1,{extendSelection=t})
+local t=#self._lines[e]
+self:_setCursorPosition(e,t+1,{extendSelection=a})
 end
 function o:_selectAll()
 self._selectionAnchor={line=1,col=1}
@@ -10258,22 +10278,22 @@ function o:_scrollColumns(e)
 if e==0 then
 return
 end
-local a=select(1,self:_getContentSize())
-local t=self._lines[self._cursorLine]or""
-local t=math.max(0,#t-a)
+local t=select(1,self:_getContentSize())
+local a=self._lines[self._cursorLine]or""
+local t=math.max(0,#a-t)
 self._scrollX=A(self._scrollX+e,0,t)
 end
-function o:_cursorFromPoint(t,a)
+function o:_cursorFromPoint(n,o)
 local e=self:_computeLayoutMetrics()
-local o=e.innerX
-local i=e.innerY
-local n=math.max(1,e.contentWidth)
+local i=e.innerX
+local a=e.innerY
+local t=math.max(1,e.contentWidth)
 local e=math.max(1,e.contentHeight)
-local o=A(t-o,0,n-1)
-local e=A(a-i,0,e-1)
+local t=A(n-i,0,t-1)
+local e=A(o-a,0,e-1)
 local e=A(self._scrollY+e+1,1,#self._lines)
-local t=self._lines[e]or""
-local t=A(self._scrollX+o+1,1,#t+1)
+local a=self._lines[e]or""
+local t=A(self._scrollX+t+1,1,#a+1)
 return e,t
 end
 function o:_computeSyntaxColors(o)
@@ -10306,28 +10326,28 @@ else
 e=e+1
 end
 end
-for e,n,o in o:gmatch("()(%d+%.?%d*)()")do
+for o,n,e in o:gmatch("()(%d+%.?%d*)()")do
 if t.numberColor then
-for e=e,o-1 do
+for e=o,e-1 do
 if a[e]==i then
 a[e]=t.numberColor
 end
 end
 end
 end
-for n,o,s in o:gmatch("()([%a_][%w_]*)()")do
-local e=o:lower()
+for n,s,o in o:gmatch("()([%a_][%w_]*)()")do
+local e=s:lower()
 if t.keywords and t.keywords[e]then
 if t.keywordColor then
-for e=n,s-1 do
+for e=n,o-1 do
 if a[e]==i then
 a[e]=t.keywordColor
 end
 end
 end
-elseif t.builtins and t.builtins[o]then
+elseif t.builtins and t.builtins[s]then
 if t.builtinColor then
-for e=n,s-1 do
+for e=n,o-1 do
 if a[e]==i then
 a[e]=t.builtinColor
 end
@@ -10355,40 +10375,40 @@ else
 t[#t+1]={text=a,fg=o,bg=i}
 end
 end
-function o:_buildLineSegments(s,e,r,h,t)
-local a=self._lines[s]or""
-local i=self:_computeSyntaxColors(a)
-local o=self._scrollX+1
-local n={}
-for e=0,e-1 do
-local e=o+e
-local o
-if e<=#a then
-o=a:sub(e,e)
+function o:_buildLineSegments(n,t,r,h,e)
+local a=self._lines[n]or""
+local o=self:_computeSyntaxColors(a)
+local i=self._scrollX+1
+local s={}
+for t=0,t-1 do
+local t=i+t
+local i
+if t<=#a then
+i=a:sub(t,t)
 else
-o=" "
+i=" "
 end
-local i=i and i[e]or r
+local o=o and o[t]or r
 local a=h
-if t and G(s,e,t.startLine,t.startCol,t.endLine,t.endCol)then
+if e and Y(n,t,e.startLine,e.startCol,e.endLine,e.endCol)then
 a=self.selectionBg
-i=self.selectionFg
+o=self.selectionFg
 end
-I(n,o,i,a)
+I(s,i,o,a)
 end
-return n,a,i
+return s,a,o
 end
-function o:_drawSegments(a,t,i,e)
+function o:_drawSegments(o,t,a,e)
 local t=t
-for o=1,#e do
-local e=e[o]
+for i=1,#e do
+local e=e[i]
 if e.text~=""then
-a.text(t,i,e.text,e.fg,e.bg)
+o.text(t,a,e.text,e.fg,e.bg)
 t=t+#e.text
 end
 end
 end
-function o:_drawFindOverlay(s,a,n,t,i)
+function o:_drawFindOverlay(h,a,n,t,i)
 if not self._find.visible then
 return
 end
@@ -10400,47 +10420,47 @@ local r=self.overlayBg or self.bg or e.gray
 local d=self.overlayFg or self.fg or e.white
 local u=self.overlayActiveBg or e.orange
 local c=self.overlayActiveFg or e.black
-local i=n+i-o
+local n=n+i-o
 for e=0,o-1 do
-s.text(a,i+e,string.rep(" ",t),d,r)
+h.text(a,n+e,string.rep(" ",t),d,r)
 end
 local e=self._find
-local n=#e.matches
-local h=n>0 and string.format("%d/%d",math.max(1,e.index),n)or"0/0"
-local n=e.matchCase and"CASE"or"case"
-local h=string.format("Find: %s  %s  %s",e.findText,h,n)
-local n="Replace: "..e.replaceText
-local h=h
-if#h>t then
-h=h:sub(1,t)
+local i=#e.matches
+local i=i>0 and string.format("%d/%d",math.max(1,e.index),i)or"0/0"
+local s=e.matchCase and"CASE"or"case"
+local i=string.format("Find: %s  %s  %s",e.findText,i,s)
+local l="Replace: "..e.replaceText
+local s=i
+if#s>t then
+s=s:sub(1,t)
 end
-local n=n
-if#n>t then
-n=n:sub(1,t)
+local i=l
+if#i>t then
+i=i:sub(1,t)
 end
-s.text(a,i,h..string.rep(" ",math.max(0,t-#h)),d,r)
-s.text(a,i+math.max(o-1,0),n..string.rep(" ",math.max(0,t-#n)),d,r)
-local n,l,h
+h.text(a,n,s..string.rep(" ",math.max(0,t-#s)),d,r)
+h.text(a,n+math.max(o-1,0),i..string.rep(" ",math.max(0,t-#i)),d,r)
+local i,l,s
 if e.activeField=="find"then
-n=a+6
-l=i
-h=e.findText
+i=a+6
+l=n
+s=e.findText
 else
-n=a+9
-l=i+math.max(o-1,0)
-h=e.replaceText
+i=a+9
+l=n+math.max(o-1,0)
+s=e.replaceText
 end
-local e=h
-if#e>t-(n-a)then
-e=e:sub(1,t-(n-a))
+local e=s
+if#e>t-(i-a)then
+e=e:sub(1,t-(i-a))
 end
-s.text(n,l,e..string.rep(" ",math.max(0,t-(n-a)-#e)),c,u)
+h.text(i,l,e..string.rep(" ",math.max(0,t-(i-a)-#e)),c,u)
 if o>=2 then
 local e="Ctrl+G next | Ctrl+Shift+G prev | Tab switch | Enter apply | Esc close"
 if#e>t then
 e=e:sub(1,t)
 end
-s.text(a,i+o-1,e..string.rep(" ",math.max(0,t-#e)),d,r)
+h.text(a,n+o-1,e..string.rep(" ",math.max(0,t-#e)),d,r)
 end
 end
 function o:_setAutocompleteVisible(e)
@@ -10485,12 +10505,12 @@ e.selectedIndex=1
 e.anchorLine=self._cursorLine
 e.anchorCol=self._cursorCol
 end
-function o:_isPointInAutocomplete(a,t)
+function o:_isPointInAutocomplete(t,a)
 local e=self._autocompleteState and self._autocompleteState.rect
 if not e then
 return false
 end
-return a>=e.x and a<e.x+e.width and t>=e.y and t<e.y+e.height
+return t>=e.x and t<e.x+e.width and a>=e.y and a<e.y+e.height
 end
 function o:_autocompleteIndexFromPoint(a,t)
 local e=self._autocompleteState and self._autocompleteState.rect
@@ -10509,7 +10529,7 @@ return nil
 end
 return t
 end
-function o:_drawDropdown(f,y)
+function o:_drawDropdown(f,b)
 local t=self._autocompleteState
 if not self.visible or not self._open then
 if t then
@@ -10524,11 +10544,11 @@ end
 return
 end
 local a=self:_computeLayoutMetrics()
-local w=a.innerX
+local u=a.innerX
 local o=a.innerY
-local h=a.contentWidth
+local n=a.contentWidth
 local a=a.contentHeight
-if h<=0 or a<=0 then
+if n<=0 or a<=0 then
 t.rect=nil
 return
 end
@@ -10553,27 +10573,27 @@ if#e>a then
 a=#e
 end
 end
-local n=self.autocompleteMaxWidth or h
-n=math.max(1,n)
-local u=math.min(h,n)
-local a=math.max(u,a)
-if a>n then
-a=n
+local h=self.autocompleteMaxWidth or n
+h=math.max(1,h)
+local w=math.min(n,h)
+local a=math.max(w,a)
+if a>h then
+a=h
 end
-local u=self.app and self.app.root and self.app.root.width or(w+h-1)
-if a+d+r>u then
-a=math.max(1,u-d-r)
+local h=self.app and self.app.root and self.app.root.width or(u+n-1)
+if a+d+r>h then
+a=math.max(1,h-d-r)
 end
 local r=a+d+r
 if r<=0 or a<=0 then
 t.rect=nil
 return
 end
-local n=A(t.anchorCol-self._scrollX-1,0,h-1)
-local n=w+n
+local n=A(t.anchorCol-self._scrollX-1,0,n-1)
+local n=u+n
 local n=n
-if n+r-1>u then
-n=math.max(1,u-r+1)
+if n+r-1>h then
+n=math.max(1,h-r+1)
 end
 if n<1 then
 n=1
@@ -10592,26 +10612,26 @@ else
 h=math.max(1,u-s+1)
 end
 end
-local w=n+d
-local c=h+m
+local c=n+d
+local m=h+m
 t.rect={
 x=n,
 y=h,
 width=r,
 height=s,
-contentX=w,
-contentY=c,
+contentX=c,
+contentY=m,
 itemWidth=a,
 itemCount=l
 }
 local d=self.autocompleteBg or self.bg or e.gray
 i(f,n,h,r,s,d,d)
-_(f,n,h,r,s)
-local b=self.autocompleteFg or self.fg or e.white
-local m=self.autocompleteHighlightBg or e.lightBlue
+z(f,n,h,r,s)
+local y=self.autocompleteFg or self.fg or e.white
+local w=self.autocompleteHighlightBg or e.lightBlue
 local v=self.autocompleteHighlightFg or e.black
 for o=1,l do
-local i=c+o-1
+local i=m+o-1
 if i<1 or i>u then
 break
 end
@@ -10624,12 +10644,12 @@ local a=a-#e
 if a>0 then
 e=e..string.rep(" ",a)
 end
-local a=(o==t.selectedIndex)and m or d
-local t=(o==t.selectedIndex)and v or b
-f.text(w,i,e,t,a)
+local a=(o==t.selectedIndex)and w or d
+local t=(o==t.selectedIndex)and v or y
+f.text(c,i,e,t,a)
 end
 if o then
-p(y,n,h,r,s,o,d)
+p(b,n,h,r,s,o,d)
 end
 end
 function o:_updateAutocomplete(n)
@@ -10711,26 +10731,26 @@ e.prefix=o
 self:_refreshAutocompleteGhost()
 e.rect=nil
 end
-function o:_computeAutocompleteGhost(t,e,a)
-if not t then
+function o:_computeAutocompleteGhost(e,t,a)
+if not e then
 return""
 end
-local t=t.insert or t.label or""
-if t==""then
-return""
-end
+local e=e.insert or e.label or""
 if e==""then
+return""
+end
+if t==""then
 if a=="manual"then
-return t
+return e
 end
 return""
 end
-local a=t:lower()
 local o=e:lower()
-if a:sub(1,#e)~=o then
+local a=t:lower()
+if o:sub(1,#t)~=a then
 return""
 end
-return t:sub(#e+1)
+return e:sub(#t+1)
 end
 function o:_acceptAutocomplete()
 local e=self._autocompleteState
@@ -10761,18 +10781,18 @@ end
 e.selectedIndex=((e.selectedIndex-1+a)%t)+1
 self:_refreshAutocompleteGhost()
 end
-function o:_toggleFindOverlay(e)
-local t=self._find
-if t.visible and(not e or t.activeField==e)then
+function o:_toggleFindOverlay(t)
+local e=self._find
+if e.visible and(not t or e.activeField==t)then
 self:_closeFindOverlay()
 return
 end
-t.visible=true
-if e then
-t.activeField=e
+e.visible=true
+if t then
+e.activeField=t
 end
-if self:_hasSelection()and e=="find"then
-t.findText=self:getSelectionText()
+if self:_hasSelection()and t=="find"then
+e.findText=self:getSelectionText()
 end
 self:_updateFindMatches(true)
 end
@@ -10835,24 +10855,24 @@ e.index=t and 0 or e.index
 if not e.visible or e.findText==""then
 return
 end
-local t=e.findText
-local a=e.matchCase
-for i=1,#self._lines do
-local o=self._lines[i]
-local o=a and o or o:lower()
-local t=a and t or t:lower()
-local a=1
+local o=e.findText
+local t=e.matchCase
+for a=1,#self._lines do
+local i=self._lines[a]
+local i=t and i or i:lower()
+local t=t and o or o:lower()
+local o=1
 while true do
-local t,o=o:find(t,a,true)
+local t,i=i:find(t,o,true)
 if not t then
 break
 end
 e.matches[#e.matches+1]={
-line=i,
+line=a,
 col=t,
-length=o-t+1
+length=i-t+1
 }
-a=t+1
+o=t+1
 end
 end
 end
@@ -10922,10 +10942,10 @@ return false
 end
 for t=#e.matches,1,-1 do
 local t=e.matches[t]
-local o=t.line
-local a=t.col
-local i=self._lines[o]
-self._lines[o]=i:sub(1,a-1)..(e.replaceText or"")..i:sub(a+t.length)
+local a=t.line
+local i=t.col
+local o=self._lines[a]
+self._lines[a]=o:sub(1,i-1)..(e.replaceText or"")..o:sub(i+t.length)
 end
 self:_syncTextFromLines()
 self:_ensureCursorVisible()
@@ -11064,69 +11084,69 @@ return self:_handleEscape()
 end
 return false
 end
-function o:draw(a,q)
+function o:draw(a,j)
 if not self.visible then
 return
 end
-local b,v,y,w=self:getAbsoluteRect()
-local s=self.bg or e.black
-local f=self.fg or e.white
-i(a,b,v,y,w,s,s)
-_(a,b,v,y,w)
+local c,f,m,w=self:getAbsoluteRect()
+local h=self.bg or e.black
+local y=self.fg or e.white
+i(a,c,f,m,w,h,h)
+z(a,c,f,m,w)
 local o=self:_computeLayoutMetrics()
-local r=o.innerX
-local h=o.innerY
+local d=o.innerX
+local s=o.innerY
 local t=o.innerWidth
-local j=o.innerHeight
+local q=o.innerHeight
 local n=o.contentWidth
-local d=o.contentHeight
-local c=o.overlayHeight
+local r=o.contentHeight
+local v=o.overlayHeight
 local u=o.scrollbarWidth
-local m=o.scrollbarStyle
-local g
-local k=false
+local b=o.scrollbarStyle
+local k
+local g=false
 if self:_hasSelection()then
-local a,o,t,e=self:_getSelectionRange()
-g={
-startLine=a,
-startCol=o,
-endLine=t,
-endCol=e
+local t,e,a,o=self:_getSelectionRange()
+k={
+startLine=t,
+startCol=e,
+endLine=a,
+endCol=o
 }
-k=true
+g=true
 end
 local t=self._autocompleteState
-local l=s
-for i=0,d-1 do
+local l=h
+for i=0,r-1 do
 local o=self._scrollY+i+1
-local i=h+i
+local i=s+i
 if o>#self._lines then
-a.text(r,i,string.rep(" ",n),f,l)
+a.text(d,i,string.rep(" ",n),y,l)
 else
-local s,h,d=self:_buildLineSegments(o,n,f,l,g)
-self:_drawSegments(a,r,i,s)
+local h,s,r=self:_buildLineSegments(o,n,y,l,k)
+self:_drawSegments(a,d,i,h)
 if self:isFocused()and o==self._cursorLine then
-local t=self._cursorCol-self._scrollX-1
-if t>=0 and t<n then
-local e
-if self._cursorCol<=#h then
-e=h:sub(self._cursorCol,self._cursorCol)
+local e=self._cursorCol-self._scrollX-1
+if e>=0 and e<n then
+local t
+if self._cursorCol<=#s then
+t=s:sub(self._cursorCol,self._cursorCol)
 else
-e=" "
+t=" "
 end
 local n=l
-local o=f
-a.text(r+t,i,e,n,o)
+local o=y
+a.text(d+e,i,t,n,o)
 end
 end
-if self:isFocused()and t.visible and t.ghost~=""and not k and o==t.anchorLine then
-local s=t.anchorCol+#t.prefix
-local o=s-self._scrollX-1
+if self:isFocused()and t.visible and t.ghost~=""and not g and o==t.anchorLine then
+local h=t.anchorCol+#t.prefix
+local o=h-self._scrollX-1
 if o<n then
 local t=t.ghost
-local h=#h
-if s<=h then
-local e=h-s+1
+local s=#s
+if h<=s then
+local e=s-h+1
 if e>=#t then
 t=""
 else
@@ -11151,7 +11171,7 @@ if#t>n then
 t=t:sub(1,n)
 end
 if t~=""then
-a.text(r+o,i,t,self.autocompleteGhostColor or e.lightGray,l)
+a.text(d+o,i,t,self.autocompleteGhostColor or e.lightGray,l)
 end
 end
 end
@@ -11165,46 +11185,46 @@ local t=self.placeholder
 if#t>n then
 t=t:sub(1,n)
 end
-a.text(r,h,t..string.rep(" ",math.max(0,n-#t)),e.lightGray,l)
+a.text(d,s,t..string.rep(" ",math.max(0,n-#t)),e.lightGray,l)
 end
-self:_drawFindOverlay(a,r,h,n,j)
-if m then
+self:_drawFindOverlay(a,d,s,n,q)
+if b then
 local t=o.scrollbarX
-local e=m.background or s
-i(a,t,h,u,d,e,e)
-L(a,t,h,d,#self._lines,d,self._scrollY,m)
-if c>0 then
-i(a,t,h+d,u,c,e,e)
+local e=b.background or h
+i(a,t,s,u,r,e,e)
+L(a,t,s,r,#self._lines,r,self._scrollY,b)
+if v>0 then
+i(a,t,s+r,u,v,e,e)
 end
 elseif u>0 then
-i(a,o.scrollbarX,h,u,d+c,s,s)
+i(a,o.scrollbarX,s,u,r+v,h,h)
 end
 if self.border then
-p(q,b,v,y,w,self.border,s)
+p(j,c,f,m,w,self.border,h)
 end
 end
-function o:handleEvent(t,...)
+function o:handleEvent(e,...)
 if not self.visible then
 return false
 end
-if t=="mouse_click"then
-local i,a,t=...
-local o=self._autocompleteState
-if o and o.visible and self:_isPointInAutocomplete(a,t)then
+if e=="mouse_click"then
+local o,a,t=...
+local i=self._autocompleteState
+if i and i.visible and self:_isPointInAutocomplete(a,t)then
 self.app:setFocus(self)
 local e=self:_autocompleteIndexFromPoint(a,t)
 if e then
-if o.selectedIndex~=e then
-o.selectedIndex=e
+if i.selectedIndex~=e then
+i.selectedIndex=e
 self:_refreshAutocompleteGhost()
 end
-if i==1 then
+if o==1 then
 return self:_acceptAutocomplete()
-elseif i==2 then
+elseif o==2 then
 self:_hideAutocomplete()
 return true
 end
-elseif i==2 then
+elseif o==2 then
 self:_hideAutocomplete()
 return true
 end
@@ -11224,40 +11244,40 @@ end
 return true
 end
 end
-local t,e=self:_cursorFromPoint(a,t)
-if i==1 then
-self:_setCursorPosition(t,e)
+local e,t=self:_cursorFromPoint(a,t)
+if o==1 then
+self:_setCursorPosition(e,t)
 self._dragging=true
-self._dragButton=i
-self._dragAnchor={line=t,col=e}
-elseif i==2 then
-self:_setCursorPosition(t,e)
+self._dragButton=o
+self._dragAnchor={line=e,col=t}
+elseif o==2 then
+self:_setCursorPosition(e,t)
 end
 return true
 end
-if o and o.visible and not self:_isPointInAutocomplete(a,t)then
+if i and i.visible and not self:_isPointInAutocomplete(a,t)then
 self:_hideAutocomplete()
 end
-elseif t=="mouse_drag"then
-local o,a,t=...
+elseif e=="mouse_drag"then
+local i,a,o=...
 local e=self._autocompleteState
-if e and e.visible and self:_isPointInAutocomplete(a,t)then
-local t=self:_autocompleteIndexFromPoint(a,t)
+if e and e.visible and self:_isPointInAutocomplete(a,o)then
+local t=self:_autocompleteIndexFromPoint(a,o)
 if t and e.selectedIndex~=t then
 e.selectedIndex=t
 self:_refreshAutocompleteGhost()
 end
 return true
 end
-if self._dragging and o==self._dragButton then
-local t,e=self:_cursorFromPoint(a,t)
+if self._dragging and i==self._dragButton then
+local t,e=self:_cursorFromPoint(a,o)
 if not self._selectionAnchor and self._dragAnchor then
 self._selectionAnchor={line=self._dragAnchor.line,col=self._dragAnchor.col}
 end
 self:_setCursorPosition(t,e,{extendSelection=true,keepAutocomplete=true})
 return true
 end
-elseif t=="mouse_move"then
+elseif e=="mouse_move"then
 local t,a=...
 local e=self._autocompleteState
 if e and e.visible then
@@ -11267,7 +11287,7 @@ e.selectedIndex=t
 self:_refreshAutocompleteGhost()
 end
 end
-elseif t=="mouse_up"then
+elseif e=="mouse_up"then
 local e=...
 if self._dragging and e==self._dragButton then
 self._dragging=false
@@ -11275,7 +11295,7 @@ self._dragButton=nil
 self._dragAnchor=nil
 return true
 end
-elseif t=="monitor_touch"then
+elseif e=="monitor_touch"then
 local e,o,t=...
 local a=self._autocompleteState
 if a and a.visible and self:_isPointInAutocomplete(o,t)then
@@ -11312,10 +11332,10 @@ end
 if a and a.visible then
 self:_hideAutocomplete()
 end
-elseif t=="mouse_scroll"then
-local e,a,t=...
-local o=self._autocompleteState
-if o and o.visible and self:_isPointInAutocomplete(a,t)then
+elseif e=="mouse_scroll"then
+local e,o,t=...
+local a=self._autocompleteState
+if a and a.visible and self:_isPointInAutocomplete(o,t)then
 if e>0 then
 self:_moveAutocompleteSelection(1)
 elseif e<0 then
@@ -11323,11 +11343,11 @@ self:_moveAutocompleteSelection(-1)
 end
 return true
 end
-if self:containsPoint(a,t)then
+if self:containsPoint(o,t)then
 self:_scrollLines(e)
 return true
 end
-elseif t=="char"then
+elseif e=="char"then
 local e=...
 if self:isFocused()then
 if self._find.visible then
@@ -11340,7 +11360,7 @@ self:_updateAutocomplete("auto")
 end
 return e
 end
-elseif t=="paste"then
+elseif e=="paste"then
 local e=...
 if self:isFocused()then
 if self._find.visible then
@@ -11353,7 +11373,7 @@ self:_updateAutocomplete("auto")
 end
 return e
 end
-elseif t=="key"then
+elseif e=="key"then
 local e,t=...
 if e==a.leftShift or e==a.rightShift then
 self._shiftDown=true
@@ -11365,7 +11385,7 @@ end
 if self:isFocused()then
 return self:_handleKey(e,t)
 end
-elseif t=="key_up"then
+elseif e=="key_up"then
 local e=...
 if e==a.leftShift or e==a.rightShift then
 self._shiftDown=false
@@ -11406,13 +11426,13 @@ local h=false
 local i
 local o=a.window
 if o==nil then
-i=Y.current()
+i=ee.current()
 local e,t=i.getSize()
-o=ee.create(i,1,1,e,t,true)
+o=te.create(i,1,1,e,t,true)
 o.setVisible(true)
 h=true
 end
-local t=Q.new(o)
+local t=X.new(o)
 t.profiler.start_frame()
 t.profiler.start_region("user")
 local u=t.add_pixel_layer(5,"pixelui_pixels")
@@ -11442,7 +11462,7 @@ _threadTimers={},
 _threadTicker=nil,
 _threadIdCounter=0
 },s)
-t.root=q:new(t,{
+t.root=k:new(t,{
 x=1,
 y=1,
 width=d,
@@ -11469,7 +11489,7 @@ function s:getPixelLayer()
 return self.pixelLayer
 end
 function s:createFrame(e)
-return q:new(self,e)
+return k:new(self,e)
 end
 function s:createWindow(e)
 return d:new(self,e)
@@ -11481,7 +11501,7 @@ function s:createLabel(e)
 return E:new(self,e)
 end
 function s:createCheckBox(e)
-return z:new(self,e)
+return _:new(self,e)
 end
 function s:createToggle(e)
 return b:new(self,e)
@@ -11514,7 +11534,7 @@ function s:createRadioButton(e)
 return g:new(self,e)
 end
 function s:createProgressBar(e)
-return k:new(self,e)
+return q:new(self,e)
 end
 function s:createNotificationToast(e)
 return h:new(self,e)
@@ -11534,20 +11554,20 @@ self._animationTimer=T.startTimer(self._animationInterval)
 end
 end
 function s:_updateAnimations()
-local a=self._animations
-if not a or#a==0 then
+local t=self._animations
+if not t or#t==0 then
 return
 end
 local o=T.clock()
-local t=1
-while t<=#a do
-local e=a[t]
+local a=1
+while a<=#t do
+local e=t[a]
 if e._cancelled then
 if e.onCancel then
 e.onCancel(e.handle)
 end
 e._finished=true
-table.remove(a,t)
+table.remove(t,a)
 else
 if not e.startTime then
 e.startTime=o
@@ -11568,9 +11588,9 @@ e._finished=true
 if e.onComplete then
 e.onComplete(e.handle)
 end
-table.remove(a,t)
+table.remove(t,a)
 else
-t=t+1
+a=a+1
 end
 end
 end
@@ -11650,18 +11670,18 @@ return t
 end
 local a="running"
 local p="completed"
-local _="error"
+local z="error"
 local i="cancelled"
 local A={}
-local function I(e,t,...)
+local function I(e,a,...)
 if not e then
 return
 end
-for a=1,#e do
-local e=e[a]
-local a,e=pcall(e,...)
-if not a then
-print(t..tostring(e))
+for t=1,#e do
+local e=e[t]
+local e,t=pcall(e,...)
+if not e then
+print(a..tostring(t))
 end
 end
 end
@@ -11683,7 +11703,7 @@ return self.status==a
 end
 function x:isFinished()
 local e=self.status
-return e==p or e==_ or e==i
+return e==p or e==z or e==i
 end
 function x:isCancelled()
 return self._cancelRequested or self.status==i
@@ -11709,7 +11729,7 @@ function x:getResult()
 if not self.result then
 return nil
 end
-return K(self.result,1,self.result.n or#self.result)
+return J(self.result,1,self.result.n or#self.result)
 end
 function x:getResults()
 if not self.result then
@@ -11752,9 +11772,9 @@ end
 t(1,e,"function")
 local t=self._statusListeners
 t[#t+1]=e
-local t,e=pcall(e,self,self.status)
-if not t then
-print("Thread status listener error: "..tostring(e))
+local e,t=pcall(e,self,self.status)
+if not e then
+print("Thread status listener error: "..tostring(t))
 end
 end
 function x:onMetadataChange(e)
@@ -11764,8 +11784,8 @@ end
 t(1,e,"function")
 local t=self._metadataListeners
 t[#t+1]=e
-for t,a in pairs(self.metadata)do
-local t,e=pcall(e,self,t,a)
+for a,t in pairs(self.metadata)do
+local t,e=pcall(e,self,a,t)
 if not t then
 print("Thread metadata listener error: "..tostring(e))
 end
@@ -11827,8 +11847,8 @@ self:checkCancelled()
 self._handle.waiting="yield"
 return coroutine.yield("yield")
 end
-function O:setMetadata(e,t)
-self._handle:setMetadata(e,t)
+function O:setMetadata(t,e)
+self._handle:setMetadata(t,e)
 end
 function O:setStatus(e)
 self._handle:setMetadata("status",e)
@@ -11877,7 +11897,7 @@ return
 end
 local t=e._resumeValue
 e._resumeValue=nil
-local a=B(coroutine.resume(e.co,t))
+local a=Q(coroutine.resume(e.co,t))
 local t=a[1]
 if not t then
 local t=a[2]
@@ -11889,7 +11909,7 @@ t=debug.traceback(e.co,t)
 end
 e.error=t
 print("PixelUI thread error: "..tostring(t))
-e:_setStatus(_)
+e:_setStatus(z)
 end
 self:_cleanupThread(e)
 return
@@ -11983,8 +12003,8 @@ _metadataListeners={}
 local a=coroutine.create(function()
 local e=I(t)
 t._context=e
-local e=B(o(e,self))
-return K(e,1,e.n)
+local e=Q(o(e,self))
+return J(e,1,e.n)
 end)
 t.co=a
 self._threads[#self._threads+1]=t
@@ -12035,23 +12055,23 @@ end
 end
 end
 function s:_drawPopups()
-local a=self._popupWidgets
-if not a or#a==0 then
+local t=self._popupWidgets
+if not t or#t==0 then
 return
 end
 local o=self.layer
 local i=self.pixelLayer
-local t=1
-while t<=#a do
-local e=a[t]
+local a=1
+while a<=#t do
+local e=t[a]
 if e and e._open and e.visible~=false then
 e:_drawDropdown(o,i)
-t=t+1
+a=a+1
 else
 if e then
 self._popupLookup[e]=nil
 end
-table.remove(a,t)
+table.remove(t,a)
 end
 end
 end
@@ -12216,14 +12236,14 @@ end
 end
 if not t and e=="term_resize"then
 if self._autoWindow then
-local e=self._parentTerminal or Y.current()
+local e=self._parentTerminal or ee.current()
 local e,t=e.getSize()
 if self.window.reposition then
 self.window.reposition(1,1,e,t)
 end
 end
-local t,e=self.window.getSize()
-self.root:setSize(t,e)
+local e,t=self.window.getSize()
+self.root:setSize(e,t)
 end
 if not t and(e=="char"or e=="paste"or e=="key"or e=="key_up")then
 local a=self._focusWidget
@@ -12244,7 +12264,7 @@ function s:run()
 self.running=true
 self:render()
 while self.running do
-local e={te()}
+local e={ae()}
 if e[1]=="terminate"then
 self.running=false
 else
@@ -12260,22 +12280,22 @@ self:_shutdownThreads()
 end
 y.widgets={
 Frame=function(t,e)
-return q:new(t,e)
+return k:new(t,e)
 end,
 Window=function(t,e)
 return d:new(t,e)
 end,
-Button=function(t,e)
-return N:new(t,e)
+Button=function(e,t)
+return N:new(e,t)
 end,
 Label=function(e,t)
 return E:new(e,t)
 end,
 CheckBox=function(e,t)
-return z:new(e,t)
+return _:new(e,t)
 end,
-Toggle=function(e,t)
-return b:new(e,t)
+Toggle=function(t,e)
+return b:new(t,e)
 end,
 TextBox=function(t,e)
 return o:new(t,e)
@@ -12298,17 +12318,17 @@ end,
 TreeView=function(e,t)
 return u:new(e,t)
 end,
-Chart=function(t,e)
-return w:new(t,e)
+Chart=function(e,t)
+return w:new(e,t)
 end,
 RadioButton=function(e,t)
 return g:new(e,t)
 end,
-ProgressBar=function(e,t)
-return k:new(e,t)
+ProgressBar=function(t,e)
+return q:new(t,e)
 end,
-Slider=function(e,t)
-return l:new(e,t)
+Slider=function(t,e)
+return l:new(t,e)
 end,
 LoadingRing=function(e,t)
 return v:new(e,t)
@@ -12321,11 +12341,11 @@ return h:new(t,e)
 end
 }
 y.Widget=n
-y.Frame=q
+y.Frame=k
 y.Window=d
 y.Button=N
 y.Label=E
-y.CheckBox=z
+y.CheckBox=_
 y.Toggle=b
 y.TextBox=o
 y.ComboBox=j
@@ -12336,7 +12356,7 @@ y.Table=r
 y.TreeView=u
 y.Chart=w
 y.RadioButton=g
-y.ProgressBar=k
+y.ProgressBar=q
 y.Slider=l
 y.LoadingRing=v
 y.FreeDraw=S
@@ -12347,7 +12367,7 @@ y.ThreadContext=O
 y.threadStatus={
 running=a,
 completed=p,
-error=_,
+error=z,
 cancelled=i
 }
 return y
