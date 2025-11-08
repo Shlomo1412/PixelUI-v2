@@ -68,6 +68,8 @@ export default defineConfig({
           { text: 'LoadingRing', link: '/api/loadingring' },
           { text: 'FreeDraw', link: '/api/freedraw' },
           { text: 'Window', link: '/api/window' },
+          { text: 'Dialog', link: '/api/dialog' },
+          { text: 'MsgBox', link: '/api/msgbox' },
           { text: 'TabControl', link: '/api/tabcontrol' },
         ]
       },

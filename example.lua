@@ -179,6 +179,28 @@ local freeDrawState = {
     patternIndex = 1
 }
 
+local dialogDemo = {
+    defaults = {},
+    dialog = nil,
+    step = nil,
+    instructions = nil,
+    openButton = nil,
+    statusLabel = nil,
+    previewFrame = nil,
+    previewLabel = nil
+}
+
+local msgBoxDemo = {
+    defaults = {},
+    msgBox = nil,
+    step = nil,
+    instructions = nil,
+    showButton = nil,
+    statusLabel = nil,
+    previewFrame = nil,
+    previewLabel = nil
+}
+
 local randomSeeded = false
 local function seedRandom()
     if randomSeeded then
@@ -2454,6 +2476,345 @@ end, function()
     end
 end)
 
+local function openSampleDialog()
+    if dialogDemo.dialog then
+        dialogDemo.dialog:close()
+    end
+
+    local dialogWidth = 28
+    local dialogHeight = 9
+    local rootWidth = root.width
+    local rootHeight = root.height
+    local maxX = math.max(1, rootWidth - dialogWidth + 1)
+    local maxY = math.max(1, rootHeight - dialogHeight + 1)
+    local posX = clamp(math.floor((rootWidth - dialogWidth) / 2) + 1, 1, maxX)
+    local posY = clamp(math.floor((rootHeight - dialogHeight) / 2) + 1, 1, maxY)
+
+    local dialog = app:createDialog({
+        x = posX,
+        y = posY,
+        width = dialogWidth,
+        height = dialogHeight,
+        title = "Sample Dialog",
+        bg = colors.black,
+        fg = colors.white,
+        backdropColor = colors.gray,
+        closeOnBackdrop = true,
+        closeOnEscape = true
+    })
+    dialogDemo.dialog = dialog
+    root:addChild(dialog)
+
+    local originalClose = dialog.close
+    function dialog:close(...)
+        local result = originalClose(self, ...)
+        if dialogDemo.dialog == self then
+            dialogDemo.dialog = nil
+        end
+        if dialogDemo.statusLabel then
+            dialogDemo.statusLabel:setText("Dialog closed.")
+        end
+        return result
+    end
+
+    local offsetX, offsetY = dialog:getContentOffset()
+    local contentWidth = math.max(1, dialog.width - offsetX - 1)
+    local contentHeight = math.max(1, dialog.height - offsetY - 1)
+    local textHeight = math.max(1, contentHeight - 4)
+
+    local bodyLabel = app:createLabel({
+        x = offsetX + 1,
+        y = offsetY + 1,
+        width = contentWidth,
+        height = textHeight,
+        wrap = true,
+        align = "left",
+        text = "Dialogs block interaction with other widgets until they close. Click Close or press Esc to dismiss.",
+        bg = colors.black,
+        fg = colors.white
+    })
+    dialog:addChild(bodyLabel)
+
+    local closeButton = app:createButton({
+        width = 12,
+        height = 3,
+        label = "Close",
+        bg = colors.white,
+        fg = colors.black
+    })
+    dialog:addChild(closeButton)
+    local buttonX = offsetX + math.max(1, math.floor((contentWidth - closeButton.width) / 2) + 1)
+    local buttonY = offsetY + textHeight + 1
+    if buttonY + closeButton.height - 1 > offsetY + contentHeight then
+        buttonY = math.max(offsetY + 1, offsetY + contentHeight - closeButton.height + 1)
+    end
+    closeButton:setPosition(buttonX, buttonY)
+    closeButton:setOnClick(function()
+        dialog:close()
+    end)
+
+    if dialogDemo.statusLabel then
+        dialogDemo.statusLabel:setText("Dialog open. Click Close or press Esc.")
+    end
+    app:render()
+end
+
+local function showSampleMessageBox()
+    if msgBoxDemo.msgBox then
+        msgBoxDemo.msgBox:close()
+    end
+
+    local boxWidth = 30
+    local boxHeight = 9
+    local rootWidth = root.width
+    local rootHeight = root.height
+    local maxX = math.max(1, rootWidth - boxWidth + 1)
+    local maxY = math.max(1, rootHeight - boxHeight + 1)
+    local posX = clamp(math.floor((rootWidth - boxWidth) / 2) + 1, 1, maxX)
+    local posY = clamp(math.floor((rootHeight - boxHeight) / 2) + 1, 1, maxY)
+
+    local selectionReported = false
+
+    local msgBox = app:createMsgBox({
+        x = posX,
+        y = posY,
+        width = boxWidth,
+        background = colors.black,
+        fg = colors.white,
+        height = boxHeight,
+        title = "Unsaved Changes",
+        message = "Save your dashboard layout before switching examples?",
+        buttonAlign = "right",
+        buttons = {
+            { id = "save", label = "Save", bg = colors.white, fg = colors.black },
+            { id = "discard", label = "Discard", bg = colors.orange, fg = colors.black }
+        }
+    })
+    msgBoxDemo.msgBox = msgBox
+    root:addChild(msgBox)
+
+    msgBox:setOnResult(function(_, id)
+        selectionReported = true
+        if msgBoxDemo.statusLabel then
+            local pretty = id and (id:sub(1, 1):upper() .. id:sub(2)) or "(none)"
+            msgBoxDemo.statusLabel:setText("Result: " .. pretty)
+        end
+    end)
+
+    local originalClose = msgBox.close
+    function msgBox:close(...)
+        local result = originalClose(self, ...)
+        if msgBoxDemo.msgBox == self then
+            msgBoxDemo.msgBox = nil
+            if not selectionReported and msgBoxDemo.statusLabel then
+                msgBoxDemo.statusLabel:setText("Message box dismissed.")
+            end
+        end
+        return result
+    end
+
+    if msgBoxDemo.statusLabel then
+        msgBoxDemo.statusLabel:setText("Awaiting selection...")
+    end
+    app:render()
+end
+
+-- Step 22: Dialog showcase
+dialogDemo.step = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(dialogDemo.step)
+
+dialogDemo.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Dialogs display modal content with an optional backdrop. Open one to see focus blocking in action.",
+    bg = colors.gray,
+    fg = colors.white
+})
+dialogDemo.step:addChild(dialogDemo.instructions)
+dialogDemo.defaults.instructions = { width = dialogDemo.instructions.width, height = dialogDemo.instructions.height }
+
+dialogDemo.openButton = app:createButton({
+    x = 8,
+    y = 5,
+    width = 16,
+    height = 3,
+    label = "Open Dialog",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+dialogDemo.step:addChild(dialogDemo.openButton)
+dialogDemo.defaults.button = { width = dialogDemo.openButton.width, height = dialogDemo.openButton.height }
+
+dialogDemo.statusLabel = app:createLabel({
+    x = 2,
+    y = 8,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Dialog closed.",
+    bg = colors.gray,
+    fg = colors.white
+})
+dialogDemo.step:addChild(dialogDemo.statusLabel)
+dialogDemo.defaults.status = { width = dialogDemo.statusLabel.width, height = dialogDemo.statusLabel.height }
+
+dialogDemo.previewFrame = app:createFrame({
+    x = 2,
+    y = 10,
+    width = 26,
+    height = 2,
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.lightGray }
+})
+dialogDemo.previewFrame.focusable = false
+dialogDemo.step:addChild(dialogDemo.previewFrame)
+dialogDemo.defaults.preview = { width = dialogDemo.previewFrame.width, height = dialogDemo.previewFrame.height }
+
+dialogDemo.previewLabel = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 22,
+    height = 1,
+    wrap = false,
+    align = "left",
+    text = "Backdrop dims inactive UI.",
+    bg = colors.black,
+    fg = colors.white
+})
+dialogDemo.previewFrame:addChild(dialogDemo.previewLabel)
+
+dialogDemo.openButton:setOnClick(function()
+    openSampleDialog()
+end)
+
+addStep(dialogDemo.step, function()
+    if dialogDemo.statusLabel then
+        dialogDemo.statusLabel:setText("Dialog closed.")
+    end
+    if dialogDemo.openButton then
+        app:setFocus(dialogDemo.openButton)
+    end
+end, function()
+    if dialogDemo.dialog then
+        dialogDemo.dialog:close()
+        dialogDemo.dialog = nil
+    end
+    if dialogDemo.openButton and dialogDemo.openButton:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
+-- Step 23: MsgBox showcase
+msgBoxDemo.step = app:createFrame({
+    x = 2,
+    y = 2,
+    width = 30,
+    height = 11,
+    bg = colors.gray,
+    fg = colors.white
+})
+wizard:addChild(msgBoxDemo.step)
+
+msgBoxDemo.instructions = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 26,
+    height = 3,
+    wrap = true,
+    align = "left",
+    text = "Message boxes offer a modal prompt with configurable buttons. Try selecting different actions.",
+    bg = colors.gray,
+    fg = colors.white
+})
+msgBoxDemo.step:addChild(msgBoxDemo.instructions)
+msgBoxDemo.defaults.instructions = { width = msgBoxDemo.instructions.width, height = msgBoxDemo.instructions.height }
+
+msgBoxDemo.showButton = app:createButton({
+    x = 7,
+    y = 5,
+    width = 18,
+    height = 3,
+    label = "Show Message Box",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+msgBoxDemo.step:addChild(msgBoxDemo.showButton)
+msgBoxDemo.defaults.button = { width = msgBoxDemo.showButton.width, height = msgBoxDemo.showButton.height }
+
+msgBoxDemo.statusLabel = app:createLabel({
+    x = 2,
+    y = 8,
+    width = 26,
+    height = 2,
+    wrap = true,
+    align = "left",
+    text = "Press Show Message Box to open a prompt.",
+    bg = colors.gray,
+    fg = colors.white
+})
+msgBoxDemo.step:addChild(msgBoxDemo.statusLabel)
+msgBoxDemo.defaults.status = { width = msgBoxDemo.statusLabel.width, height = msgBoxDemo.statusLabel.height }
+
+msgBoxDemo.previewFrame = app:createFrame({
+    x = 2,
+    y = 10,
+    width = 26,
+    height = 2,
+    bg = colors.white,
+    fg = colors.lightBlue,
+    border = { color = colors.lightGray }
+})
+msgBoxDemo.previewFrame.focusable = false
+msgBoxDemo.step:addChild(msgBoxDemo.previewFrame)
+msgBoxDemo.defaults.preview = { width = msgBoxDemo.previewFrame.width, height = msgBoxDemo.previewFrame.height }
+
+msgBoxDemo.previewLabel = app:createLabel({
+    x = 2,
+    y = 2,
+    width = 22,
+    height = 1,
+    wrap = false,
+    align = "left",
+    text = "Buttons inherit MsgBox styling.",
+    bg = colors.white,
+    fg = colors.lightBlue
+})
+msgBoxDemo.previewFrame:addChild(msgBoxDemo.previewLabel)
+
+msgBoxDemo.showButton:setOnClick(function()
+    showSampleMessageBox()
+end)
+
+addStep(msgBoxDemo.step, function()
+    if msgBoxDemo.statusLabel then
+        msgBoxDemo.statusLabel:setText("Press Show Message Box to open a prompt.")
+    end
+    if msgBoxDemo.showButton then
+        app:setFocus(msgBoxDemo.showButton)
+    end
+end, function()
+    if msgBoxDemo.msgBox then
+        msgBoxDemo.msgBox:close()
+        msgBoxDemo.msgBox = nil
+    end
+    if msgBoxDemo.showButton and msgBoxDemo.showButton:isFocused() then
+        app:setFocus(nil)
+    end
+end)
+
 local function showStep(index, direction)
     if index < 1 or index > #steps then
         return
@@ -2593,6 +2954,8 @@ local layoutState = {
     radioStep = radioStep,
     tabState = tabState,
     tabStep = tabStep,
+    dialogDemo = dialogDemo,
+    msgBoxDemo = msgBoxDemo,
     sliderSingle = sliderSingle,
     sliderRange = sliderRange,
     sliderDefaults = sliderDefaults,

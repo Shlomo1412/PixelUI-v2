@@ -164,6 +164,27 @@ local shrekbox = require("shrekbox")
 ---@field private _isMaximized boolean # Whether the window is currently maximized
 ---@field private _restoreRect table? # Saved geometry used when restoring from maximized state
 
+---@class PixelUI.Dialog : PixelUI.Window
+---@field modal boolean # Whether the dialog should block interaction with other widgets
+---@field backdropColor PixelUI.Color? # Optional fill color drawn behind the dialog when modal
+---@field backdropPixelColor PixelUI.Color? # Pixel layer color for the backdrop when modal
+---@field closeOnBackdrop boolean # Whether clicking the backdrop should close the dialog
+---@field closeOnEscape boolean # Whether pressing escape closes the dialog
+
+---@class PixelUI.MsgBoxButtonConfig
+---@field id string? # Identifier returned when the button is pressed
+---@field label string? # Text displayed on the button
+---@field bg PixelUI.Color? # Custom background color
+---@field fg PixelUI.Color? # Custom foreground color
+---@field width integer? # Optional explicit button width
+---@field height integer? # Optional explicit button height
+---@field onSelect fun(self:PixelUI.MsgBox, id:string, button:PixelUI.Button)? # Callback invoked when the button is selected
+---@field autoClose boolean? # Overrides the message box auto-close behaviour for this button
+
+---@class PixelUI.MsgBox : PixelUI.Dialog
+---@field autoClose boolean # Whether the dialog should close automatically after a button press
+---@field buttonAlign "left"|"center"|"right" # Horizontal alignment of the button row
+
 --- A clickable button widget with press effects and event callbacks.
 --- Supports click, press, and release events with visual feedback.
 ---@class PixelUI.Button : PixelUI.Widget
@@ -3904,8 +3925,84 @@ function Window:draw(textLayer, pixelLayer)
 
 	local children = copy_children(self._children)
 	sort_children_ascending(children)
-	for i = 1, #children do
-		children[i]:draw(textLayer, pixelLayer)
+	if #children == 0 then
+		return
+	end
+
+	if not (textLayer and textLayer.text and pixelLayer and pixelLayer.pixel) then
+		for i = 1, #children do
+			children[i]:draw(textLayer, pixelLayer)
+		end
+		return
+	end
+
+	local clipX1 = ax
+	local clipY1 = ay
+	local clipX2 = ax + width - 1
+	local clipY2 = ay + height - 1
+	local clipPixelX1 = (clipX1 - 1) * 2 + 1
+	local clipPixelY1 = (clipY1 - 1) * 3 + 1
+	local clipPixelX2 = clipPixelX1 + width * 2 - 1
+	local clipPixelY2 = clipPixelY1 + height * 3 - 1
+
+	local originalText = textLayer.text
+	local originalPixel = pixelLayer.pixel
+
+	local function restoreLayers()
+		textLayer.text = originalText
+		pixelLayer.pixel = originalPixel
+	end
+
+	textLayer.text = function(x, y, text, fg, bgColor)
+		if not text or text == "" then
+			return
+		end
+		if y < clipY1 or y > clipY2 then
+			return
+		end
+		local newX = x
+		local startIndex = 1
+		local textLength = #text
+		if newX < clipX1 then
+			local trim = clipX1 - newX
+			startIndex = startIndex + trim
+			newX = clipX1
+		end
+		if startIndex > textLength then
+			return
+		end
+		local maxLen = clipX2 - newX + 1
+		if maxLen <= 0 then
+			return
+		end
+		local endIndex = math.min(textLength, startIndex + maxLen - 1)
+		if endIndex < startIndex then
+			return
+		end
+		local clippedText = text:sub(startIndex, endIndex)
+		if clippedText == "" then
+			return
+		end
+		originalText(newX, y, clippedText, fg, bgColor)
+	end
+
+	pixelLayer.pixel = function(px, py, color)
+		if px < clipPixelX1 or px > clipPixelX2 or py < clipPixelY1 or py > clipPixelY2 then
+			return
+		end
+		originalPixel(px, py, color)
+	end
+
+	local ok, err = pcall(function()
+		for i = 1, #children do
+			children[i]:draw(textLayer, pixelLayer)
+		end
+	end)
+
+	restoreLayers()
+
+	if not ok then
+		error(err, 0)
 	end
 end
 
@@ -3995,6 +4092,500 @@ function Window:handleEvent(event, ...)
 	end
 
 	return Frame.handleEvent(self, event, ...)
+end
+
+
+local function is_pointer_event(event)
+	return event == "mouse_click" or event == "mouse_up" or event == "mouse_drag" or event == "mouse_scroll" or event == "monitor_touch" or event == "monitor_up" or event == "monitor_drag" or event == "monitor_scroll"
+end
+
+local function extract_pointer_position(event, ...)
+	if event == "mouse_click" or event == "mouse_up" or event == "mouse_drag" then
+		local _, x, y = ...
+		return x, y
+	elseif event == "mouse_scroll" then
+		local _, x, y = ...
+		return x, y
+	elseif event == "monitor_touch" or event == "monitor_up" or event == "monitor_drag" or event == "monitor_scroll" then
+		local _, x, y = ...
+		return x, y
+	end
+	return nil, nil
+end
+
+local Dialog = setmetatable({}, { __index = Window })
+Dialog.__index = Dialog
+
+function Dialog:new(app, config)
+	config = config or {}
+	local base = Window.new(Window, app, config)
+	setmetatable(base, Dialog)
+	local modal = config.modal ~= false
+	base.modal = modal
+	local backdropColor = config.backdropColor
+	if backdropColor == false then
+		backdropColor = nil
+	end
+	if modal and backdropColor == nil then
+		backdropColor = colors.gray
+	end
+	base.backdropColor = backdropColor
+	if config.backdropPixelColor ~= nil then
+		if config.backdropPixelColor == false then
+			base.backdropPixelColor = nil
+		else
+			base.backdropPixelColor = config.backdropPixelColor
+		end
+	else
+		base.backdropPixelColor = backdropColor
+	end
+	base.closeOnBackdrop = config.closeOnBackdrop ~= false
+	base.closeOnEscape = config.closeOnEscape ~= false
+	base._modalRaised = false
+	if config.resizable == nil then
+		base:setResizable(false)
+	end
+	if config.maximizable == nil then
+		base:setMaximizable(false)
+	end
+	return base
+end
+
+function Dialog:setModal(value)
+	value = not not value
+	if self.modal == value then
+		return
+	end
+	self.modal = value
+	if value and self.backdropColor == nil then
+		self.backdropColor = colors.black
+		if self.backdropPixelColor == nil then
+			self.backdropPixelColor = self.backdropColor
+		end
+	end
+	self._modalRaised = false
+end
+
+function Dialog:isModal()
+	return not not self.modal
+end
+
+function Dialog:setBackdropColor(color, pixelColor)
+	if color == false then
+		self.backdropColor = nil
+	else
+		self.backdropColor = color
+	end
+	if pixelColor == false then
+		self.backdropPixelColor = nil
+	elseif pixelColor ~= nil then
+		self.backdropPixelColor = pixelColor
+	else
+		self.backdropPixelColor = self.backdropColor
+	end
+end
+
+function Dialog:getBackdropColor()
+	return self.backdropColor
+end
+
+function Dialog:setCloseOnBackdrop(value)
+	self.closeOnBackdrop = not not value
+end
+
+function Dialog:setCloseOnEscape(value)
+	self.closeOnEscape = not not value
+end
+
+function Dialog:draw(textLayer, pixelLayer)
+	if not self.visible then
+		return
+	end
+	if self.modal then
+		if not self._modalRaised then
+			self:bringToFront()
+			self._modalRaised = true
+		end
+		local overlayColor = self.backdropPixelColor or self.backdropColor
+		if overlayColor then
+			local root = self.app and self.app.root
+			if root and pixelLayer then
+				local rx, ry, rw, rh = root:getAbsoluteRect()
+				fill_rect_pixels(pixelLayer, rx, ry, rw, rh, overlayColor)
+			end
+		end
+	else
+		self._modalRaised = false
+	end
+	Window.draw(self, textLayer, pixelLayer)
+end
+
+function Dialog:_consumeModalEvent(event, ...)
+	if not self.modal then
+		return false
+	end
+	if event == "key" then
+		local keyCode = ...
+		if self.closeOnEscape and keyCode == keys.escape then
+			self:close()
+			return true
+		end
+		return true
+	end
+	if event == "char" or event == "paste" or event == "key_up" then
+		return true
+	end
+	if is_pointer_event(event) then
+		local px, py = extract_pointer_position(event, ...)
+		local inside = false
+		if px and py then
+			inside = self:containsPoint(px, py)
+		end
+		if not inside and (event == "mouse_click" or event == "monitor_touch") then
+			if self.closeOnBackdrop then
+				self:close()
+			end
+		end
+		return true
+	end
+	return false
+end
+
+function Dialog:handleEvent(event, ...)
+	if not self.visible then
+		return false
+	end
+
+	local handled = Window.handleEvent(self, event, ...)
+	if handled then
+		return true
+	end
+
+	if self.modal then
+		if self:_consumeModalEvent(event, ...) then
+			return true
+		end
+	end
+
+	return false
+end
+
+function Dialog:close()
+	local wasVisible = self.visible
+	Window.close(self)
+	if wasVisible and not self.visible then
+		self._modalRaised = false
+	end
+end
+
+local function normalize_padding_xy(padding, defaultX, defaultY)
+	local x = defaultX
+	local y = defaultY
+	if type(padding) == "number" then
+		local value = math.max(0, math.floor(padding))
+		x, y = value, value
+	elseif type(padding) == "table" then
+		if padding.horizontal ~= nil then
+			x = math.max(0, math.floor(padding.horizontal))
+		elseif padding.x ~= nil then
+			x = math.max(0, math.floor(padding.x))
+		end
+		if padding.vertical ~= nil then
+			y = math.max(0, math.floor(padding.vertical))
+		elseif padding.y ~= nil then
+			y = math.max(0, math.floor(padding.y))
+		end
+	end
+	return x, y
+end
+
+local function normalize_align(value, defaultAlign)
+	if type(value) ~= "string" then
+		return defaultAlign
+	end
+	local normalized = value:lower()
+	if normalized ~= "left" and normalized ~= "center" and normalized ~= "right" then
+		return defaultAlign
+	end
+	return normalized
+end
+
+local MsgBox = setmetatable({}, { __index = Dialog })
+MsgBox.__index = MsgBox
+
+function MsgBox:new(app, config)
+	config = config or {}
+	if config.modal == nil then
+		config.modal = true
+	end
+	if config.resizable == nil then
+		config.resizable = false
+	end
+	local base = Dialog.new(Dialog, app, config)
+	setmetatable(base, MsgBox)
+	base.autoClose = config.autoClose ~= false
+	base.buttonAlign = normalize_align(config.buttonAlign, "center")
+	base.buttonGap = math.max(0, math.floor(config.buttonGap or 2))
+	base.buttonHeight = math.max(1, math.floor(config.buttonHeight or 3))
+	base.minButtonWidth = math.max(1, math.floor(config.minButtonWidth or 6))
+	base.buttonLabelPadding = math.max(0, math.floor(config.buttonLabelPadding or 2))
+	base.buttonAreaSpacing = math.max(0, math.floor(config.buttonAreaSpacing or 1))
+	base.contentPaddingX, base.contentPaddingY = normalize_padding_xy(config.contentPadding, 2, 1)
+	base.messagePaddingX, base.messagePaddingY = normalize_padding_xy(config.messagePadding, 1, 1)
+	base.messageFg = config.messageFg or colors.lightBlue
+	base.messageBg = config.messageBg or colors.white
+	base.wrapMessage = config.wrap ~= false
+	base._buttons = {}
+
+	local contentBorder
+	if config.contentBorder == false then
+		contentBorder = nil
+	else
+		contentBorder = { color = config.contentBorderColor or colors.lightGray }
+	end
+
+	base._contentFrame = Frame:new(app, {
+		width = 1,
+		height = 1,
+		bg = base.messageBg,
+		fg = base.messageFg,
+		border = contentBorder
+	})
+	base._contentFrame.focusable = false
+	base:addChild(base._contentFrame)
+
+	base._messageLabel = Label:new(app, {
+		text = config.message or "",
+		wrap = base.wrapMessage,
+		bg = base.messageBg,
+		fg = base.messageFg,
+		width = 1,
+		height = 1,
+		align = config.messageAlign or "left",
+		verticalAlign = config.messageVerticalAlign or "top"
+	})
+	base._messageLabel.focusable = false
+	base._contentFrame:addChild(base._messageLabel)
+
+	base.onResult = config.onResult
+	base:setMessage(config.message or "")
+	base:setButtons(config.buttons)
+	if config.bg == nil then
+		base.bg = colors.gray
+	end
+	base:_updateLayout()
+	return base
+end
+
+function MsgBox:setMessage(text)
+	if text == nil then
+		text = ""
+	end
+	text = tostring(text)
+	self.message = text
+	if self._messageLabel then
+		self._messageLabel:setText(text)
+	end
+	self:_updateLayout()
+end
+
+function MsgBox:getMessage()
+	return self.message or ""
+end
+
+function MsgBox:setOnResult(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onResult = handler
+end
+
+function MsgBox:_createButtonEntry(spec, index)
+	local entry = {}
+	local label
+	local autoClose = self.autoClose
+	local width
+	local height
+	local bg
+	local fg
+	local onSelect
+	if type(spec) == "string" then
+		label = spec
+		entry.id = spec
+	elseif type(spec) == "table" then
+		label = spec.label or spec.id or ("Button " .. tostring(index))
+		entry.id = spec.id or spec.value or label
+		if spec.autoClose ~= nil then
+			autoClose = not not spec.autoClose
+		end
+		if spec.width ~= nil then
+			width = math.max(1, math.floor(spec.width))
+		end
+		if spec.height ~= nil then
+			height = math.max(1, math.floor(spec.height))
+		end
+		bg = spec.bg
+		fg = spec.fg
+		onSelect = spec.onSelect
+	else
+		error("MsgBox button config at index " .. tostring(index) .. " must be a string or table", 3)
+	end
+	label = tostring(label)
+	if not entry.id or entry.id == "" then
+		entry.id = tostring(index)
+	end
+	local computedWidth = width or math.max(self.minButtonWidth, #label + self.buttonLabelPadding * 2)
+	local computedHeight = height or self.buttonHeight
+	local button = Button:new(self.app, {
+		label = label,
+		width = computedWidth,
+		height = computedHeight,
+		bg = bg or colors.white,
+		fg = fg or colors.black
+	})
+	button.focusable = false
+	entry.button = button
+	entry.autoClose = autoClose
+	entry.config = spec
+	entry.onSelect = onSelect
+	button.onClick = function()
+		self:_handleButtonSelection(entry)
+	end
+	return entry
+end
+
+function MsgBox:setButtons(buttons)
+	if self._buttons then
+		for i = 1, #self._buttons do
+			local btnEntry = self._buttons[i]
+			if btnEntry and btnEntry.button and btnEntry.button.parent then
+				btnEntry.button.parent:removeChild(btnEntry.button)
+			end
+		end
+	end
+	self._buttons = {}
+	if buttons == nil then
+		buttons = { { id = "ok", label = "OK", autoClose = true } }
+	end
+	if type(buttons) ~= "table" then
+		error("MsgBox:setButtons expects a table or nil", 2)
+	end
+	for index = 1, #buttons do
+		local entry = self:_createButtonEntry(buttons[index], index)
+		self._buttons[#self._buttons + 1] = entry
+		self:addChild(entry.button)
+	end
+	self:_updateLayout()
+end
+
+function MsgBox:_handleButtonSelection(entry)
+	if not entry then
+		return
+	end
+	if entry.onSelect then
+		entry.onSelect(self, entry.id, entry.button)
+	end
+	local result
+	if self.onResult then
+		result = self.onResult(self, entry.id, entry.button)
+	end
+	if entry.autoClose and result ~= false then
+		self:close()
+	end
+end
+
+function MsgBox:setButtonAlign(align)
+	self.buttonAlign = normalize_align(align, self.buttonAlign)
+	self:_updateLayout()
+end
+
+function MsgBox:setAutoClose(value)
+	self.autoClose = not not value
+end
+
+function MsgBox:setButtonGap(value)
+	self.buttonGap = math.max(0, math.floor(value or self.buttonGap))
+	self:_updateLayout()
+end
+
+function MsgBox:_updateLayout()
+	if not self._contentFrame then
+		return
+	end
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local titleHeight = self:_getVisibleTitleBarHeight()
+	local contentWidth = math.max(1, innerWidth)
+	local contentHeight = math.max(1, innerHeight - titleHeight)
+	local contentX = leftPad + 1
+	local contentY = topPad + titleHeight + 1
+	local buttonsCount = #self._buttons
+	local buttonRowHeight = buttonsCount > 0 and self.buttonHeight or 0
+	local availableHeight = contentHeight
+	local messageHeight = availableHeight
+	if buttonsCount > 0 then
+		local spacing = self.buttonAreaSpacing
+		if contentHeight <= buttonRowHeight then
+			spacing = 0
+			messageHeight = math.max(1, contentHeight - buttonRowHeight)
+		else
+			local maxSpacing = math.max(0, contentHeight - buttonRowHeight - 1)
+			if spacing > maxSpacing then
+				spacing = maxSpacing
+			end
+			messageHeight = math.max(1, contentHeight - buttonRowHeight - spacing)
+		end
+		self._buttonRowY = contentY + messageHeight + spacing
+	else
+		self._buttonRowY = nil
+	end
+	self._contentFrame:setPosition(contentX, contentY)
+	self._contentFrame:setSize(contentWidth, math.max(1, messageHeight))
+	local labelWidth = math.max(1, contentWidth - self.messagePaddingX * 2)
+	local labelHeight = math.max(1, messageHeight - self.messagePaddingY * 2)
+	self._messageLabel:setSize(labelWidth, labelHeight)
+	self._messageLabel:setPosition(self.messagePaddingX + 1, self.messagePaddingY + 1)
+	if buttonsCount > 0 then
+		local totalWidth = 0
+		for i = 1, buttonsCount do
+			local btn = self._buttons[i].button
+			totalWidth = totalWidth + btn.width
+			if i > 1 then
+				totalWidth = totalWidth + self.buttonGap
+			end
+		end
+		local startX
+		if self.buttonAlign == "left" then
+			startX = contentX
+		elseif self.buttonAlign == "right" then
+			startX = contentX + math.max(0, contentWidth - totalWidth)
+		else
+			startX = contentX + math.max(0, math.floor((contentWidth - totalWidth) / 2))
+		end
+		local cursor = startX
+		local buttonY = self._buttonRowY or (contentY + messageHeight)
+		for i = 1, buttonsCount do
+			local entry = self._buttons[i]
+			local btn = entry.button
+			btn:setSize(btn.width, self.buttonHeight)
+			btn:setPosition(cursor, buttonY)
+			cursor = cursor + btn.width + self.buttonGap
+		end
+	end
+end
+
+function MsgBox:setSize(width, height)
+	Window.setSize(self, width, height)
+	self:_updateLayout()
+end
+
+function MsgBox:setBorder(borderConfig)
+	Window.setBorder(self, borderConfig)
+	self:_updateLayout()
+end
+
+function MsgBox:setTitleBar(options)
+	Window.setTitleBar(self, options)
+	self:_updateLayout()
 end
 
 
@@ -13133,6 +13724,18 @@ function App:createWindow(config)
 	return Window:new(self, config)
 end
 
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.Dialog
+function App:createDialog(config)
+	return Dialog:new(self, config)
+end
+
+---@param config PixelUI.WidgetConfig?
+---@return PixelUI.MsgBox
+function App:createMsgBox(config)
+	return MsgBox:new(self, config)
+end
+
 ---@since 0.1.0
 ---@param config PixelUI.WidgetConfig?
 ---@return PixelUI.Button
@@ -14070,6 +14673,12 @@ pixelui.widgets = {
 	Window = function(app, config)
 		return Window:new(app, config)
 	end,
+	Dialog = function(app, config)
+		return Dialog:new(app, config)
+	end,
+	MsgBox = function(app, config)
+		return MsgBox:new(app, config)
+	end,
 	Button = function(app, config)
 		return Button:new(app, config)
 	end,
@@ -14129,6 +14738,8 @@ pixelui.widgets = {
 pixelui.Widget = Widget
 pixelui.Frame = Frame
 pixelui.Window = Window
+pixelui.Dialog = Dialog
+pixelui.MsgBox = MsgBox
 pixelui.Button = Button
 pixelui.Label = Label
 pixelui.CheckBox = CheckBox
