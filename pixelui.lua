@@ -148,7 +148,7 @@ local shrekbox = require("shrekbox")
 ---@field resizable boolean # Whether the window size can be adjusted via drag handles
 ---@field closable boolean # Whether the window shows a close button
 ---@field maximizable boolean # Whether the window shows a maximize/restore button
----@field private _titleBar { enabled:boolean, height:integer, bg:PixelUI.Color?, fg:PixelUI.Color?, align:string }? # Cached title bar configuration
+---@field private _titleBar { enabled:boolean, height:integer, bg:PixelUI.Color?, fg:PixelUI.Color?, align:string, buttons:table, buttonSpacing:integer }? # Cached title bar configuration
 ---@field private _titleLayoutCache table? # Cached geometry information for the title bar
 ---@field private _titleButtonRects table<string, {x1:integer, y1:integer, x2:integer, y2:integer}>? # Interactive button hit boxes
 ---@field private _dragging boolean # Whether the window is currently being dragged
@@ -865,6 +865,76 @@ local function clone_table(src)
 	return copy
 end
 
+local DEFAULT_TITLE_BUTTON_STYLES = {
+	close = {
+		label = "X",
+		fg = colors.white,
+		bg = colors.red,
+		padding = 0
+	},
+	maximize = {
+		label = "-",
+		maximizeLabel = "-",
+		restoreLabel = "-",
+		fg = colors.white,
+		bg = colors.blue,
+		restoreBg = colors.blue,
+		padding = 0
+	}
+}
+
+local function normalize_title_button_style(kind, config)
+	local defaults = DEFAULT_TITLE_BUTTON_STYLES[kind]
+	local style = clone_table(defaults) or {}
+	if config == nil or config == false or config == true then
+		return style
+	end
+	expect(1, config, "table")
+	if config.label ~= nil then
+		style.label = tostring(config.label)
+	end
+	if config.maximizeLabel ~= nil then
+		style.maximizeLabel = tostring(config.maximizeLabel)
+	end
+	if config.restoreLabel ~= nil then
+		style.restoreLabel = tostring(config.restoreLabel)
+	end
+	if config.fg ~= nil then
+		style.fg = config.fg
+	end
+	if config.bg ~= nil then
+		style.bg = config.bg
+	end
+	if config.restoreFg ~= nil then
+		style.restoreFg = config.restoreFg
+	end
+	if config.restoreBg ~= nil then
+		style.restoreBg = config.restoreBg
+	end
+	if config.width ~= nil then
+		local width = math.max(1, math.floor(config.width))
+		style.width = width
+	end
+	if config.padding ~= nil then
+		style.padding = math.max(0, math.floor(config.padding))
+	end
+	return style
+end
+
+local function resolve_title_bar_buttons(config)
+	local buttonsConfig = (type(config) == "table" and config.buttons) or nil
+	local closeConfig
+	local maximizeConfig
+	if type(config) == "table" then
+		closeConfig = config.closeButton or (type(buttonsConfig) == "table" and buttonsConfig.close) or nil
+		maximizeConfig = config.maximizeButton or (type(buttonsConfig) == "table" and buttonsConfig.maximize) or nil
+	end
+	return {
+		close = normalize_title_button_style("close", closeConfig),
+		maximize = normalize_title_button_style("maximize", maximizeConfig)
+	}
+end
+
 local function assert_positive_integer(name, value)
 	expect(nil, name, "string")
 	expect(nil, value, "number")
@@ -956,14 +1026,16 @@ local function normalize_title_bar(config, hasTitle)
 			height = 1,
 			bg = nil,
 			fg = nil,
-			align = "left"
+			align = "left",
+			buttons = resolve_title_bar_buttons(nil),
+			buttonSpacing = 1
 		}
 	end
 	if config == false then
-		return { enabled = false, height = 0, bg = nil, fg = nil, align = "left" }
+		return { enabled = false, height = 0, bg = nil, fg = nil, align = "left", buttons = resolve_title_bar_buttons(nil), buttonSpacing = 1 }
 	end
 	if config == true then
-		return { enabled = true, height = 1, bg = nil, fg = nil, align = "left" }
+		return { enabled = true, height = 1, bg = nil, fg = nil, align = "left", buttons = resolve_title_bar_buttons(nil), buttonSpacing = 1 }
 	end
 	expect(1, config, "table")
 	local enabled = config.enabled
@@ -983,12 +1055,15 @@ local function normalize_title_bar(config, hasTitle)
 	if align ~= "left" and align ~= "center" and align ~= "right" then
 		align = "left"
 	end
+	local buttonSpacing = config.buttonSpacing ~= nil and math.max(0, math.floor(config.buttonSpacing)) or 1
 	return {
 		enabled = true,
 		height = height,
 		bg = config.bg,
 		fg = config.fg,
-		align = align
+		align = align,
+		buttons = resolve_title_bar_buttons(config),
+		buttonSpacing = buttonSpacing
 	}
 end
 
@@ -3221,11 +3296,11 @@ function Window:_computeTitleLayout()
 
 	local ax, ay = compute_absolute_position(self)
 	local leftPad, rightPad = compute_inner_offsets(self)
-	local textX = ax + leftPad
-	local textWidth = math.max(0, self.width - leftPad - rightPad)
-	if textWidth <= 0 then
-		textX = ax
-		textWidth = self.width
+	local innerX = ax + leftPad
+	local innerWidth = math.max(0, self.width - leftPad - rightPad)
+	if innerWidth <= 0 then
+		innerX = ax
+		innerWidth = self.width
 	end
 
 	local layout = {
@@ -3233,28 +3308,58 @@ function Window:_computeTitleLayout()
 		barY = ay,
 		barWidth = self.width,
 		barHeight = barHeight,
-		textX = textX,
-		textWidth = textWidth,
+		innerX = innerX,
+		innerWidth = innerWidth,
 		textBaseline = ay,
 		buttonRects = {},
 		buttonOrder = {},
+		buttonMetrics = {},
 		maximizeState = self._isMaximized and "restore" or "maximize"
 	}
 
-	local buttonWidth = 3
-	local spacing = 1
-	local cursor = textX + textWidth - 1
+	local buttonStyles = bar.buttons or resolve_title_bar_buttons(nil)
+	local spacing = math.max(0, math.floor(bar.buttonSpacing or 1))
+	local cursor = innerX + innerWidth - 1
+
+	local function computeButtonMetrics(name)
+		local style = buttonStyles[name]
+		if not style then
+			return nil
+		end
+		local padding = math.max(0, style.padding or 0)
+		local width = style.width
+		if width == nil then
+			local baseLabel = tostring(style.label or "")
+			local altLabel = baseLabel
+			if name == "maximize" then
+				local maximizeLabel = tostring(style.maximizeLabel or baseLabel)
+				local restoreLabel = tostring(style.restoreLabel or maximizeLabel)
+				altLabel = restoreLabel
+				baseLabel = maximizeLabel
+			end
+			local labelWidth = math.max(#baseLabel, #altLabel)
+			width = math.max(1, labelWidth + padding * 2)
+		else
+			width = math.max(1, math.floor(width))
+		end
+		return style, width, padding
+	end
 
 	local function placeButton(name)
-		if cursor - buttonWidth + 1 < textX then
+		local style, buttonWidth, padding = computeButtonMetrics(name)
+		if not style or buttonWidth <= 0 then
+			return nil
+		end
+		if cursor - buttonWidth + 1 < innerX then
 			return nil
 		end
 		local x2 = cursor
 		local x1 = x2 - buttonWidth + 1
-		local rect = { x1 = x1, y1 = ay, x2 = x2, y2 = ay }
+		local rect = { x1 = x1, y1 = ay, x2 = x2, y2 = ay, width = buttonWidth, height = barHeight }
 		layout.buttonRects[name] = rect
 		layout.buttonOrder[#layout.buttonOrder + 1] = name
-		cursor = x1 - spacing
+		layout.buttonMetrics[name] = { style = style, padding = padding, width = buttonWidth }
+		cursor = x1 - spacing - 1
 		return rect
 	end
 
@@ -3265,13 +3370,17 @@ function Window:_computeTitleLayout()
 		placeButton("maximize")
 	end
 
-	layout.titleStart = textX
+	layout.titleStart = innerX
 	layout.titleEnd = cursor
 	if layout.titleEnd < layout.titleStart then
 		layout.titleWidth = 0
 	else
 		layout.titleWidth = layout.titleEnd - layout.titleStart + 1
 	end
+	layout.innerSpacing = spacing
+	layout.buttonStyles = buttonStyles
+	layout.textFillX = innerX
+	layout.textFillWidth = innerWidth
 
 	self._titleLayoutCache = layout
 	self._titleButtonRects = layout.buttonRects
@@ -3289,6 +3398,51 @@ function Window:_hitTestTitleButton(px, py)
 		end
 	end
 	return nil
+end
+
+function Window:_drawTitleButton(textLayer, pixelLayer, layout, name, baseFg, baseBg)
+	local rect = layout.buttonRects and layout.buttonRects[name]
+	if not rect then
+		return
+	end
+	local metrics = layout.buttonMetrics and layout.buttonMetrics[name]
+	if not metrics then
+		return
+	end
+	local style = metrics.style or {}
+	local padding = math.max(0, metrics.padding or 0)
+	local availableWidth = rect.width - padding * 2
+	if availableWidth <= 0 then
+		return
+	end
+	local fg = style.fg or baseFg
+	local bg = style.bg or baseBg
+	local label = tostring(style.label or "")
+	if name == "maximize" then
+		local maximizeLabel = tostring(style.maximizeLabel or label)
+		local restoreLabel = tostring(style.restoreLabel or maximizeLabel)
+		if layout.maximizeState == "restore" then
+			label = restoreLabel
+			fg = style.restoreFg or fg
+			bg = style.restoreBg or bg
+		else
+			label = maximizeLabel
+		end
+	end
+	if #label > availableWidth then
+		label = label:sub(1, availableWidth)
+	end
+	local fillBg = bg or baseBg or self.bg or self.app.background
+	fill_rect(textLayer, rect.x1, rect.y1, rect.width, layout.barHeight, fillBg, fillBg)
+	fill_rect_pixels(pixelLayer, rect.x1, rect.y1, rect.width, layout.barHeight, fillBg)
+	if #label > 0 then
+		local textX = rect.x1 + padding
+		local offset = math.floor((availableWidth - #label) / 2)
+		if offset > 0 then
+			textX = textX + offset
+		end
+		textLayer.text(textX, rect.y1, label, fg or baseFg, fillBg)
+	end
 end
 
 function Window:_fillTitleBarPixels(pixelLayer, layout, color)
@@ -3432,11 +3586,17 @@ end
 function Window:_computeMaximizedGeometry()
 	local parent = self.parent
 	if parent then
-		local leftPad, rightPad, topPad, bottomPad = compute_inner_offsets(parent)
-		local width = math.max(1, parent.width - leftPad - rightPad)
-		local height = math.max(1, parent.height - topPad - bottomPad)
+		local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(parent)
+		local width = math.max(1, innerWidth)
+		local height = math.max(1, innerHeight)
 		local x = leftPad + 1
 		local y = topPad + 1
+		if self.app and parent == self.app.root then
+			x = 1
+			y = 1
+			width = parent.width
+			height = parent.height
+		end
 		return { x = x, y = y, width = width, height = height }
 	end
 	local root = self.app and self.app.root or nil
@@ -3522,7 +3682,22 @@ function Window:setTitleBar(options)
 end
 
 function Window:getTitleBar()
-	return clone_table(self._titleBar)
+	local current = self._titleBar
+	if not current then
+		return nil
+	end
+	local copy = clone_table(current)
+	if copy and copy.buttons then
+		local clonedButtons = {}
+		if copy.buttons.close then
+			clonedButtons.close = clone_table(copy.buttons.close)
+		end
+		if copy.buttons.maximize then
+			clonedButtons.maximize = clone_table(copy.buttons.maximize)
+		end
+		copy.buttons = clonedButtons
+	end
+	return copy
 end
 
 function Window:setDraggable(value)
@@ -3686,9 +3861,11 @@ function Window:draw(textLayer, pixelLayer)
 		titleLayout = self:_computeTitleLayout()
 		if titleLayout then
 			titleBarBg = bar.bg or bg
+			local fillColor = titleBarBg or bg
 			local barFg = bar.fg or self.fg or colors.white
-			if titleLayout.textWidth > 0 then
-				fill_rect(textLayer, titleLayout.textX, titleLayout.textBaseline, titleLayout.textWidth, titleLayout.barHeight, titleBarBg, titleBarBg)
+			if titleLayout.textFillWidth and titleLayout.textFillWidth > 0 then
+				fill_rect(textLayer, titleLayout.textFillX, titleLayout.textBaseline, titleLayout.textFillWidth, titleLayout.barHeight, fillColor, fillColor)
+				fill_rect_pixels(pixelLayer, titleLayout.textFillX, titleLayout.textBaseline, titleLayout.textFillWidth, titleLayout.barHeight, fillColor)
 			end
 			local availableWidth = titleLayout.titleWidth or 0
 			local titleText = self.title or ""
@@ -3710,30 +3887,20 @@ function Window:draw(textLayer, pixelLayer)
 						line = titleText .. string.rep(" ", padding)
 					end
 				end
-				textLayer.text(titleLayout.titleStart, titleLayout.textBaseline, line, barFg, titleBarBg)
+				textLayer.text(titleLayout.titleStart, titleLayout.textBaseline, line, barFg, fillColor)
 			end
 			local buttonFg = bar.fg or self.fg or colors.white
 			if self.maximizable then
-				local maxRect = titleLayout.buttonRects.maximize
-				if maxRect then
-					local label = titleLayout.maximizeState == "restore" and "[-]" or "[+]"
-					textLayer.text(maxRect.x1, maxRect.y1, label, buttonFg, titleBarBg)
-				end
+				self:_drawTitleButton(textLayer, pixelLayer, titleLayout, "maximize", buttonFg, fillColor)
 			end
 			if self.closable then
-				local closeRect = titleLayout.buttonRects.close
-				if closeRect then
-					textLayer.text(closeRect.x1, closeRect.y1, "[X]", buttonFg, titleBarBg)
-				end
+				self:_drawTitleButton(textLayer, pixelLayer, titleLayout, "close", buttonFg, fillColor)
 			end
 		end
 	end
 
 	if self.border then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
-		if titleLayout and titleBarBg then
-			self:_fillTitleBarPixels(pixelLayer, titleLayout, titleBarBg)
-		end
 	end
 
 	local children = copy_children(self._children)
