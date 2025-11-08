@@ -3863,10 +3863,9 @@ function Window:draw(textLayer, pixelLayer)
 			titleBarBg = bar.bg or bg
 			local fillColor = titleBarBg or bg
 			local barFg = bar.fg or self.fg or colors.white
-			if titleLayout.textFillWidth and titleLayout.textFillWidth > 0 then
-				fill_rect(textLayer, titleLayout.textFillX, titleLayout.textBaseline, titleLayout.textFillWidth, titleLayout.barHeight, fillColor, fillColor)
-				fill_rect_pixels(pixelLayer, titleLayout.textFillX, titleLayout.textBaseline, titleLayout.textFillWidth, titleLayout.barHeight, fillColor)
-			end
+			-- Fill the entire title bar area including corners
+			fill_rect(textLayer, titleLayout.barX, titleLayout.textBaseline, titleLayout.barWidth, titleLayout.barHeight, fillColor, fillColor)
+			fill_rect_pixels(pixelLayer, titleLayout.barX, titleLayout.textBaseline, titleLayout.barWidth, titleLayout.barHeight, fillColor)
 			local availableWidth = titleLayout.titleWidth or 0
 			local titleText = self.title or ""
 			if availableWidth > 0 and titleText ~= "" then
