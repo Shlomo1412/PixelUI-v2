@@ -2973,10 +2973,8 @@ if t then
 s=h.bg or a
 local s=s or a
 local r=h.fg or self.fg or e.white
-if t.textFillWidth and t.textFillWidth>0 then
-i(o,t.textFillX,t.textBaseline,t.textFillWidth,t.barHeight,s,s)
-U(n,t.textFillX,t.textBaseline,t.textFillWidth,t.barHeight,s)
-end
+i(o,t.barX,t.textBaseline,t.barWidth,t.barHeight,s,s)
+U(n,t.barX,t.textBaseline,t.barWidth,t.barHeight,s)
 local i=t.titleWidth or 0
 local a=self.title or""
 if i>0 and a~=""then
