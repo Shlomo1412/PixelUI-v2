@@ -148,6 +148,9 @@ local shrekbox = require("shrekbox")
 ---@field resizable boolean # Whether the window size can be adjusted via drag handles
 ---@field closable boolean # Whether the window shows a close button
 ---@field maximizable boolean # Whether the window shows a maximize/restore button
+---@field minimizable boolean # Whether the window shows a minimize button
+---@field hideBorderWhenMaximized boolean # Whether the border is hidden while maximized
+---@field minimizedHeight integer? # Optional fixed height used when the window is minimized
 ---@field private _titleBar { enabled:boolean, height:integer, bg:PixelUI.Color?, fg:PixelUI.Color?, align:string, buttons:table, buttonSpacing:integer }? # Cached title bar configuration
 ---@field private _titleLayoutCache table? # Cached geometry information for the title bar
 ---@field private _titleButtonRects table<string, {x1:integer, y1:integer, x2:integer, y2:integer}>? # Interactive button hit boxes
@@ -894,12 +897,18 @@ local DEFAULT_TITLE_BUTTON_STYLES = {
 		padding = 0
 	},
 	maximize = {
-		label = "-",
-		maximizeLabel = "-",
-		restoreLabel = "-",
+		label = "+",
+		maximizeLabel = "+",
+		restoreLabel = "=",
 		fg = colors.white,
 		bg = colors.blue,
 		restoreBg = colors.blue,
+		padding = 0
+	},
+	minimize = {
+		label = "-",
+		fg = colors.white,
+		bg = colors.gray,
 		padding = 0
 	}
 }
@@ -946,14 +955,89 @@ local function resolve_title_bar_buttons(config)
 	local buttonsConfig = (type(config) == "table" and config.buttons) or nil
 	local closeConfig
 	local maximizeConfig
+	local minimizeConfig
 	if type(config) == "table" then
 		closeConfig = config.closeButton or (type(buttonsConfig) == "table" and buttonsConfig.close) or nil
 		maximizeConfig = config.maximizeButton or (type(buttonsConfig) == "table" and buttonsConfig.maximize) or nil
+		minimizeConfig = config.minimizeButton or (type(buttonsConfig) == "table" and buttonsConfig.minimize) or nil
 	end
 	return {
 		close = normalize_title_button_style("close", closeConfig),
-		maximize = normalize_title_button_style("maximize", maximizeConfig)
+		maximize = normalize_title_button_style("maximize", maximizeConfig),
+		minimize = normalize_title_button_style("minimize", minimizeConfig)
 	}
+end
+
+local function resolve_easing(value, default)
+	if value == nil then
+		return default
+	end
+	if type(value) == "string" then
+		return easings[value] or default
+	elseif type(value) == "function" then
+		return value
+	end
+	error("Invalid easing value", 3)
+end
+
+local function normalize_animation_entry(entry, fallback)
+	if entry == nil then
+		return nil
+	end
+	if entry == false then
+		return { enabled = false }
+	end
+	expect(1, entry, "table")
+	local normalized = {
+		enabled = entry.enabled ~= false
+	}
+	if entry.duration ~= nil then
+		if type(entry.duration) ~= "number" then
+			error("animation duration must be numeric", 3)
+		end
+		normalized.duration = math.max(0, entry.duration)
+	end
+	if entry.easing ~= nil then
+		normalized.easing = resolve_easing(entry.easing, fallback)
+	end
+	return normalized
+end
+
+local function normalize_geometry_animation(config)
+	local defaultDuration = 0.2
+	local defaultEasing = easings.easeOutQuad
+	if config == nil then
+		return {
+			enabled = true,
+			duration = defaultDuration,
+			easing = defaultEasing
+		}
+	end
+	expect(1, config, "table")
+	if config.duration ~= nil and type(config.duration) ~= "number" then
+		error("animation duration must be numeric", 3)
+	end
+	local normalized = {
+		enabled = config.enabled ~= false,
+		duration = math.max(0, config.duration or defaultDuration),
+		easing = resolve_easing(config.easing, defaultEasing)
+	}
+	local phases = { "maximize", "minimize", "restore" }
+	for i = 1, #phases do
+		local name = phases[i]
+		local entry = normalize_animation_entry(config[name], normalized.easing)
+		if entry then
+			normalized[name] = entry
+		end
+	end
+	return normalized
+end
+
+local function round_half_up(value)
+	if value >= 0 then
+		return math.floor(value + 0.5)
+	end
+	return math.ceil(value - 0.5)
 end
 
 local function assert_positive_integer(name, value)
@@ -1644,6 +1728,34 @@ local function draw_border(pixelLayer, x, y, width, height, border, background)
 	end
 end
 
+---@param widget PixelUI.Widget
+---@param pixelLayer Layer
+local function redraw_sibling_borders(widget, pixelLayer)
+	if not widget or not pixelLayer then
+		return
+	end
+	local parent = widget.parent
+	if not parent or not parent._children then
+		return
+	end
+	local siblings = parent._children
+	for i = 1, #siblings do
+		local child = siblings[i]
+		if child and child ~= widget and child.visible and child.border then
+			local showBorder = true
+			local checker = child._isBorderVisible
+			if type(checker) == "function" then
+				showBorder = checker(child)
+			end
+			if showBorder then
+				local cx, cy, cw, ch = child:getAbsoluteRect()
+				local background = child.bg or (child.app and child.app.background) or colors.black
+				draw_border(pixelLayer, cx, cy, cw, ch, child.border, background)
+			end
+		end
+	end
+end
+
 function NotificationToast:new(app, config)
 	config = config or {}
 	expect(1, app, "table")
@@ -1868,6 +1980,7 @@ function NotificationToast:_applyAnchorPosition(animate)
 				self._anchorAnimationHandle = nil
 			end
 		})
+
 		self._anchorDirty = false
 		return
 	end
@@ -3268,6 +3381,8 @@ function Window:new(app, config)
 	base.resizable = config.resizable ~= false
 	base.closable = config.closable ~= false
 	base.maximizable = config.maximizable ~= false
+	base.minimizable = config.minimizable ~= false
+	base.hideBorderWhenMaximized = config.hideBorderWhenMaximized ~= false
 	base._titleBar = normalize_title_bar(config.titleBar, nil)
 	base:_refreshTitleBarState()
 	base:_invalidateTitleLayout()
@@ -3282,7 +3397,19 @@ function Window:new(app, config)
 	base._resizeEdges = nil
 	base._resizeStart = nil
 	base._isMaximized = false
+	base._isMinimized = false
 	base._restoreRect = nil
+	base._normalRect = nil
+	local animationConfig = config.geometryAnimation or config.windowAnimation or config.animation
+	base._geometryAnimation = normalize_geometry_animation(animationConfig)
+	base._geometryAnimationHandle = nil
+	if config.minimizedHeight ~= nil then
+		if type(config.minimizedHeight) ~= "number" then
+			error("minimizedHeight must be numeric", 2)
+		end
+		base.minimizedHeight = math.max(1, math.floor(config.minimizedHeight))
+	end
+	base.onMinimize = config.onMinimize
 	return base
 end
 
@@ -3307,6 +3434,130 @@ function Window:_invalidateTitleLayout()
 	self._titleButtonRects = nil
 end
 
+function Window:_isBorderVisible()
+	if not self.border then
+		return false
+	end
+	if self._isMaximized and self.hideBorderWhenMaximized then
+		return false
+	end
+	return true
+end
+
+function Window:_computeInnerOffsets()
+	if self:_isBorderVisible() then
+		return compute_inner_offsets(self)
+	end
+	return 0, 0, 0, 0, self.width, self.height
+end
+
+function Window:_resolveGeometryAnimation(phase)
+	local config = self._geometryAnimation or { enabled = false, duration = 0, easing = easings.linear }
+	local enabled = config.enabled ~= false
+	local duration = config.duration or 0
+	local easing = config.easing or easings.linear
+	local override = config[phase]
+	if override then
+		if override.enabled ~= nil then
+			enabled = override.enabled
+		end
+		if override.duration ~= nil then
+			duration = override.duration
+		end
+		if override.easing ~= nil then
+			easing = override.easing
+		end
+	end
+	if duration < 0 then
+		duration = 0
+	end
+	return enabled, duration, easing
+end
+
+function Window:_stopGeometryAnimation()
+	if not self._geometryAnimationHandle then
+		return
+	end
+	local handle = self._geometryAnimationHandle
+	self._geometryAnimationHandle = nil
+	if handle.cancel then
+		handle:cancel()
+	end
+end
+
+function Window:_applyGeometry(rect)
+	if not rect then
+		return
+	end
+	local targetX = round_half_up(rect.x or self.x)
+	local targetY = round_half_up(rect.y or self.y)
+	local targetWidth = math.max(1, round_half_up(rect.width or self.width))
+	local targetHeight = math.max(1, round_half_up(rect.height or self.height))
+	if targetX ~= self.x or targetY ~= self.y then
+		Widget.setPosition(self, targetX, targetY)
+	end
+	if targetWidth ~= self.width or targetHeight ~= self.height then
+		Frame.setSize(self, targetWidth, targetHeight)
+		self:_refreshTitleBarState()
+		self:_invalidateTitleLayout()
+	end
+end
+
+function Window:_transitionGeometry(phase, targetRect, onComplete)
+	if not targetRect then
+		if onComplete then
+			onComplete()
+		end
+		return
+	end
+	local enabled, duration, easing = self:_resolveGeometryAnimation(phase)
+	if not self.app or not enabled or duration <= 0 then
+		self:_applyGeometry(targetRect)
+		if onComplete then
+			onComplete()
+		end
+		return
+	end
+	self:_stopGeometryAnimation()
+	local startRect = {
+		x = self.x,
+		y = self.y,
+		width = self.width,
+		height = self.height
+	}
+	local delta = {
+		x = targetRect.x - startRect.x,
+		y = targetRect.y - startRect.y,
+		width = targetRect.width - startRect.width,
+		height = targetRect.height - startRect.height
+	}
+	local handle
+	handle = self.app:animate({
+		duration = duration,
+		easing = easing,
+		update = function(progress)
+			local nextRect = {
+				x = startRect.x + delta.x * progress,
+				y = startRect.y + delta.y * progress,
+				width = startRect.width + delta.width * progress,
+				height = startRect.height + delta.height * progress
+			}
+			self:_applyGeometry(nextRect)
+		end,
+		onComplete = function()
+			self._geometryAnimationHandle = nil
+			self:_applyGeometry(targetRect)
+			if onComplete then
+				onComplete()
+			end
+		end,
+		onCancel = function()
+			self._geometryAnimationHandle = nil
+		end
+	})
+	self._geometryAnimationHandle = handle
+end
+
 function Window:_computeTitleLayout()
 	local barHeight = self:_getVisibleTitleBarHeight()
 	local bar = self._titleBar
@@ -3316,7 +3567,7 @@ function Window:_computeTitleLayout()
 	end
 
 	local ax, ay = compute_absolute_position(self)
-	local leftPad, rightPad = compute_inner_offsets(self)
+	local leftPad, rightPad = self:_computeInnerOffsets()
 	local innerX = ax + leftPad
 	local innerWidth = math.max(0, self.width - leftPad - rightPad)
 	if innerWidth <= 0 then
@@ -3340,7 +3591,7 @@ function Window:_computeTitleLayout()
 
 	local buttonStyles = bar.buttons or resolve_title_bar_buttons(nil)
 	local spacing = math.max(0, math.floor(bar.buttonSpacing or 1))
-	local cursor = innerX + innerWidth - 1
+	local cursor = ax + math.max(0, self.width - 1)
 
 	local function computeButtonMetrics(name)
 		local style = buttonStyles[name]
@@ -3371,7 +3622,7 @@ function Window:_computeTitleLayout()
 		if not style or buttonWidth <= 0 then
 			return nil
 		end
-		if cursor - buttonWidth + 1 < innerX then
+		if cursor - buttonWidth + 1 < ax then
 			return nil
 		end
 		local x2 = cursor
@@ -3389,6 +3640,9 @@ function Window:_computeTitleLayout()
 	end
 	if self.maximizable then
 		placeButton("maximize")
+	end
+	if self.minimizable then
+		placeButton("minimize")
 	end
 
 	layout.titleStart = innerX
@@ -3591,17 +3845,10 @@ function Window:_endResize()
 end
 
 function Window:_restoreFromMaximize()
-	if not self._isMaximized then
+	if not self._isMaximized and not self._isMinimized then
 		return
 	end
-	local rect = self._restoreRect
-	self._isMaximized = false
-	self._restoreRect = nil
-	if rect then
-		self:setPosition(rect.x, rect.y)
-		self:setSize(rect.width, rect.height)
-	end
-	self:_invalidateTitleLayout()
+	self:restore(true)
 end
 
 function Window:_computeMaximizedGeometry()
@@ -3627,45 +3874,132 @@ function Window:_computeMaximizedGeometry()
 	return { x = self.x, y = self.y, width = self.width, height = self.height }
 end
 
+function Window:_computeMinimizedGeometry()
+	local baseRect = self._restoreRect or { x = self.x, y = self.y, width = self.width, height = self.height }
+	local targetHeight
+	if self.minimizedHeight then
+		targetHeight = self.minimizedHeight
+	else
+		local _, _, topPad, bottomPad = self:_computeInnerOffsets()
+		local titleHeight = self:_getVisibleTitleBarHeight()
+		targetHeight = topPad + bottomPad + math.max(1, titleHeight)
+		if targetHeight < 1 then
+			targetHeight = 1
+		end
+	end
+	return {
+		x = baseRect.x,
+		y = baseRect.y,
+		width = baseRect.width,
+		height = targetHeight
+	}
+end
+
+function Window:_captureRestoreRect()
+	local rect = {
+		x = self.x,
+		y = self.y,
+		width = self.width,
+		height = self.height
+	}
+	self._restoreRect = rect
+	self._normalRect = clone_table(rect)
+end
+
 function Window:maximize()
 	if not self.maximizable or self._isMaximized then
 		return
 	end
-	self._restoreRect = { x = self.x, y = self.y, width = self.width, height = self.height }
+	if self._isMinimized then
+		self:restore(true)
+	end
+	self:_captureRestoreRect()
 	local target = self:_computeMaximizedGeometry()
-	self:setPosition(target.x, target.y)
-	self:setSize(target.width, target.height)
 	self._isMaximized = true
+	self._isMinimized = false
 	self:bringToFront()
 	self:_invalidateTitleLayout()
-	if self.onMaximize then
-		self:onMaximize()
-	end
+	self:_transitionGeometry("maximize", target, function()
+		self._restoreRect = self._restoreRect or clone_table(target)
+		if self.onMaximize then
+			self:onMaximize()
+		end
+	end)
 end
 
-function Window:restore()
-	if not self._isMaximized then
+function Window:restore(instant)
+	if not self._isMaximized and not self._isMinimized then
 		return
 	end
-	local rect = self._restoreRect
+	local target = self._normalRect or self._restoreRect or {
+		x = self.x,
+		y = self.y,
+		width = self.width,
+		height = self.height
+	}
 	self._isMaximized = false
-	self._restoreRect = nil
-	if rect then
-		self:setPosition(rect.x, rect.y)
-		self:setSize(rect.width, rect.height)
-	end
+	self._isMinimized = false
 	self:_invalidateTitleLayout()
-	if self.onRestore then
-		self:onRestore()
+	local function finalize()
+		self._restoreRect = nil
+		self._normalRect = nil
+		if self.onRestore then
+			self:onRestore()
+		end
 	end
+	if instant then
+		self:_stopGeometryAnimation()
+		self:_applyGeometry(target)
+		finalize()
+		return
+	end
+	self:_transitionGeometry("restore", target, finalize)
 end
 
 function Window:toggleMaximize()
 	if self._isMaximized then
 		self:restore()
 	else
+		if self._isMinimized then
+			self:restore(true)
+		end
 		self:maximize()
 	end
+end
+
+function Window:minimize()
+	if not self.minimizable or self._isMinimized then
+		return
+	end
+	if self._isMaximized then
+		self:restore(true)
+	end
+	self:_captureRestoreRect()
+	local target = self:_computeMinimizedGeometry()
+	self._isMinimized = true
+	self._isMaximized = false
+	self:bringToFront()
+	self:_invalidateTitleLayout()
+	self:_transitionGeometry("minimize", target, function()
+		if self.onMinimize then
+			self:onMinimize()
+		end
+	end)
+end
+
+function Window:toggleMinimize()
+	if self._isMinimized then
+		self:restore()
+	else
+		if self._isMaximized then
+			self:restore(true)
+		end
+		self:minimize()
+	end
+end
+
+function Window:isMinimized()
+	return not not self._isMinimized
 end
 
 function Window:close()
@@ -3675,9 +4009,14 @@ function Window:close()
 			return
 		end
 	end
+	self:_stopGeometryAnimation()
 	self.visible = false
 	self:_endDrag()
 	self:_endResize()
+	self._isMaximized = false
+	self._isMinimized = false
+	self._restoreRect = nil
+	self._normalRect = nil
 end
 
 function Window:_getVisibleTitleBarHeight()
@@ -3685,7 +4024,7 @@ function Window:_getVisibleTitleBarHeight()
 	if not bar or not bar.enabled then
 		return 0
 	end
-	local _, _, _, _, _, innerHeight = compute_inner_offsets(self)
+	local _, _, _, _, _, innerHeight = self:_computeInnerOffsets()
 	if innerHeight <= 0 then
 		return 0
 	end
@@ -3756,13 +4095,70 @@ function Window:isMaximizable()
 	return not not self.maximizable
 end
 
+function Window:setMinimizable(value)
+	self.minimizable = not not value
+	self:_invalidateTitleLayout()
+end
+
+function Window:isMinimizable()
+	return not not self.minimizable
+end
+
+function Window:setHideBorderWhenMaximized(value)
+	local bool = not not value
+	if self.hideBorderWhenMaximized == bool then
+		return
+	end
+	self.hideBorderWhenMaximized = bool
+	self:_invalidateTitleLayout()
+end
+
+function Window:hidesBorderWhenMaximized()
+	return not not self.hideBorderWhenMaximized
+end
+
+function Window:setMinimizedHeight(height)
+	if height == nil then
+		self.minimizedHeight = nil
+		if self._isMinimized then
+			self:_applyGeometry(self:_computeMinimizedGeometry())
+		end
+		return
+	end
+	expect(1, height, "number")
+	self.minimizedHeight = math.max(1, math.floor(height))
+	if self._isMinimized then
+		self:_applyGeometry(self:_computeMinimizedGeometry())
+	end
+end
+
+function Window:getMinimizedHeight()
+	return self.minimizedHeight
+end
+
+function Window:setGeometryAnimation(options)
+	if options == nil then
+		self._geometryAnimation = normalize_geometry_animation(nil)
+		return
+	end
+	expect(1, options, "table")
+	self._geometryAnimation = normalize_geometry_animation(options)
+end
+
+function Window:setOnMinimize(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onMinimize = handler
+end
+
 function Window:setTitle(title)
 	Frame.setTitle(self, title)
 	self:_invalidateTitleLayout()
 end
 
 function Window:getContentOffset()
-	local leftPad, _, topPad = compute_inner_offsets(self)
+	local leftPad, _, topPad = self:_computeInnerOffsets()
 	local titleOffset = self:_getVisibleTitleBarHeight()
 	return leftPad, topPad + titleOffset
 end
@@ -3860,7 +4256,7 @@ function Window:draw(textLayer, pixelLayer)
 	end
 
 	local ax, ay, width, height = self:getAbsoluteRect()
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_computeInnerOffsets()
 	local innerX = ax + leftPad
 	local innerY = ay + topPad
 	local bg = self.bg or self.app.background
@@ -3910,16 +4306,21 @@ function Window:draw(textLayer, pixelLayer)
 				textLayer.text(titleLayout.titleStart, titleLayout.textBaseline, line, barFg, fillColor)
 			end
 			local buttonFg = bar.fg or self.fg or colors.white
-			if self.maximizable then
-				self:_drawTitleButton(textLayer, pixelLayer, titleLayout, "maximize", buttonFg, fillColor)
-			end
-			if self.closable then
-				self:_drawTitleButton(textLayer, pixelLayer, titleLayout, "close", buttonFg, fillColor)
+			local order = titleLayout.buttonOrder or {}
+			for i = 1, #order do
+				local name = order[i]
+				if name == "maximize" and self.maximizable then
+					self:_drawTitleButton(textLayer, pixelLayer, titleLayout, name, buttonFg, fillColor)
+				elseif name == "close" and self.closable then
+					self:_drawTitleButton(textLayer, pixelLayer, titleLayout, name, buttonFg, fillColor)
+				elseif name == "minimize" and self.minimizable then
+					self:_drawTitleButton(textLayer, pixelLayer, titleLayout, name, buttonFg, fillColor)
+				end
 			end
 		end
 	end
 
-	if self.border then
+	if self:_isBorderVisible() then
 		draw_border(pixelLayer, ax, ay, width, height, self.border, bg)
 	end
 
@@ -4020,6 +4421,9 @@ function Window:handleEvent(event, ...)
 		elseif hit == "maximize" and self.maximizable then
 			self:toggleMaximize()
 			return true
+		elseif hit == "minimize" and self.minimizable then
+			self:toggleMinimize()
+			return true
 		end
 		local resizeEdges = self:_hitTestResize(x, y)
 		if resizeEdges then
@@ -4058,6 +4462,9 @@ function Window:handleEvent(event, ...)
 			return true
 		elseif hit == "maximize" and self.maximizable then
 			self:toggleMaximize()
+			return true
+		elseif hit == "minimize" and self.minimizable then
+			self:toggleMinimize()
 			return true
 		end
 		local resizeEdges = self:_hitTestResize(x, y)
@@ -4148,6 +4555,9 @@ function Dialog:new(app, config)
 	if config.maximizable == nil then
 		base:setMaximizable(false)
 	end
+	if config.minimizable == nil then
+		base:setMinimizable(false)
+	end
 	return base
 end
 
@@ -4211,7 +4621,22 @@ function Dialog:draw(textLayer, pixelLayer)
 			local root = self.app and self.app.root
 			if root and pixelLayer then
 				local rx, ry, rw, rh = root:getAbsoluteRect()
+				-- Fill the entire area with overlay color
 				fill_rect_pixels(pixelLayer, rx, ry, rw, rh, overlayColor)
+				-- Redraw all borders that should be visible over the overlay
+				redraw_sibling_borders(self, pixelLayer)
+				-- Also redraw the root border if it has one
+				if root.border then
+					local showBorder = true
+					local checker = root._isBorderVisible
+					if type(checker) == "function" then
+						showBorder = checker(root)
+					end
+					if showBorder then
+						local background = root.bg or (root.app and root.app.background) or colors.black
+						draw_border(pixelLayer, rx, ry, rw, rh, root.border, background)
+					end
+				end
 			end
 		end
 	else
@@ -4512,7 +4937,7 @@ function MsgBox:_updateLayout()
 	if not self._contentFrame then
 		return
 	end
-	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = compute_inner_offsets(self)
+	local leftPad, rightPad, topPad, bottomPad, innerWidth, innerHeight = self:_computeInnerOffsets()
 	local titleHeight = self:_getVisibleTitleBarHeight()
 	local contentWidth = math.max(1, innerWidth)
 	local contentHeight = math.max(1, innerHeight - titleHeight)
