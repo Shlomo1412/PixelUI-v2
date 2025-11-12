@@ -44,9 +44,9 @@ setmetatable(g,{__index=s})
 local i={}
 i.__index=i
 setmetatable(i,{__index=g})
-local R={}
-R.__index=R
-setmetatable(R,{__index=s})
+local N={}
+N.__index=N
+setmetatable(N,{__index=s})
 local E={}
 E.__index=E
 setmetatable(E,{__index=s})
@@ -156,19 +156,19 @@ end
 end
 return n,s,i,o
 end
-local function n(t,a,e)
+local function n(e,a,t)
 if a<=0 then
-e[#e+1]=""
+t[#t+1]=""
 return
 end
-t=(t or""):gsub("\r","")
-if t==""then
-e[#e+1]=""
+e=(e or""):gsub("\r","")
+if e==""then
+t[#t+1]=""
 return
 end
-local t=t
-while#t>a do
-local n=t:sub(1,a)
+local e=e
+while#e>a do
+local n=e:sub(1,a)
 local o
 for e=a,1,-1 do
 local t=n:sub(e,e)
@@ -178,27 +178,27 @@ break
 end
 end
 if o and o>=1 then
-local i=t:sub(1,o)
+local i=e:sub(1,o)
 i=i:gsub("%s+$","")
 if i==""then
-i=t:sub(1,a)
+i=e:sub(1,a)
 o=a
 end
-e[#e+1]=i
-t=t:sub(o+1)
+t[#t+1]=i
+e=e:sub(o+1)
 else
-e[#e+1]=n
-t=t:sub(a+1)
+t[#t+1]=n
+e=e:sub(a+1)
 end
-t=t:gsub("^%s+","")
-if t==""then
+e=e:gsub("^%s+","")
+if e==""then
 break
 end
 end
-if t~=""then
-e[#e+1]=t
-elseif#e==0 then
-e[#e+1]=""
+if e~=""then
+t[#t+1]=e
+elseif#t==0 then
+t[#t+1]=""
 end
 end
 local function X(e)
@@ -460,7 +460,7 @@ if e<1 or e~=math.floor(e)then
 error(('%s must be a positive integer, got "%s"'):format(a,tostring(e)),3)
 end
 end
-local function N(a)
+local function R(a)
 if not a or a==false then
 return nil
 end
@@ -2013,7 +2013,7 @@ self.fg=a.fg or e.white
 self.visible=a.visible~=false
 self.z=a.z or 0
 self.id=a.id
-self.border=N(a.border)
+self.border=R(a.border)
 self.focusable=a.focusable==true
 self._focused=false
 self.constraints=nil
@@ -2302,11 +2302,11 @@ self.border=nil
 return
 end
 if e==true then
-self.border=N(true)
+self.border=R(true)
 return
 end
 t(1,e,"table","boolean")
-self.border=N(e)
+self.border=R(e)
 end
 function s:isFocused()
 return self._focused
@@ -3835,7 +3835,7 @@ a.id=tostring(i)
 end
 local n=n or math.max(self.minButtonWidth,#o+self.buttonLabelPadding*2)
 local i=r or self.buttonHeight
-local e=R:new(self.app,{
+local e=N:new(self.app,{
 label=o,
 width=n,
 height=i,
@@ -3977,8 +3977,8 @@ function T:setTitleBar(e)
 i.setTitleBar(self,e)
 self:_updateLayout()
 end
-function R:new(a,e)
-local t=setmetatable({},R)
+function N:new(a,e)
+local t=setmetatable({},N)
 t:_init_base(a,e)
 t.label=(e and e.label)or"Button"
 t.onPress=e and e.onPress or nil
@@ -3993,17 +3993,17 @@ t._pressed=false
 t.focusable=false
 return t
 end
-function R:setLabel(e)
+function N:setLabel(e)
 t(1,e,"string")
 self.label=e
 end
-function R:setOnClick(e)
+function N:setOnClick(e)
 if e~=nil then
 t(1,e,"function")
 end
 self.onClick=e
 end
-function R:draw(r,c)
+function N:draw(r,c)
 if not self.visible then
 return
 end
@@ -4049,7 +4049,7 @@ t=s
 end
 r.text(o,t,a,d,e)
 end
-function R:handleEvent(e,...)
+function N:handleEvent(e,...)
 if not self.visible then
 return false
 end
@@ -5198,7 +5198,7 @@ t.indeterminateSpeed=math.max(.1,a.indeterminateSpeed or 1.2)
 t._indeterminateProgress=0
 t._animationHandle=nil
 if not t.border then
-t.border=N(true)
+t.border=R(true)
 end
 if t.indeterminate then
 t:_startIndeterminateAnimation()
@@ -5578,7 +5578,7 @@ end
 t.value=t:_applyStep(e)
 end
 if not t.border then
-t.border=N(true)
+t.border=R(true)
 end
 return t
 end
@@ -6179,7 +6179,7 @@ if t.sortColumn then
 t:setSort(t.sortColumn,t.sortDirection,true)
 end
 if not t.border then
-t.border=N(true)
+t.border=R(true)
 end
 t.scrollbar=L(a.scrollbar,t.bg or e.black,t.fg or e.white)
 t:_ensureSelectionVisible()
@@ -7038,7 +7038,7 @@ a._selectedIndex=0
 a.typeSearchTimeout=(t and t.typeSearchTimeout)or .75
 a._typeSearch={buffer="",lastTime=0}
 if not a.border then
-a.border=N(true)
+a.border=R(true)
 end
 a.scrollbar=L(t and t.scrollbar,a.bg or e.black,a.fg or e.white)
 a:setNodes((t and t.nodes)or{})
@@ -8337,7 +8337,7 @@ t.scrollOffset=1
 t.typeSearchTimeout=(a and a.typeSearchTimeout)or .75
 t._typeSearch={buffer="",lastTime=0}
 if not t.border then
-t.border=N(true)
+t.border=R(true)
 end
 t.scrollbar=L(a and a.scrollbar,t.bg or e.black,t.fg or e.white)
 t:_normalizeSelection(true)
@@ -8864,7 +8864,7 @@ a.selectedIndex=0
 end
 a:_normalizeSelection()
 if not a.border then
-a.border=N(true)
+a.border=R(true)
 end
 a._open=false
 a._hoverIndex=nil
@@ -9244,7 +9244,7 @@ a._hoverIndex=nil
 a._tabRects={}
 a._layoutCache=nil
 if not a.border then
-a.border=N(true)
+a.border=R(true)
 end
 a:_normalizeSelection(true)
 return a
@@ -9919,7 +9919,7 @@ a.disabledFg=(t and t.disabledFg)or e.lightGray
 a.separatorColor=(t and t.separatorColor)or a.disabledFg
 a.maxWidth=math.max(8,math.floor((t and t.maxWidth)or 32))
 if a.border==nil then
-a.border=N(true)
+a.border=R(true)
 end
 a.onSelect=t and t.onSelect or nil
 a.items=a:_normalizeItems(t and t.items or{})
@@ -10790,7 +10790,7 @@ t.autocompleteBg=a.autocompleteBg or e.gray
 t.autocompleteFg=a.autocompleteFg or e.white
 t.autocompleteHighlightBg=a.autocompleteHighlightBg or e.lightBlue
 t.autocompleteHighlightFg=a.autocompleteHighlightFg or e.black
-t.autocompleteBorder=N(a.autocompleteBorder==false and false or a.autocompleteBorder or true)
+t.autocompleteBorder=R(a.autocompleteBorder==false and false or a.autocompleteBorder or true)
 t.autocompleteMaxWidth=math.max(4,math.floor(a.autocompleteMaxWidth or math.max(t.width or i.width or 16,16)))
 t.autocompleteGhostColor=a.autocompleteGhostColor or e.lightGray
 t.syntax=V(a.syntax)
@@ -10828,9 +10828,6 @@ trigger="auto",
 rect=nil
 }
 t._open=false
-if not t.border then
-t.border=N(true)
-end
 t.scrollbar=L(a.scrollbar,t.bg or e.black,t.fg or e.white)
 t:_setTextInternal(a.text or"",true,true)
 if a.cursorPos then
@@ -11401,7 +11398,7 @@ end
 end
 return a
 end
-local function N(t,a,i,o)
+local function R(t,a,i,o)
 if a==""then
 return
 end
@@ -11431,7 +11428,7 @@ if e and G(s,t,e.startLine,e.startCol,e.endLine,e.endCol)then
 o=self.selectionBg
 a=self.selectionFg
 end
-N(n,i,a,o)
+R(n,i,a,o)
 end
 return n,a,o
 end
@@ -12538,7 +12535,7 @@ function h:createMsgBox(e)
 return T:new(self,e)
 end
 function h:createButton(e)
-return R:new(self,e)
+return N:new(self,e)
 end
 function h:createLabel(e)
 return E:new(self,e)
@@ -12715,7 +12712,7 @@ local a="running"
 local p="completed"
 local _="error"
 local n="cancelled"
-local N={}
+local R={}
 local function I(e,t,...)
 if not e then
 return
@@ -12849,7 +12846,7 @@ return setmetatable({_handle=e},S)
 end
 function S:checkCancelled()
 if self._handle._cancelRequested then
-error(N,0)
+error(R,0)
 end
 end
 function S:isCancelled()
@@ -12944,7 +12941,7 @@ local a=ae(coroutine.resume(e.co,t))
 local t=a[1]
 if not t then
 local t=a[2]
-if t==N then
+if t==R then
 e:_setStatus(n)
 else
 if type(t)=="string"and debug and debug.traceback then
@@ -13335,7 +13332,7 @@ MsgBox=function(e,t)
 return T:new(e,t)
 end,
 Button=function(t,e)
-return R:new(t,e)
+return N:new(t,e)
 end,
 Label=function(e,t)
 return E:new(e,t)
@@ -13394,7 +13391,7 @@ y.Frame=g
 y.Window=i
 y.Dialog=A
 y.MsgBox=T
-y.Button=R
+y.Button=N
 y.Label=E
 y.CheckBox=z
 y.Toggle=b
