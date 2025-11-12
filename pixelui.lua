@@ -12275,9 +12275,6 @@ function TextBox:new(app, config)
 		rect = nil
 	}
 	instance._open = false
-	if not instance.border then
-		instance.border = normalize_border(true)
-	end
 	instance.scrollbar = normalize_scrollbar(config.scrollbar, instance.bg or colors.black, instance.fg or colors.white)
 	instance:_setTextInternal(config.text or "", true, true)
 	if config.cursorPos then
