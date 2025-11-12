@@ -894,22 +894,30 @@ local DEFAULT_TITLE_BUTTON_STYLES = {
 		label = "X",
 		fg = colors.white,
 		bg = colors.red,
-		padding = 0
+		hoverFg = colors.white,
+		hoverBg = colors.red,
+		pressFg = colors.lightGray,
+		pressBg = colors.red
 	},
 	maximize = {
-		label = "+",
-		maximizeLabel = "+",
-		restoreLabel = "=",
-		fg = colors.white,
-		bg = colors.blue,
-		restoreBg = colors.blue,
-		padding = 0
-	},
-	minimize = {
-		label = "-",
+		label = "[]",
+		maximizeLabel = "[]",
+		restoreLabel = "][",
 		fg = colors.white,
 		bg = colors.gray,
-		padding = 0
+		hoverFg = colors.white,
+		hoverBg = colors.lightGray,
+		pressFg = colors.black,
+		pressBg = colors.lightGray
+	},
+	minimize = {
+		label = "_",
+		fg = colors.white,
+		bg = colors.gray,
+		hoverFg = colors.white,
+		hoverBg = colors.lightGray,
+		pressFg = colors.black,
+		pressBg = colors.lightGray
 	}
 }
 
@@ -1696,7 +1704,7 @@ local function draw_border(pixelLayer, x, y, width, height, border, background)
 		end
 	end
 
-	-- fill background bands first
+	-- fill background bands first to ensure border thickness covers edges
 	if border.left then
 		fill_vertical_band(px, verticalBackground, bgColor)
 	end
@@ -1710,50 +1718,20 @@ local function draw_border(pixelLayer, x, y, width, height, border, background)
 		fill_horizontal_band(py + ph - horizontalBackground, horizontalBackground, bgColor)
 	end
 
-	-- draw vertical lines
+	-- draw lines on top of filled bands for the visible border stroke
 	if border.top then
 		draw_horizontal_line(py, horizontalThickness, color)
 	end
-
 	if border.bottom then
 		draw_horizontal_line(py + ph - horizontalThickness, horizontalThickness, color)
 	end
-
 	if border.left then
 		draw_vertical_line(px, verticalThickness, color)
 	end
-
 	if border.right then
 		draw_vertical_line(px + pw - verticalThickness, verticalThickness, color)
 	end
-end
 
----@param widget PixelUI.Widget
----@param pixelLayer Layer
-local function redraw_sibling_borders(widget, pixelLayer)
-	if not widget or not pixelLayer then
-		return
-	end
-	local parent = widget.parent
-	if not parent or not parent._children then
-		return
-	end
-	local siblings = parent._children
-	for i = 1, #siblings do
-		local child = siblings[i]
-		if child and child ~= widget and child.visible and child.border then
-			local showBorder = true
-			local checker = child._isBorderVisible
-			if type(checker) == "function" then
-				showBorder = checker(child)
-			end
-			if showBorder then
-				local cx, cy, cw, ch = child:getAbsoluteRect()
-				local background = child.bg or (child.app and child.app.background) or colors.black
-				draw_border(pixelLayer, cx, cy, cw, ch, child.border, background)
-			end
-		end
-	end
 end
 
 function NotificationToast:new(app, config)
@@ -4615,29 +4593,6 @@ function Dialog:draw(textLayer, pixelLayer)
 		if not self._modalRaised then
 			self:bringToFront()
 			self._modalRaised = true
-		end
-		local overlayColor = self.backdropPixelColor or self.backdropColor
-		if overlayColor then
-			local root = self.app and self.app.root
-			if root and pixelLayer then
-				local rx, ry, rw, rh = root:getAbsoluteRect()
-				-- Fill the entire area with overlay color
-				fill_rect_pixels(pixelLayer, rx, ry, rw, rh, overlayColor)
-				-- Redraw all borders that should be visible over the overlay
-				redraw_sibling_borders(self, pixelLayer)
-				-- Also redraw the root border if it has one
-				if root.border then
-					local showBorder = true
-					local checker = root._isBorderVisible
-					if type(checker) == "function" then
-						showBorder = checker(root)
-					end
-					if showBorder then
-						local background = root.bg or (root.app and root.app.background) or colors.black
-						draw_border(pixelLayer, rx, ry, rw, rh, root.border, background)
-					end
-				end
-			end
 		end
 	else
 		self._modalRaised = false
