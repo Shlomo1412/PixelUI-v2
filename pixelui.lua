@@ -3129,6 +3129,13 @@ function Widget:getAbsoluteRect()
 end
 
 ---@since 0.1.0
+---@return integer width
+---@return integer height
+function Widget:getSize()
+	return self.width, self.height
+end
+
+---@since 0.1.0
 
 ---@param px integer
 ---@param py integer
