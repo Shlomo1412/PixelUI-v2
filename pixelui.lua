@@ -3213,6 +3213,17 @@ end
 function Frame:setSize(width, height)
 	Widget.setSize(self, width, height)
 	self:_applyConstraintsToChildren()
+	local handler = self.onSizeChange
+	if type(handler) == "function" then
+		handler(self, width, height)
+	end
+end
+
+function Frame:setOnSizeChange(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onSizeChange = handler
 end
 
 ---@since 0.1.0
