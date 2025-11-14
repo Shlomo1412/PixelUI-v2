@@ -70,16 +70,47 @@ end
 ---@param win ccTweaked.Window
 ---@param oblit oblit
 ---@param bg blitchar
+local function normalize_blit_strings(a, b, c, width, bg)
+    a = a or ""
+    b = b or ""
+    c = c or ""
+    local lenA = #a
+    local lenB = #b
+    local lenC = #c
+    local target = width
+    local function adjust(str, len, padChar)
+        if len > target then
+            return str:sub(1, target)
+        elseif len < target then
+            return str .. string.rep(padChar, target - len)
+        end
+        return str
+    end
+    -- Default to space when background char is unavailable.
+    local bgChar = bg or " "
+    a = adjust(a, lenA, " ")
+    b = adjust(b, lenB, bgChar)
+    c = adjust(c, lenC, bgChar)
+    return a, b, c
+end
+
 local function render_blit(win, oblit, bg)
-    local _, h = win.getSize()
+    local w, h = win.getSize()
     for i = 1, h do
         local v = oblit[i]
         win.setCursorPos(1, i)
-        local a = table.concat(v[1])
-        local b = table.concat(v[2]):gsub(shrekbox.transparent_char, bg)
-        local c = table.concat(v[3]):gsub(shrekbox.transparent_char, bg)
-        win.blit(a, b, c)
-        v[1] = {}
+        if v then
+            local text = table.concat(v[1])
+            local fg = table.concat(v[2]):gsub(shrekbox.transparent_char, bg)
+            local bgStr = table.concat(v[3]):gsub(shrekbox.transparent_char, bg)
+            text, fg, bgStr = normalize_blit_strings(text, fg, bgStr, w, bg)
+            win.blit(text, fg, bgStr)
+            v[1] = {}
+        else
+            local blank = string.rep(" ", w)
+            local bgRow = string.rep(bg, w)
+            win.blit(blank, bgRow, bgRow)
+        end
     end
 end
 
