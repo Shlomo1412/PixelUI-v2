@@ -148,7 +148,8 @@ local tabState = {
     instructions = nil,
     statusLabel = nil,
     toggleButton = nil,
-    settingsEnabled = false
+    settingsEnabled = false,
+    closureNotice = nil
 }
 local progressDeterminate
 local progressIndeterminate
@@ -2324,7 +2325,7 @@ tabState.instructions = app:createLabel({
     height = 3,
     wrap = true,
     align = "left",
-    text = "Use the tabs to switch dashboards. Try arrow keys or scroll to cycle selections.",
+    text = "Tabs now show an indicator and close buttons. Try arrow keys or scroll to cycle selections, or click the x to dismiss a panel.",
     bg = colors.gray,
     fg = colors.white
 })
@@ -2345,14 +2346,24 @@ tabState.widget = app:createTabControl({
     activeTabFg = colors.black,
     hoverTabBg = colors.lightGray,
     hoverTabFg = colors.black,
+    tabHeight = 1,
     bodyBg = colors.gray,
     bodyFg = colors.white,
+    tabIndicator = ">",
+    tabCloseButton = {
+        enabled = true,
+        char = "x",
+        spacing = 1,
+        fg = colors.white,
+        bg = colors.red
+    },
     emptyText = "No dashboards available.",
     tabs = {
         {
             id = "overview",
             label = "Overview",
-            content = "System uptime 99.9%\nServices healthy: 8/8\nActive alerts: 2"
+            content = "System uptime 99.9%\nServices healthy: 8/8\nActive alerts: 2",
+            closeable = false
         },
         {
             id = "metrics",
@@ -2368,7 +2379,8 @@ tabState.widget = app:createTabControl({
             id = "settings",
             label = "Settings",
             disabled = true,
-            content = "Unlock to adjust notification routing and thresholds."
+            content = "Unlock to adjust notification routing and thresholds.",
+            closeable = false
         }
     }
 })
@@ -2406,6 +2418,20 @@ tabState.defaults.status = {
     height = tabState.statusLabel.height
 }
 
+local function findTabIndexById(widget, id)
+    if not widget or not id then
+        return nil
+    end
+    local tabs = widget:getTabs()
+    for i = 1, #tabs do
+        local entry = tabs[i]
+        if entry and entry.id == id then
+            return i
+        end
+    end
+    return nil
+end
+
 local function updateTabStatus(tab)
     if not tabState.statusLabel then
         return
@@ -2430,6 +2456,14 @@ local function updateTabStatus(tab)
     else
         summary = string.format("%s tab selected.", tab.label or "Tab")
     end
+    if tabState.closureNotice then
+        if summary ~= "" then
+            summary = summary .. "\n" .. tabState.closureNotice
+        else
+            summary = tabState.closureNotice
+        end
+        tabState.closureNotice = nil
+    end
     tabState.statusLabel:setText(summary)
 end
 
@@ -2437,9 +2471,25 @@ tabState.widget:setOnSelect(function(_, tab)
     updateTabStatus(tab)
 end)
 
+tabState.widget:setOnCloseTab(function(_, closedTab)
+    if not closedTab then
+        return
+    end
+    tabState.closureNotice = string.format("%s tab closed.", closedTab.label or "Tab")
+    if tabState.widget then
+        local current = tabState.widget:getSelectedTab()
+        if current ~= closedTab then
+            updateTabStatus(current)
+        end
+    end
+end)
+
 tabState.toggleButton:setOnClick(function()
     tabState.settingsEnabled = not tabState.settingsEnabled
-    tabState.widget:setTabEnabled(4, tabState.settingsEnabled)
+    local settingsIndex = findTabIndexById(tabState.widget, "settings")
+    if settingsIndex then
+        tabState.widget:setTabEnabled(settingsIndex, tabState.settingsEnabled)
+    end
     if tabState.settingsEnabled then
         tabState.toggleButton:setLabel("Disable Settings")
         tabState.widget:selectTabById("settings")
@@ -2456,7 +2506,10 @@ end)
 updateTabStatus(tabState.widget:getSelectedTab())
 
 addStep(tabStep, function()
-    tabState.widget:setTabEnabled(4, tabState.settingsEnabled)
+    local settingsIndex = findTabIndexById(tabState.widget, "settings")
+    if settingsIndex then
+        tabState.widget:setTabEnabled(settingsIndex, tabState.settingsEnabled)
+    end
     if tabState.settingsEnabled then
         tabState.toggleButton:setLabel("Disable Settings")
     else

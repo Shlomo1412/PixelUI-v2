@@ -404,7 +404,11 @@ local shrekbox = require("shrekbox")
 ---@field disabledTabFg PixelUI.Color # Foreground color for disabled tabs
 ---@field bodyBg PixelUI.Color # Background color for the body area
 ---@field bodyFg PixelUI.Color # Foreground color for the body area
+---@field tabCloseButton { enabled:boolean, char:string, spacing:integer, fg:PixelUI.Color?, bg:PixelUI.Color? } # Close button configuration for tabs
+---@field tabIndicatorChar string? # Glyph rendered as a prefix for the active tab
+---@field tabIndicatorSpacing integer # Horizontal spacing that follows the indicator glyph
 ---@field onSelect fun(self:PixelUI.TabControl, tab:PixelUI.TabControlTab?, index:integer)? # Fired when a tab is (re)selected
+---@field onCloseTab fun(self:PixelUI.TabControl, tab:PixelUI.TabControlTab, index:integer):boolean? # Fired before a tab is closed; return false to cancel
 ---@field bodyRenderer PixelUI.TabControlRenderer? # Optional custom renderer for the content area
 ---@field emptyText string? # Message displayed when no tabs are available
 
@@ -416,6 +420,7 @@ local shrekbox = require("shrekbox")
 ---@field contentRenderer PixelUI.TabControlRenderer? # Tab-specific renderer that overrides the widget default
 ---@field disabled boolean? # When true the tab cannot be selected
 ---@field tooltip string? # Optional tooltip text (reserved for future use)
+---@field closeable boolean? # When false the global close button does not appear for this tab
 
 ---@alias PixelUI.TabControlRenderer fun(self:PixelUI.TabControl, tab:PixelUI.TabControlTab?, textLayer:Layer, pixelLayer:Layer, area:{ x:integer, y:integer, width:integer, height:integer })
 
@@ -10599,6 +10604,175 @@ function ComboBox:handleEvent(event, ...)
 	return false
 end
 
+local DEFAULT_TAB_CLOSE_CHAR = "x"
+local DEFAULT_TAB_INDICATOR_CHAR = string.char(7)
+
+local function normalize_glyph(value)
+	if value == nil then
+		return nil
+	end
+	local valueType = type(value)
+	if valueType == "number" then
+		local code = math.floor(value)
+		if code < 0 then
+			code = 0
+		elseif code > 255 then
+			code = 255
+		end
+		return string.char(code)
+	end
+	local str = tostring(value)
+	if str == "" then
+		return nil
+	end
+	return str
+end
+
+local function parse_tab_close_button_config(config)
+	local closeCfg = {
+		enabled = false,
+		char = DEFAULT_TAB_CLOSE_CHAR,
+		spacing = 1,
+		fg = nil,
+		bg = nil
+	}
+
+	local function apply(sourceValue)
+		if sourceValue == nil then
+			return
+		end
+		local valueType = type(sourceValue)
+		if valueType == "boolean" then
+			closeCfg.enabled = sourceValue
+		elseif valueType == "string" or valueType == "number" then
+			closeCfg.enabled = true
+			local glyph = normalize_glyph(sourceValue)
+			if glyph then
+				closeCfg.char = glyph
+			end
+		elseif valueType == "table" then
+			if sourceValue.enabled ~= nil then
+				closeCfg.enabled = not not sourceValue.enabled
+			end
+			local glyph = sourceValue.char or sourceValue.label or sourceValue.symbol or sourceValue.glyph or sourceValue.text or sourceValue.value
+			if glyph == nil and sourceValue.code ~= nil then
+				glyph = sourceValue.code
+			end
+			glyph = normalize_glyph(glyph)
+			if glyph then
+				closeCfg.char = glyph
+			end
+			local spacingValue = sourceValue.spacing or sourceValue.gap or sourceValue.padding
+			if spacingValue ~= nil then
+				closeCfg.spacing = math.max(0, math.floor(spacingValue))
+			end
+			if sourceValue.fg or sourceValue.color or sourceValue.foreground or sourceValue.textColor then
+				closeCfg.fg = sourceValue.fg or sourceValue.color or sourceValue.foreground or sourceValue.textColor
+			end
+			if sourceValue.bg or sourceValue.background or sourceValue.fill then
+				closeCfg.bg = sourceValue.bg or sourceValue.background or sourceValue.fill
+			end
+		else
+			closeCfg.enabled = not not sourceValue
+		end
+	end
+
+	if config then
+		if config.tabCloseButton ~= nil then
+			apply(config.tabCloseButton)
+		elseif config.closeButton ~= nil then
+			apply(config.closeButton)
+		end
+		if config.enableCloseButton ~= nil then
+			closeCfg.enabled = not not config.enableCloseButton
+		end
+		local glyph = normalize_glyph(config.closeButtonChar)
+		if glyph then
+			closeCfg.char = glyph
+		end
+		if config.closeButtonSpacing ~= nil then
+			closeCfg.spacing = math.max(0, math.floor(config.closeButtonSpacing))
+		end
+		if config.closeButtonFg ~= nil then
+			closeCfg.fg = config.closeButtonFg
+		end
+		if config.closeButtonBg ~= nil then
+			closeCfg.bg = config.closeButtonBg
+		end
+	end
+
+	if not closeCfg.char or closeCfg.char == "" then
+		closeCfg.char = DEFAULT_TAB_CLOSE_CHAR
+	end
+	closeCfg.spacing = math.max(0, math.floor(closeCfg.spacing or 0))
+	return closeCfg
+end
+
+local function parse_tab_indicator_config(config)
+	local indicatorChar = nil
+	local indicatorSpacing = 1
+
+	local function apply(sourceValue)
+		if sourceValue == nil then
+			return
+		end
+		local valueType = type(sourceValue)
+		if valueType == "boolean" then
+			if sourceValue then
+				indicatorChar = DEFAULT_TAB_INDICATOR_CHAR
+			else
+				indicatorChar = nil
+			end
+		elseif valueType == "table" then
+			if sourceValue.enabled == false then
+				indicatorChar = nil
+			else
+				local glyph = sourceValue.char or sourceValue.symbol or sourceValue.glyph or sourceValue.text or sourceValue.value
+				if glyph == nil and sourceValue.code ~= nil then
+					glyph = sourceValue.code
+				end
+				glyph = normalize_glyph(glyph)
+				if glyph then
+					indicatorChar = glyph
+				elseif sourceValue.enabled == true and not indicatorChar then
+					indicatorChar = DEFAULT_TAB_INDICATOR_CHAR
+				end
+				local spacingValue = sourceValue.spacing or sourceValue.gap or sourceValue.padding
+				if spacingValue ~= nil then
+					indicatorSpacing = math.max(0, math.floor(spacingValue))
+				end
+			end
+		else
+			local glyph = normalize_glyph(sourceValue)
+			if glyph then
+				indicatorChar = glyph
+			end
+		end
+	end
+
+	if config then
+		if config.tabIndicator ~= nil then
+			apply(config.tabIndicator)
+		elseif config.currentTabIndicator ~= nil then
+			apply(config.currentTabIndicator)
+		elseif config.indicator ~= nil then
+			apply(config.indicator)
+		end
+		local glyph = normalize_glyph(config.indicatorChar)
+		if glyph then
+			indicatorChar = glyph
+		end
+		if config.indicatorSpacing ~= nil then
+			indicatorSpacing = math.max(0, math.floor(config.indicatorSpacing))
+		end
+	end
+
+	if indicatorChar ~= nil and indicatorChar ~= "" then
+		return indicatorChar, indicatorSpacing
+	end
+	return nil, indicatorSpacing
+end
+
 function TabControl:new(app, config)
 	config = config or {}
 	local baseConfig = clone_table(config) or {}
@@ -10628,6 +10802,19 @@ function TabControl:new(app, config)
 	instance.bodyRenderer = (config and config.bodyRenderer) or (config and config.renderBody) or nil
 	instance.emptyText = config and config.emptyText or nil
 	instance.onSelect = config and config.onSelect or nil
+	local closeHandler = nil
+	if config then
+		if type(config.onCloseTab) == "function" then
+			closeHandler = config.onCloseTab
+		elseif type(config.onTabClose) == "function" then
+			closeHandler = config.onTabClose
+		end
+	end
+	instance.onCloseTab = closeHandler
+	instance.tabCloseButton = parse_tab_close_button_config(config)
+	local indicatorChar, indicatorSpacing = parse_tab_indicator_config(config)
+	instance.tabIndicatorChar = indicatorChar
+	instance.tabIndicatorSpacing = math.max(0, math.floor((indicatorSpacing or 0)))
 	instance.tabs = {}
 	if config and type(config.tabs) == "table" then
 		instance.tabs = instance:_normalizeTabs(config.tabs)
@@ -10642,9 +10829,6 @@ function TabControl:new(app, config)
 	instance._hoverIndex = nil
 	instance._tabRects = {}
 	instance._layoutCache = nil
-	if not instance.border then
-		instance.border = normalize_border(true)
-	end
 	instance:_normalizeSelection(true)
 	return instance
 end
@@ -10659,7 +10843,8 @@ function TabControl:_normalizeTabEntry(entry, index)
 			id = index,
 			label = entry,
 			value = entry,
-			disabled = false
+			disabled = false,
+			closeable = true
 		}
 	elseif entryType == "table" then
 		local label = entry.label or entry.text or entry.title
@@ -10681,7 +10866,8 @@ function TabControl:_normalizeTabEntry(entry, index)
 			disabled = not not entry.disabled,
 			content = entry.content,
 			tooltip = entry.tooltip,
-			contentRenderer = entry.contentRenderer or entry.render
+			contentRenderer = entry.contentRenderer or entry.render,
+			closeable = entry.closeable ~= false
 		}
 		if normalized.contentRenderer ~= nil and type(normalized.contentRenderer) ~= "function" then
 			normalized.contentRenderer = nil
@@ -10692,7 +10878,8 @@ function TabControl:_normalizeTabEntry(entry, index)
 			id = index,
 			label = tostring(entry),
 			value = entry,
-			disabled = false
+			disabled = false,
+			closeable = true
 		}
 	end
 end
@@ -10971,6 +11158,13 @@ function TabControl:setOnSelect(handler)
 	self.onSelect = handler
 end
 
+function TabControl:setOnCloseTab(handler)
+	if handler ~= nil then
+		expect(1, handler, "function")
+	end
+	self.onCloseTab = handler
+end
+
 function TabControl:setBodyRenderer(renderer)
 	if renderer ~= nil then
 		expect(1, renderer, "function")
@@ -10983,6 +11177,56 @@ function TabControl:setEmptyText(text)
 		expect(1, text, "string")
 	end
 	self.emptyText = text
+end
+
+function TabControl:setTabCloseButton(config)
+	local wrapper
+	if config == nil then
+		wrapper = { tabCloseButton = false }
+	else
+		wrapper = { tabCloseButton = config }
+	end
+	self.tabCloseButton = parse_tab_close_button_config(wrapper)
+	self._tabRects = {}
+end
+
+function TabControl:setTabIndicator(indicator, spacing)
+	if spacing ~= nil then
+		expect(2, spacing, "number")
+	end
+	local wrapper = {}
+	if indicator == nil then
+		wrapper.tabIndicator = false
+	else
+		wrapper.tabIndicator = indicator
+	end
+	if spacing ~= nil then
+		wrapper.indicatorSpacing = spacing
+	end
+	local char, resolvedSpacing = parse_tab_indicator_config(wrapper)
+	self.tabIndicatorChar = char
+	self.tabIndicatorSpacing = math.max(0, math.floor((resolvedSpacing or 0)))
+	self._tabRects = {}
+end
+
+function TabControl:setTabClosable(index, closeable)
+	expect(1, index, "number")
+	if closeable ~= nil then
+		expect(2, closeable, "boolean")
+	end
+	index = math.floor(index)
+	if index < 1 or index > #self.tabs then
+		return
+	end
+	local tab = self.tabs[index]
+	if not tab then
+		return
+	end
+	local nextValue = (closeable ~= false)
+	if tab.closeable ~= nextValue then
+		tab.closeable = nextValue
+		self._tabRects = {}
+	end
 end
 
 function TabControl:_notifySelect()
@@ -11019,13 +11263,37 @@ function TabControl:_computeTabLayout()
 		local maxX = innerX + innerWidth - 1
 		local spacing = math.max(0, self.tabSpacing or 0)
 		local padding = math.max(0, self.tabPadding or 0)
+		local closeCfg = self.tabCloseButton or { enabled = false, char = DEFAULT_TAB_CLOSE_CHAR, spacing = 1 }
+		local closeEnabled = closeCfg.enabled and closeCfg.char and closeCfg.char ~= ""
+		local closeChar = closeCfg.char or DEFAULT_TAB_CLOSE_CHAR
+		if not closeChar or closeChar == "" then
+			closeChar = DEFAULT_TAB_CLOSE_CHAR
+		end
+		local closeCharWidth = #closeChar
+		if closeCharWidth < 1 then
+			closeCharWidth = 1
+		end
+		local closeSpacing = math.max(0, closeCfg.spacing or 0)
+		local indicatorChar = self.tabIndicatorChar
+		local indicatorSpacing = math.max(0, self.tabIndicatorSpacing or 0)
+		local indicatorWidth = 0
+		if indicatorChar and indicatorChar ~= "" then
+			indicatorWidth = #indicatorChar + indicatorSpacing
+		end
 		for i = 1, #self.tabs do
 			if cursorX > maxX then
 				break
 			end
 			local tab = self.tabs[i]
 			local label = tab and tab.label and tostring(tab.label) or string.format("Tab %d", i)
-			local desiredWidth = math.max(3, #label + padding * 2)
+			local labelLength = #label
+			if labelLength < 1 then
+				labelLength = 1
+			end
+			local tabClosable = closeEnabled and tab and tab.closeable ~= false
+			local closeTargetWidth = tabClosable and (closeCharWidth + closeSpacing) or 0
+			local baseWidth = padding * 2 + indicatorWidth
+			local desiredWidth = math.max(3, baseWidth + labelLength + closeTargetWidth)
 			local remaining = maxX - cursorX + 1
 			if desiredWidth > remaining then
 				desiredWidth = remaining
@@ -11033,13 +11301,44 @@ function TabControl:_computeTabLayout()
 			if desiredWidth <= 0 then
 				break
 			end
-			tabRects[i] = {
+			local actualCloseWidth = 0
+			if tabClosable then
+				local maxCloseWidth = math.max(0, desiredWidth - baseWidth)
+				actualCloseWidth = math.min(closeTargetWidth, maxCloseWidth)
+				if actualCloseWidth < math.min(closeCharWidth, maxCloseWidth) then
+					actualCloseWidth = math.min(closeCharWidth, maxCloseWidth)
+				end
+			end
+			local availableLabel = math.max(0, desiredWidth - baseWidth - actualCloseWidth)
+			local closeCharWidthUsed = 0
+			local closeSpacingWidth = 0
+			if actualCloseWidth > 0 then
+				closeCharWidthUsed = math.min(closeCharWidth, actualCloseWidth)
+				closeSpacingWidth = math.max(0, actualCloseWidth - closeCharWidthUsed)
+			end
+			local rect = {
 				x1 = cursorX,
 				y1 = innerY,
 				x2 = cursorX + desiredWidth - 1,
 				y2 = innerY + tabHeight - 1,
-				width = desiredWidth
+				width = desiredWidth,
+				padding = padding,
+				labelAvailable = availableLabel,
+				indicatorWidth = indicatorWidth,
+				closeWidth = actualCloseWidth,
+				closeable = tabClosable,
+				closeCharWidth = closeCharWidthUsed,
+				closeSpacingWidth = closeSpacingWidth
 			}
+			if closeCharWidthUsed > 0 then
+				rect.closeRect = {
+					x1 = rect.x2 - closeCharWidthUsed + 1,
+					y1 = rect.y1,
+					x2 = rect.x2,
+					y2 = rect.y2
+				}
+			end
+			tabRects[i] = rect
 			cursorX = cursorX + desiredWidth + spacing
 		end
 	end
@@ -11067,6 +11366,59 @@ function TabControl:_tabIndexFromPoint(x, y)
 		end
 	end
 	return nil
+end
+
+function TabControl:_hitTestTabArea(x, y)
+	self:_computeTabLayout()
+	for index, rect in pairs(self._tabRects) do
+		if rect and x >= rect.x1 and x <= rect.x2 and y >= rect.y1 and y <= rect.y2 then
+			if rect.closeRect and x >= rect.closeRect.x1 and x <= rect.closeRect.x2 and y >= rect.closeRect.y1 and y <= rect.closeRect.y2 then
+				return index, "close"
+			end
+			return index, "tab"
+		end
+	end
+	return nil, nil
+end
+
+function TabControl:_canCloseTab(tab)
+	if not tab or tab.disabled then
+		return false
+	end
+	local closeCfg = self.tabCloseButton
+	if not closeCfg or not closeCfg.enabled then
+		return false
+	end
+	if not closeCfg.char or closeCfg.char == "" then
+		return false
+	end
+	if tab.closeable == false then
+		return false
+	end
+	return true
+end
+
+function TabControl:_tryCloseTab(index)
+	if type(index) ~= "number" then
+		return false
+	end
+	index = math.floor(index)
+	if index < 1 or index > #self.tabs then
+		return false
+	end
+	local tab = self.tabs[index]
+	if not self:_canCloseTab(tab) then
+		return false
+	end
+	if self.onCloseTab then
+		local allow = self.onCloseTab(self, tab, index)
+		if allow == false then
+			return false
+		end
+	end
+	self:removeTab(index)
+	self._hoverIndex = nil
+	return true
 end
 
 function TabControl:_moveSelection(delta)
@@ -11165,6 +11517,27 @@ function TabControl:draw(textLayer, pixelLayer)
 	if self._hoverIndex and not self._tabRects[self._hoverIndex] then
 		self._hoverIndex = nil
 	end
+	local closeCfg = self.tabCloseButton or { enabled = false, char = DEFAULT_TAB_CLOSE_CHAR, spacing = 1 }
+	local closeChar = closeCfg.char or DEFAULT_TAB_CLOSE_CHAR
+	if not closeChar or closeChar == "" then
+		closeChar = DEFAULT_TAB_CLOSE_CHAR
+	end
+	local closeEnabled = closeCfg.enabled and closeChar ~= nil and closeChar ~= ""
+	local closeFgDefault = closeCfg.fg
+	local closeBgDefault = closeCfg.bg
+	local indicatorChar = self.tabIndicatorChar
+	local indicatorSpacing = math.max(0, self.tabIndicatorSpacing or 0)
+	local indicatorActiveText = ""
+	local indicatorInactiveText = ""
+	if indicatorChar and indicatorChar ~= "" then
+		indicatorActiveText = indicatorChar
+		indicatorInactiveText = string.rep(" ", #indicatorChar)
+		if indicatorSpacing > 0 then
+			local gap = string.rep(" ", indicatorSpacing)
+			indicatorActiveText = indicatorActiveText .. gap
+			indicatorInactiveText = indicatorInactiveText .. gap
+		end
+	end
 	for index, rect in pairs(self._tabRects) do
 		local tab = self.tabs[index]
 		if tab and rect then
@@ -11185,28 +11558,91 @@ function TabControl:draw(textLayer, pixelLayer)
 				tabFg = self.disabledTabFg or tabFg
 			end
 			fill_rect(textLayer, rect.x1, rect.y1, rect.width, layout.tabHeight, tabBg, tabBg)
-			local padding = math.max(0, self.tabPadding or 0)
+			local padding = rect.padding or math.max(0, self.tabPadding or 0)
 			local label = tab.label or string.format("Tab %d", index)
 			label = tostring(label)
-			local available = rect.width - padding * 2
-			local labelText = label
-			if available > 0 then
-				if #labelText > available then
-					labelText = labelText:sub(1, available)
+			local labelWidth = rect.labelAvailable
+			if labelWidth == nil then
+				local indicatorWidth = rect.indicatorWidth or 0
+				local closeWidth = rect.closeWidth or 0
+				labelWidth = rect.width - padding * 2 - indicatorWidth - closeWidth
+			end
+			labelWidth = math.max(0, labelWidth or 0)
+			local labelX = rect.x1 + padding
+			local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
+			local indicatorWidth = rect.indicatorWidth or 0
+			local prefix = ""
+			if indicatorWidth > 0 then
+				local source
+				if index == self.selectedIndex and self.selectedIndex > 0 then
+					source = indicatorActiveText
+				else
+					source = indicatorInactiveText
 				end
-				if #labelText < available then
-					labelText = labelText .. string.rep(" ", available - #labelText)
+				if source == "" then
+					source = indicatorChar or ""
+					if indicatorSpacing > 0 then
+						source = source .. string.rep(" ", indicatorSpacing)
+					end
 				end
-				local labelX = rect.x1 + padding
-				local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
-				textLayer.text(labelX, labelY, labelText, tabFg, tabBg)
+				if #source > indicatorWidth then
+					prefix = source:sub(1, indicatorWidth)
+				else
+					prefix = source .. string.rep(" ", indicatorWidth - #source)
+				end
+			end
+			if #prefix > labelWidth then
+				prefix = prefix:sub(1, labelWidth)
+			end
+			local prefixWidth = #prefix
+			local labelRoom = math.max(0, labelWidth - prefixWidth)
+			local displayLabel = label
+			if labelRoom > 0 then
+				if #displayLabel > labelRoom then
+					displayLabel = displayLabel:sub(1, labelRoom)
+				end
+				if #displayLabel < labelRoom then
+					displayLabel = displayLabel .. string.rep(" ", labelRoom - #displayLabel)
+				end
 			else
-				local clipped = labelText
-				if #clipped > rect.width then
-					clipped = clipped:sub(1, rect.width)
+				displayLabel = ""
+			end
+			local lineContent = prefix .. displayLabel
+			if #lineContent < labelWidth then
+				lineContent = lineContent .. string.rep(" ", labelWidth - #lineContent)
+			end
+			if labelWidth > 0 and labelX <= rect.x2 then
+				textLayer.text(labelX, labelY, lineContent, tabFg, tabBg)
+			end
+			if closeEnabled and rect.closeable and rect.closeCharWidth and rect.closeCharWidth > 0 and rect.closeRect then
+				local closeText = closeChar
+				if #closeText > rect.closeCharWidth then
+					closeText = closeText:sub(1, rect.closeCharWidth)
+				elseif #closeText < rect.closeCharWidth then
+					closeText = closeText .. string.rep(" ", rect.closeCharWidth - #closeText)
 				end
-				local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
-				textLayer.text(rect.x1, labelY, clipped, tabFg, tabBg)
+				local closeFg = closeFgDefault or tabFg
+				local closeBg = closeBgDefault or tabBg
+				textLayer.text(rect.closeRect.x1, labelY, closeText, closeFg, closeBg)
+				local gapWidth = rect.closeSpacingWidth or 0
+				if gapWidth > 0 then
+					local labelEndX = labelX + math.max(0, labelWidth) - 1
+					local gapStart = rect.closeRect.x1 - gapWidth
+					if gapStart <= labelEndX then
+						local adjust = labelEndX - gapStart + 1
+						gapWidth = gapWidth - adjust
+						gapStart = gapStart + adjust
+					end
+					if gapWidth > 0 then
+						if gapStart < rect.x1 then
+							gapWidth = gapWidth - (rect.x1 - gapStart)
+							gapStart = rect.x1
+						end
+						if gapWidth > 0 then
+							textLayer.text(gapStart, labelY, string.rep(" ", gapWidth), tabFg, tabBg)
+						end
+					end
+				end
 			end
 		end
 	end
@@ -11240,14 +11676,28 @@ function TabControl:handleEvent(event, ...)
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
-			local index = self:_tabIndexFromPoint(x, y)
+			local index, area = self:_hitTestTabArea(x, y)
 			if index then
-				local tab = self.tabs[index]
-				if tab and not tab.disabled then
-					if self.selectedIndex ~= index then
-						self:setSelectedIndex(index)
-					else
-						self:_emitSelect()
+				if area == "close" then
+					local closed = self:_tryCloseTab(index)
+					if not closed then
+						local tab = self.tabs[index]
+						if tab and not tab.disabled then
+							if self.selectedIndex ~= index then
+								self:setSelectedIndex(index)
+							else
+								self:_emitSelect()
+							end
+						end
+					end
+				else
+					local tab = self.tabs[index]
+					if tab and not tab.disabled then
+						if self.selectedIndex ~= index then
+							self:setSelectedIndex(index)
+						else
+							self:_emitSelect()
+						end
 					end
 				end
 			end
@@ -11257,14 +11707,28 @@ function TabControl:handleEvent(event, ...)
 		local _, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
-			local index = self:_tabIndexFromPoint(x, y)
+			local index, area = self:_hitTestTabArea(x, y)
 			if index then
-				local tab = self.tabs[index]
-				if tab and not tab.disabled then
-					if self.selectedIndex ~= index then
-						self:setSelectedIndex(index)
-					else
-						self:_emitSelect()
+				if area == "close" then
+					local closed = self:_tryCloseTab(index)
+					if not closed then
+						local tab = self.tabs[index]
+						if tab and not tab.disabled then
+							if self.selectedIndex ~= index then
+								self:setSelectedIndex(index)
+							else
+								self:_emitSelect()
+							end
+						end
+					end
+				else
+					local tab = self.tabs[index]
+					if tab and not tab.disabled then
+						if self.selectedIndex ~= index then
+							self:setSelectedIndex(index)
+						else
+							self:_emitSelect()
+						end
 					end
 				end
 			end
