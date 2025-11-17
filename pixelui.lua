@@ -12701,10 +12701,15 @@ function TextBox:new(app, config)
 	instance:_init_base(app, baseConfig)
 	instance.focusable = true
 	instance.placeholder = config.placeholder or ""
+	instance.placeholderColor = config.placeholderColor or config.placeholderFg
 	instance.onChange = config.onChange or nil
 	instance.onCursorMove = config.onCursorMove or nil
 	instance.maxLength = config.maxLength or nil
 	instance.multiline = config.multiline ~= false
+	instance.numericOnly = not not config.numericOnly
+	if instance.numericOnly then
+		instance.multiline = false
+	end
 	instance.tabWidth = math.max(1, math.floor(config.tabWidth or 4))
 	instance.selectionBg = config.selectionBg or colors.lightGray
 	instance.selectionFg = config.selectionFg or colors.black
@@ -12777,6 +12782,35 @@ function TextBox:setScrollbar(scrollbar)
 	self.scrollbar = normalize_scrollbar(scrollbar, self.bg or colors.black, self.fg or colors.white)
 end
 
+function TextBox:setPlaceholderColor(color)
+	if color ~= nil then
+		expect(1, color, "number")
+	end
+	self.placeholderColor = color
+end
+
+function TextBox:setNumericOnly(enabled)
+	if enabled == nil then
+		enabled = true
+	else
+		expect(1, enabled, "boolean")
+	end
+	self.numericOnly = not not enabled
+	if self.numericOnly then
+		self.multiline = false
+	end
+	local sanitized = self.text
+	if self.numericOnly then
+		sanitized = self:_sanitizeNumericInput(sanitized)
+		if not self:_isNumericText(sanitized) then
+			sanitized = ""
+		end
+	end
+	if sanitized ~= self.text then
+		self:_setTextInternal(sanitized, true, false)
+	end
+end
+
 function TextBox:onFocusChanged(focused)
 	if not focused then
 		self:_hideAutocomplete()
@@ -12794,12 +12828,83 @@ function TextBox:_applyMaxLength(text)
 	return text:sub(1, self.maxLength)
 end
 
+function TextBox:_positionToIndex(line, col)
+	line = clampi(line or 1, 1, #self._lines)
+	local index = (col or 1) - 1
+	if index < 0 then
+		index = 0
+	end
+	for i = 1, line - 1 do
+		index = index + #self._lines[i] + 1
+	end
+	return index + 1
+end
+
+function TextBox:_getSelectionIndices()
+	if self:_hasSelection() then
+		local startLine, startCol, endLine, endCol = self:_getSelectionRange()
+		local startIndex = self:_positionToIndex(startLine, startCol)
+		local endIndex = self:_positionToIndex(endLine, endCol)
+		return startIndex, endIndex
+	end
+	local cursorIndex = self:_positionToIndex(self._cursorLine, self._cursorCol)
+	return cursorIndex, cursorIndex
+end
+
+function TextBox:_simulateReplacementText(insertText)
+	local startIndex, endIndex = self:_getSelectionIndices()
+	local before = self.text:sub(1, startIndex - 1)
+	local after = self.text:sub(endIndex)
+	return before .. (insertText or "") .. after
+end
+
+function TextBox:_sanitizeNumericInput(text)
+	if not text or text == "" then
+		return ""
+	end
+	local sanitized = tostring(text):gsub("[^0-9%+%-%.]", "")
+	return sanitized
+end
+
+function TextBox:_isNumericText(text)
+	if text == nil or text == "" then
+		return true
+	end
+	if text == "+" or text == "-" then
+		return true
+	end
+	if text == "." or text == "+." or text == "-." then
+		return true
+	end
+	if text:match("^[+-]?%d+$") then
+		return true
+	end
+	if text:match("^[+-]?%d+%.%d*$") then
+		return true
+	end
+	if text:match("^[+-]?%d*%.%d+$") then
+		return true
+	end
+	return false
+end
+
+function TextBox:_allowsNumericInsertion(insertText)
+	local candidate = self:_simulateReplacementText(insertText)
+	return self:_isNumericText(candidate)
+end
+
 function TextBox:_syncTextFromLines()
 	self.text = join_lines(self._lines)
 end
 
 function TextBox:_setTextInternal(text, resetCursor, suppressEvent)
 	text = tostring(text or "")
+	if self.numericOnly then
+		text = self:_sanitizeNumericInput(text)
+		if not self:_isNumericText(text) then
+			text = ""
+		end
+	end
 	text = self:_applyMaxLength(text)
 	self._lines = split_lines(text)
 	self:_syncTextFromLines()
@@ -13108,6 +13213,16 @@ function TextBox:_insertTextAtCursor(text)
 	if not text or text == "" then
 		return false
 	end
+	if self.numericOnly then
+		local cleaned = self:_sanitizeNumericInput(text)
+		if cleaned == "" then
+			return false
+		end
+		if not self:_allowsNumericInsertion(cleaned) then
+			return false
+		end
+		text = cleaned
+	end
 	return self:_replaceSelection(text, false)
 end
 
@@ -13119,6 +13234,9 @@ function TextBox:_insertCharacter(ch)
 end
 
 function TextBox:_insertNewline()
+	if self.numericOnly then
+		return false
+	end
 	if not self.multiline then
 		return false
 	end
@@ -13126,6 +13244,9 @@ function TextBox:_insertNewline()
 end
 
 function TextBox:_insertTab()
+	if self.numericOnly then
+		return false
+	end
 	local spaces = string.rep(" ", self.tabWidth)
 	return self:_insertTextAtCursor(spaces)
 end
@@ -14239,7 +14360,8 @@ function TextBox:draw(textLayer, pixelLayer)
 		if #placeholder > contentWidth then
 			placeholder = placeholder:sub(1, contentWidth)
 		end
-		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, contentWidth - #placeholder)), colors.lightGray, baseBg)
+		local placeholderColor = self.placeholderColor or colors.lightGray
+		textLayer.text(innerX, innerY, placeholder .. string.rep(" ", math.max(0, contentWidth - #placeholder)), placeholderColor, baseBg)
 	end
 	self:_drawFindOverlay(textLayer, innerX, innerY, contentWidth, innerHeight)
 	if scrollbarStyle then
@@ -15295,6 +15417,27 @@ function App:_drawPopups()
 	end
 end
 
+function App:_dispatchPopupEvent(event, ...)
+	local list = self._popupWidgets
+	if not list or #list == 0 then
+		return false
+	end
+	for index = #list, 1, -1 do
+		local widget = list[index]
+		if widget and widget._open and widget.visible ~= false then
+			if widget:handleEvent(event, ...) then
+				return true
+			end
+		else
+			if widget then
+				self._popupLookup[widget] = nil
+			end
+			table.remove(list, index)
+		end
+	end
+	return false
+end
+
 function App:_registerRadioButton(button)
 	if not button or not button.group then
 		return
@@ -15489,6 +15632,10 @@ function App:step(event, ...)
 		if focus and focus.visible ~= false then
 			consumed = focus:handleEvent(event, ...)
 		end
+	end
+
+	if not consumed and (event == "mouse_click" or event == "mouse_up" or event == "mouse_drag" or event == "mouse_move" or event == "mouse_scroll" or event == "monitor_touch") then
+		consumed = self:_dispatchPopupEvent(event, ...)
 	end
 
 	if not consumed then

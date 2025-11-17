@@ -277,19 +277,50 @@ local textStep = app:createFrame({
 })
 wizard:addChild(textStep)
 
+local textHint = app:createLabel({
+    width = 26,
+    height = 2,
+    text = "Accent placeholders stay visible until focus. Try typing in the numeric field to see filtering.",
+    wrap = true,
+    bg = colors.gray,
+    fg = colors.white
+})
+textHint:setPosition(3, 2)
+textStep:addChild(textHint)
+local textHintDefaults = { width = textHint.width, height = textHint.height }
+
 local stepBox = app:createTextBox({
     width = 18,
     height = 3,
-    placeholder = "Type",
+    placeholder = "Accent placeholder",
+    placeholderColor = colors.orange,
     bg = colors.black,
     fg = colors.white,
     border = { color = colors.white }
 })
 local defaultTextBoxSize = { width = stepBox.width, height = stepBox.height }
-centerWidget(stepBox, textStep, stepBox.width, stepBox.height)
+stepBox:setPosition(4, 5)
 textStep:addChild(stepBox)
+
+local numericBox = app:createTextBox({
+    width = 18,
+    height = 3,
+    placeholder = "Numbers only",
+    placeholderColor = colors.lightBlue,
+    numericOnly = true,
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.lightGray }
+})
+numericBox:setPosition(4, 9)
+local numericDefaults = { width = numericBox.width, height = numericBox.height }
+textStep:addChild(numericBox)
 addStep(textStep, function()
-    app:setFocus(stepBox)
+    if numericBox then
+        app:setFocus(numericBox)
+    else
+        app:setFocus(stepBox)
+    end
 end)
 
 -- Step 3: ComboBox showcase
@@ -302,6 +333,18 @@ local comboStep = app:createFrame({
     fg = colors.white
 })
 wizard:addChild(comboStep)
+
+local comboHint = app:createLabel({
+    width = 26,
+    height = 2,
+    text = "Dropdown clicks now beat overlapping inputs. Drop the menu over the field below and pick an option.",
+    wrap = true,
+    bg = colors.gray,
+    fg = colors.white
+})
+comboHint:setPosition(3, 2)
+comboStep:addChild(comboHint)
+local comboHintDefaults = { width = comboHint.width, height = comboHint.height }
 
 local stepCombo = app:createComboBox({
     width = 20,
@@ -316,8 +359,21 @@ local stepCombo = app:createComboBox({
     border = { color = colors.white }
 })
 local defaultComboSize = { width = stepCombo.width, height = stepCombo.height }
-centerWidget(stepCombo, comboStep, stepCombo.width, stepCombo.height)
+stepCombo:setPosition(4, 5)
 comboStep:addChild(stepCombo)
+
+local comboOverlay = app:createTextBox({
+    width = 20,
+    height = 3,
+    placeholder = "Overlapping input",
+    placeholderColor = colors.lightGray,
+    bg = colors.black,
+    fg = colors.white,
+    border = { color = colors.lightGray }
+})
+comboOverlay:setPosition(4, 9)
+local comboOverlayDefaults = { width = comboOverlay.width, height = comboOverlay.height }
+comboStep:addChild(comboOverlay)
 addStep(comboStep)
 
 -- Step 4: List showcase
@@ -2992,9 +3048,17 @@ local layoutState = {
     defaultTextBoxSize = defaultTextBoxSize,
     textStep = textStep,
     stepBox = stepBox,
+    textHint = textHint,
+    textHintDefaults = textHintDefaults,
+    numericBox = numericBox,
+    numericDefaults = numericDefaults,
     defaultComboSize = defaultComboSize,
     comboStep = comboStep,
     stepCombo = stepCombo,
+    comboHint = comboHint,
+    comboHintDefaults = comboHintDefaults,
+    comboOverlay = comboOverlay,
+    comboOverlayDefaults = comboOverlayDefaults,
     listWidget = listWidget,
     listDefaults = listDefaults,
     listStep = listStep,
@@ -3203,11 +3267,46 @@ local function layoutBasicWidgets(state, stepWidth, stepHeight, innerMargin)
     local stepBox = state.stepBox
     local defaultTextBoxSize = state.defaultTextBoxSize
     if textStep and stepBox and defaultTextBoxSize then
-        local textWidthLimit = math.max(4, stepWidth - 2)
-        local textWidth = math.max(4, math.min(defaultTextBoxSize.width, textWidthLimit))
-        local textHeight = math.min(defaultTextBoxSize.height, stepHeight)
-        stepBox:setSize(textWidth, textHeight)
-        centerWidget(stepBox, textStep, textWidth, textHeight)
+        local textHint = state.textHint
+        local textHintDefaults = state.textHintDefaults
+        local numericBox = state.numericBox
+        local numericDefaults = state.numericDefaults
+        local usableWidth = math.max(4, stepWidth - innerMargin * 2)
+        local currentY = innerMargin
+        if textHint then
+            local hintDefaults = textHintDefaults or { width = textHint.width, height = textHint.height }
+            local hintWidth = math.max(6, math.min(hintDefaults.width or textHint.width, usableWidth))
+            local hintHeight = math.max(1, math.min(hintDefaults.height or textHint.height, stepHeight))
+            textHint:setSize(hintWidth, hintHeight)
+            local hintX = math.floor((textStep.width - hintWidth) / 2) + 1
+            textHint:setPosition(hintX, currentY)
+            currentY = textHint.y + textHint.height + 1
+        end
+        local availableHeight = math.max(1, stepHeight - (currentY - innerMargin))
+        local partitions = numericBox and 2 or 1
+        local spacing = numericBox and 1 or 0
+        local baseHeight = math.max(1, math.floor((availableHeight - spacing) / partitions))
+        local primaryWidth = math.max(4, math.min(defaultTextBoxSize.width, usableWidth))
+        local primaryHeight = math.max(1, math.min(defaultTextBoxSize.height, math.min(baseHeight, availableHeight)))
+        stepBox:setSize(primaryWidth, primaryHeight)
+        local primaryX = math.floor((textStep.width - primaryWidth) / 2) + 1
+        stepBox:setPosition(primaryX, currentY)
+        currentY = stepBox.y + stepBox.height + spacing
+        if numericBox then
+            local numericWidth = math.max(4, math.min((numericDefaults and numericDefaults.width) or numericBox.width, usableWidth))
+            local remainingHeight = math.max(1, stepHeight - (currentY - innerMargin))
+            local numericHeight = math.max(1, math.min((numericDefaults and numericDefaults.height) or numericBox.height, remainingHeight))
+            if numericHeight > remainingHeight then
+                numericHeight = remainingHeight
+            end
+            local numericX = math.floor((textStep.width - numericWidth) / 2) + 1
+            local numericY = math.min(innerMargin + stepHeight - numericHeight, currentY)
+            if numericY < currentY then
+                numericY = currentY
+            end
+            numericBox:setSize(numericWidth, numericHeight)
+            numericBox:setPosition(numericX, numericY)
+        end
     end
 
     -- ComboBox layout
@@ -3215,11 +3314,37 @@ local function layoutBasicWidgets(state, stepWidth, stepHeight, innerMargin)
     local stepCombo = state.stepCombo
     local defaultComboSize = state.defaultComboSize
     if comboStep and stepCombo and defaultComboSize then
-        local comboWidthLimit = math.max(6, stepWidth - 2)
-        local comboWidth = math.max(6, math.min(defaultComboSize.width, comboWidthLimit))
-        local comboHeight = math.min(defaultComboSize.height, stepHeight)
+        local comboHint = state.comboHint
+        local comboHintDefaults = state.comboHintDefaults
+        local comboOverlay = state.comboOverlay
+        local comboOverlayDefaults = state.comboOverlayDefaults
+        local usableWidth = math.max(6, stepWidth - innerMargin * 2)
+        local currentY = innerMargin
+        if comboHint then
+            local hintDefaults = comboHintDefaults or { width = comboHint.width, height = comboHint.height }
+            local hintWidth = math.max(6, math.min(hintDefaults.width or comboHint.width, usableWidth))
+            local hintHeight = math.max(1, math.min(hintDefaults.height or comboHint.height, stepHeight))
+            comboHint:setSize(hintWidth, hintHeight)
+            local hintX = math.floor((comboStep.width - hintWidth) / 2) + 1
+            comboHint:setPosition(hintX, currentY)
+            currentY = comboHint.y + comboHint.height + 1
+        end
+        local comboWidth = math.max(6, math.min(defaultComboSize.width, usableWidth))
+        local comboHeight = math.max(1, math.min(defaultComboSize.height, stepHeight - (currentY - innerMargin)))
         stepCombo:setSize(comboWidth, comboHeight)
-        centerWidget(stepCombo, comboStep, comboWidth, comboHeight)
+        local comboX = math.floor((comboStep.width - comboWidth) / 2) + 1
+        stepCombo:setPosition(comboX, currentY)
+        currentY = stepCombo.y + stepCombo.height
+        if comboOverlay then
+            local overlayDefaults = comboOverlayDefaults or { width = comboOverlay.width, height = comboOverlay.height }
+            local overlayWidth = math.max(6, math.min(overlayDefaults.width or comboOverlay.width, usableWidth))
+            local remainingHeight = math.max(1, stepHeight - (currentY - innerMargin))
+            local overlayHeight = math.max(1, math.min(overlayDefaults.height or comboOverlay.height, remainingHeight))
+            local overlayX = math.floor((comboStep.width - overlayWidth) / 2) + 1
+            local overlayY = math.min(innerMargin + stepHeight - overlayHeight, currentY)
+            comboOverlay:setSize(overlayWidth, overlayHeight)
+            comboOverlay:setPosition(overlayX, overlayY)
+        end
     end
 end
 
