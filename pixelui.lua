@@ -9606,6 +9606,13 @@ function Chart:handleEvent(event, ...)
 		local direction, x, y = ...
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
+			self:_computeTabLayout()
+			if self:_isPointInTabStrip(x, y) and self._scrollState and self._scrollState.scrollable then
+				local step = direction > 0 and 1 or -1
+				if self:_adjustScroll(step) then
+					return true
+				end
+			end
 			if direction > 0 then
 				self:_moveSelection(1)
 			elseif direction < 0 then
@@ -10802,6 +10809,7 @@ function TabControl:new(app, config)
 	instance.bodyRenderer = (config and config.bodyRenderer) or (config and config.renderBody) or nil
 	instance.emptyText = config and config.emptyText or nil
 	instance.onSelect = config and config.onSelect or nil
+	instance.autoShrink = config and config.autoShrink == false and false or true
 	local closeHandler = nil
 	if config then
 		if type(config.onCloseTab) == "function" then
@@ -10829,6 +10837,9 @@ function TabControl:new(app, config)
 	instance._hoverIndex = nil
 	instance._tabRects = {}
 	instance._layoutCache = nil
+	instance._scrollIndex = 1
+	instance._scrollState = { scrollable = false, first = 1, last = 0, canScrollLeft = false, canScrollRight = false }
+	instance._tabStripRect = nil
 	instance:_normalizeSelection(true)
 	return instance
 end
@@ -10996,7 +11007,8 @@ function TabControl:setTabs(tabs)
 		self.selectedIndex = previousIndex
 	end
 	self:_normalizeSelection(false)
-	self._tabRects = {}
+	self._scrollIndex = 1
+	self:_invalidateLayout()
 end
 
 function TabControl:getTabs()
@@ -11019,7 +11031,7 @@ function TabControl:addTab(tab)
 	else
 		self:_normalizeSelection(true)
 	end
-	self._tabRects = {}
+	self:_invalidateLayout()
 end
 
 function TabControl:removeTab(index)
@@ -11038,7 +11050,8 @@ function TabControl:removeTab(index)
 	else
 		self:_normalizeSelection(true)
 	end
-	self._tabRects = {}
+	self:_ensureScrollIndexValid()
+	self:_invalidateLayout()
 end
 
 function TabControl:setTabEnabled(index, enabled)
@@ -11087,7 +11100,7 @@ function TabControl:setTabLabel(index, label)
 	end
 	if tab.label ~= label then
 		tab.label = label
-		self._tabRects = {}
+		self:_invalidateLayout()
 	end
 end
 
@@ -11187,7 +11200,7 @@ function TabControl:setTabCloseButton(config)
 		wrapper = { tabCloseButton = config }
 	end
 	self.tabCloseButton = parse_tab_close_button_config(wrapper)
-	self._tabRects = {}
+	self:_invalidateLayout()
 end
 
 function TabControl:setTabIndicator(indicator, spacing)
@@ -11206,7 +11219,7 @@ function TabControl:setTabIndicator(indicator, spacing)
 	local char, resolvedSpacing = parse_tab_indicator_config(wrapper)
 	self.tabIndicatorChar = char
 	self.tabIndicatorSpacing = math.max(0, math.floor((resolvedSpacing or 0)))
-	self._tabRects = {}
+	self:_invalidateLayout()
 end
 
 function TabControl:setTabClosable(index, closeable)
@@ -11225,8 +11238,101 @@ function TabControl:setTabClosable(index, closeable)
 	local nextValue = (closeable ~= false)
 	if tab.closeable ~= nextValue then
 		tab.closeable = nextValue
-		self._tabRects = {}
+		self:_invalidateLayout()
 	end
+end
+
+function TabControl:setAutoShrink(enabled)
+	if enabled == nil then
+		enabled = true
+	else
+		expect(1, enabled, "boolean")
+	end
+	local value = not not enabled
+	if self.autoShrink ~= value then
+		self.autoShrink = value
+		self._scrollIndex = 1
+		self:_invalidateLayout()
+	end
+end
+
+function TabControl:_invalidateLayout()
+	self._tabRects = {}
+	self._layoutCache = nil
+	self._tabStripRect = nil
+	self._scrollState = self._scrollState or { scrollable = false, first = 1, last = 0, canScrollLeft = false, canScrollRight = false }
+end
+
+function TabControl:_ensureScrollIndexValid()
+	local count = #self.tabs
+	if count <= 0 then
+		self._scrollIndex = 1
+		return
+	end
+	local index = self._scrollIndex or 1
+	if index < 1 then
+		index = 1
+	elseif index > count then
+		index = count
+	end
+	self._scrollIndex = index
+end
+
+function TabControl:_isPointInTabStrip(x, y)
+	local rect = self._tabStripRect
+	if not rect then
+		return false
+	end
+	return x >= rect.x and x < rect.x + rect.width and y >= rect.y and y < rect.y + rect.height
+end
+
+function TabControl:_adjustScroll(delta)
+	delta = math.floor(delta or 0)
+	if delta == 0 then
+		return false
+	end
+	local state = self._scrollState
+	if not state then
+		self:_computeTabLayout()
+		state = self._scrollState
+	end
+	if not state or not state.scrollable then
+		return false
+	end
+	local count = #self.tabs
+	if count == 0 then
+		return false
+	end
+	self:_ensureScrollIndexValid()
+	local first = self._scrollIndex
+	if delta > 0 then
+		if not state.canScrollRight then
+			return false
+		end
+		first = math.min(count, first + delta)
+	else
+		if not state.canScrollLeft then
+			return false
+		end
+		first = math.max(1, first + delta)
+	end
+	if first ~= self._scrollIndex then
+		self._scrollIndex = first
+		self._hoverIndex = nil
+		self:_invalidateLayout()
+		local previousSelection = self.selectedIndex or 0
+		self:_computeTabLayout()
+		local range = self._scrollState
+		if range and range.scrollable then
+			if previousSelection < range.first and range.first <= #self.tabs then
+				self:setSelectedIndex(range.first, true)
+			elseif previousSelection > range.last and range.last >= 1 then
+				self:setSelectedIndex(range.last, true)
+			end
+		end
+		return true
+	end
+	return false
 end
 
 function TabControl:_notifySelect()
@@ -11257,93 +11363,7 @@ function TabControl:_computeTabLayout()
 		tabHeight = 0
 	end
 	local bodyHeight = math.max(0, innerHeight - tabHeight)
-	local tabRects = {}
-	if innerWidth > 0 and tabHeight > 0 then
-		local cursorX = innerX
-		local maxX = innerX + innerWidth - 1
-		local spacing = math.max(0, self.tabSpacing or 0)
-		local padding = math.max(0, self.tabPadding or 0)
-		local closeCfg = self.tabCloseButton or { enabled = false, char = DEFAULT_TAB_CLOSE_CHAR, spacing = 1 }
-		local closeEnabled = closeCfg.enabled and closeCfg.char and closeCfg.char ~= ""
-		local closeChar = closeCfg.char or DEFAULT_TAB_CLOSE_CHAR
-		if not closeChar or closeChar == "" then
-			closeChar = DEFAULT_TAB_CLOSE_CHAR
-		end
-		local closeCharWidth = #closeChar
-		if closeCharWidth < 1 then
-			closeCharWidth = 1
-		end
-		local closeSpacing = math.max(0, closeCfg.spacing or 0)
-		local indicatorChar = self.tabIndicatorChar
-		local indicatorSpacing = math.max(0, self.tabIndicatorSpacing or 0)
-		local indicatorWidth = 0
-		if indicatorChar and indicatorChar ~= "" then
-			indicatorWidth = #indicatorChar + indicatorSpacing
-		end
-		for i = 1, #self.tabs do
-			if cursorX > maxX then
-				break
-			end
-			local tab = self.tabs[i]
-			local label = tab and tab.label and tostring(tab.label) or string.format("Tab %d", i)
-			local labelLength = #label
-			if labelLength < 1 then
-				labelLength = 1
-			end
-			local tabClosable = closeEnabled and tab and tab.closeable ~= false
-			local closeTargetWidth = tabClosable and (closeCharWidth + closeSpacing) or 0
-			local baseWidth = padding * 2 + indicatorWidth
-			local desiredWidth = math.max(3, baseWidth + labelLength + closeTargetWidth)
-			local remaining = maxX - cursorX + 1
-			if desiredWidth > remaining then
-				desiredWidth = remaining
-			end
-			if desiredWidth <= 0 then
-				break
-			end
-			local actualCloseWidth = 0
-			if tabClosable then
-				local maxCloseWidth = math.max(0, desiredWidth - baseWidth)
-				actualCloseWidth = math.min(closeTargetWidth, maxCloseWidth)
-				if actualCloseWidth < math.min(closeCharWidth, maxCloseWidth) then
-					actualCloseWidth = math.min(closeCharWidth, maxCloseWidth)
-				end
-			end
-			local availableLabel = math.max(0, desiredWidth - baseWidth - actualCloseWidth)
-			local closeCharWidthUsed = 0
-			local closeSpacingWidth = 0
-			if actualCloseWidth > 0 then
-				closeCharWidthUsed = math.min(closeCharWidth, actualCloseWidth)
-				closeSpacingWidth = math.max(0, actualCloseWidth - closeCharWidthUsed)
-			end
-			local rect = {
-				x1 = cursorX,
-				y1 = innerY,
-				x2 = cursorX + desiredWidth - 1,
-				y2 = innerY + tabHeight - 1,
-				width = desiredWidth,
-				padding = padding,
-				labelAvailable = availableLabel,
-				indicatorWidth = indicatorWidth,
-				closeWidth = actualCloseWidth,
-				closeable = tabClosable,
-				closeCharWidth = closeCharWidthUsed,
-				closeSpacingWidth = closeSpacingWidth
-			}
-			if closeCharWidthUsed > 0 then
-				rect.closeRect = {
-					x1 = rect.x2 - closeCharWidthUsed + 1,
-					y1 = rect.y1,
-					x2 = rect.x2,
-					y2 = rect.y2
-				}
-			end
-			tabRects[i] = rect
-			cursorX = cursorX + desiredWidth + spacing
-		end
-	end
-	self._tabRects = tabRects
-	self._layoutCache = {
+	local layout = {
 		innerX = innerX,
 		innerY = innerY,
 		innerWidth = innerWidth,
@@ -11354,7 +11374,257 @@ function TabControl:_computeTabLayout()
 		bodyWidth = innerWidth,
 		bodyHeight = bodyHeight
 	}
-	return self._layoutCache, tabRects
+	self._layoutCache = layout
+	if tabHeight > 0 and innerWidth > 0 then
+		self._tabStripRect = { x = innerX, y = innerY, width = innerWidth, height = tabHeight }
+	else
+		self._tabStripRect = nil
+	end
+	local tabCount = #self.tabs
+	if innerWidth <= 0 or tabHeight <= 0 or tabCount == 0 then
+		self._tabRects = {}
+		self._scrollState = { scrollable = false, first = 1, last = 0, canScrollLeft = false, canScrollRight = false }
+		return layout, self._tabRects
+	end
+	local spacing = math.max(0, self.tabSpacing or 0)
+	local paddingBase = math.max(0, self.tabPadding or 0)
+	local indicatorChar = self.tabIndicatorChar
+	local indicatorSpacing = math.max(0, self.tabIndicatorSpacing or 0)
+	local indicatorWidth = 0
+	if indicatorChar and indicatorChar ~= "" then
+		indicatorWidth = #indicatorChar + indicatorSpacing
+	end
+	local closeCfg = self.tabCloseButton or { enabled = false, char = DEFAULT_TAB_CLOSE_CHAR, spacing = 1 }
+	local closeChar = closeCfg.char or DEFAULT_TAB_CLOSE_CHAR
+	if not closeChar or closeChar == "" then
+		closeChar = DEFAULT_TAB_CLOSE_CHAR
+	end
+	local closeEnabled = closeCfg.enabled and closeChar ~= nil and closeChar ~= ""
+	local closeCharWidth = math.max(1, #closeChar)
+	local closeSpacingDefault = math.max(0, closeCfg.spacing or 0)
+	local metrics = {}
+	local totalPreferred = 0
+	local totalMin = 0
+	for i = 1, tabCount do
+		local tab = self.tabs[i]
+		local label = tab and tab.label and tostring(tab.label) or string.format("Tab %d", i)
+		if label == "" then
+			label = string.format("Tab %d", i)
+		end
+		local labelLength = math.max(1, #label)
+		local tabClosable = closeEnabled and tab and tab.closeable ~= false
+		local closeCharWidthUsed = tabClosable and closeCharWidth or 0
+		local closeSpacingWidth = tabClosable and closeSpacingDefault or 0
+		local padLeft = paddingBase
+		local padRight = paddingBase
+		local widthContribution = padLeft + padRight + indicatorWidth + labelLength + closeCharWidthUsed + closeSpacingWidth
+		local minWidth = indicatorWidth + labelLength + closeCharWidthUsed
+		metrics[i] = {
+			index = i,
+			label = label,
+			labelLength = labelLength,
+			padLeft = padLeft,
+			padRight = padRight,
+			minPadLeft = 0,
+			minPadRight = 0,
+			indicatorWidth = indicatorWidth,
+			closeable = tabClosable,
+			closeCharWidth = closeCharWidthUsed,
+			closeSpacing = closeSpacingWidth,
+			minCloseSpacing = 0,
+			width = widthContribution,
+			minWidth = minWidth
+		}
+		totalPreferred = totalPreferred + widthContribution
+		totalMin = totalMin + minWidth
+	end
+	local spacingTotal = spacing * math.max(0, tabCount - 1)
+	local totalPreferredWithSpacing = totalPreferred + spacingTotal
+	local overflow = math.max(0, totalPreferredWithSpacing - innerWidth)
+	if overflow > 0 and self.autoShrink then
+		local shrinkCapacity = totalPreferred - totalMin
+		if shrinkCapacity > 0 then
+			local shrinkTarget = math.min(overflow, shrinkCapacity)
+			local remaining = shrinkTarget
+			while remaining > 0 do
+				local changed = false
+				for i = 1, tabCount do
+					if remaining <= 0 then
+						break
+					end
+					local metric = metrics[i]
+					if metric.padLeft > metric.minPadLeft then
+						metric.padLeft = metric.padLeft - 1
+						metric.width = metric.width - 1
+						remaining = remaining - 1
+						changed = true
+					elseif metric.padRight > metric.minPadRight then
+						metric.padRight = metric.padRight - 1
+						metric.width = metric.width - 1
+						remaining = remaining - 1
+						changed = true
+					elseif metric.closeSpacing > metric.minCloseSpacing then
+						metric.closeSpacing = metric.closeSpacing - 1
+						metric.width = metric.width - 1
+						remaining = remaining - 1
+						changed = true
+					end
+				end
+				if not changed then
+					break
+				end
+			end
+			local applied = shrinkTarget - remaining
+			if applied > 0 then
+				totalPreferred = totalPreferred - applied
+				totalPreferredWithSpacing = totalPreferredWithSpacing - applied
+				overflow = math.max(0, totalPreferredWithSpacing - innerWidth)
+			end
+		end
+	end
+	local scrollNeeded = overflow > 0
+	if not scrollNeeded then
+		self._scrollIndex = 1
+	end
+	local function computeVisibleLast(startIndex)
+		local widthUsed = 0
+		local last = startIndex - 1
+		for i = startIndex, tabCount do
+			local metric = metrics[i]
+			local tabWidth = math.min(metric.width, innerWidth)
+			local additional = tabWidth
+			if widthUsed > 0 then
+				additional = additional + spacing
+			end
+			if widthUsed + additional > innerWidth then
+				if widthUsed == 0 then
+					last = i
+					widthUsed = tabWidth
+				end
+				break
+			end
+			widthUsed = widthUsed + additional
+			last = i
+		end
+		if last < startIndex then
+			last = math.min(startIndex, tabCount)
+		end
+		return last
+	end
+	local function findFirstForSelected(selected)
+		local first = selected
+		local widthUsed = math.min(metrics[selected].width, innerWidth)
+		while first > 1 do
+			local prevWidth = math.min(metrics[first - 1].width, innerWidth)
+			local needed = widthUsed + spacing + prevWidth
+			if needed > innerWidth then
+				break
+			end
+			first = first - 1
+			widthUsed = needed
+		end
+		return first
+	end
+	local tabRects = {}
+	local firstVisible
+	local lastVisible
+	if scrollNeeded then
+		self:_ensureScrollIndexValid()
+		firstVisible = math.max(1, math.min(self._scrollIndex or 1, tabCount))
+		local selected = self.selectedIndex or 0
+		local currentLast = computeVisibleLast(firstVisible)
+		if selected >= 1 and selected <= tabCount then
+			if selected < firstVisible or selected > currentLast then
+				firstVisible = findFirstForSelected(selected)
+				currentLast = computeVisibleLast(firstVisible)
+				while selected > currentLast and firstVisible < selected do
+					firstVisible = math.min(selected, firstVisible + 1)
+					currentLast = computeVisibleLast(firstVisible)
+					if firstVisible >= tabCount then
+						break
+					end
+				end
+				if selected < firstVisible then
+					firstVisible = selected
+					currentLast = computeVisibleLast(firstVisible)
+				end
+			end
+		end
+		self._scrollIndex = firstVisible
+		lastVisible = computeVisibleLast(firstVisible)
+		self._scrollState = {
+			scrollable = true,
+			first = firstVisible,
+			last = lastVisible,
+			canScrollLeft = firstVisible > 1,
+			canScrollRight = lastVisible < tabCount
+		}
+	else
+		firstVisible = 1
+		lastVisible = tabCount
+		self._scrollState = {
+			scrollable = false,
+			first = 1,
+			last = tabCount,
+			canScrollLeft = false,
+			canScrollRight = false
+		}
+	end
+	firstVisible = math.max(1, math.min(firstVisible or 1, tabCount))
+	lastVisible = math.max(firstVisible, math.min(lastVisible or tabCount, tabCount))
+	local cursorX = innerX
+	local maxX = innerX + innerWidth - 1
+	for i = firstVisible, lastVisible do
+		local metric = metrics[i]
+		local tabWidth = math.min(metric.width, innerWidth)
+		if cursorX + tabWidth - 1 > maxX then
+			tabWidth = maxX - cursorX + 1
+			if tabWidth < 1 then
+				break
+			end
+		end
+		local rect = {
+			x1 = cursorX,
+			y1 = innerY,
+			x2 = cursorX + tabWidth - 1,
+			y2 = innerY + tabHeight - 1,
+			width = tabWidth,
+			padLeft = metric.padLeft,
+			padRight = metric.padRight,
+			indicatorWidth = metric.indicatorWidth,
+			closeable = metric.closeable,
+			closeCharWidth = metric.closeCharWidth,
+			closeSpacingWidth = metric.closeSpacing,
+			closeWidth = metric.closeCharWidth + metric.closeSpacing,
+			labelLength = metric.labelLength,
+			label = metric.label
+		}
+		rect.labelAvailable = tabWidth - metric.padLeft - metric.padRight - metric.indicatorWidth - rect.closeWidth
+		if rect.labelAvailable < 0 then
+			rect.labelAvailable = 0
+		end
+		if metric.closeCharWidth > 0 then
+			local closeStart = rect.x2 - metric.closeCharWidth + 1
+			if closeStart < rect.x1 then
+				closeStart = rect.x1
+			end
+			rect.closeRect = {
+				x1 = closeStart,
+				y1 = rect.y1,
+				x2 = rect.x2,
+				y2 = rect.y2
+			}
+		end
+		tabRects[i] = rect
+		cursorX = rect.x2 + 1 + spacing
+		if cursorX > maxX then
+			break
+		end
+	end
+	self._tabRects = tabRects
+	layout.firstTabIndex = firstVisible
+	layout.lastTabIndex = lastVisible
+	return layout, tabRects
 end
 
 
@@ -11558,19 +11828,25 @@ function TabControl:draw(textLayer, pixelLayer)
 				tabFg = self.disabledTabFg or tabFg
 			end
 			fill_rect(textLayer, rect.x1, rect.y1, rect.width, layout.tabHeight, tabBg, tabBg)
-			local padding = rect.padding or math.max(0, self.tabPadding or 0)
-			local label = tab.label or string.format("Tab %d", index)
+			local padLeft = rect.padLeft
+			if padLeft == nil then
+				padLeft = math.max(0, self.tabPadding or 0)
+			end
+			local padRight = rect.padRight
+			if padRight == nil then
+				padRight = padLeft
+			end
+			local label = rect.label or tab.label or string.format("Tab %d", index)
 			label = tostring(label)
+			local indicatorWidth = rect.indicatorWidth or 0
+			local closeWidth = rect.closeWidth or 0
 			local labelWidth = rect.labelAvailable
 			if labelWidth == nil then
-				local indicatorWidth = rect.indicatorWidth or 0
-				local closeWidth = rect.closeWidth or 0
-				labelWidth = rect.width - padding * 2 - indicatorWidth - closeWidth
+				labelWidth = rect.width - padLeft - padRight - indicatorWidth - closeWidth
 			end
-			labelWidth = math.max(0, labelWidth or 0)
-			local labelX = rect.x1 + padding
+			labelWidth = math.max(0, labelWidth)
+			local labelX = rect.x1 + padLeft
 			local labelY = rect.y1 + math.max(0, math.floor((layout.tabHeight - 1) / 2))
-			local indicatorWidth = rect.indicatorWidth or 0
 			local prefix = ""
 			if indicatorWidth > 0 then
 				local source
@@ -11634,9 +11910,9 @@ function TabControl:draw(textLayer, pixelLayer)
 						gapStart = gapStart + adjust
 					end
 					if gapWidth > 0 then
-						if gapStart < rect.x1 then
-							gapWidth = gapWidth - (rect.x1 - gapStart)
-							gapStart = rect.x1
+						if gapStart < rect.x1 + padLeft then
+							gapWidth = gapWidth - ((rect.x1 + padLeft) - gapStart)
+							gapStart = rect.x1 + padLeft
 						end
 						if gapWidth > 0 then
 							textLayer.text(gapStart, labelY, string.rep(" ", gapWidth), tabFg, tabBg)

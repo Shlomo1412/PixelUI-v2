@@ -625,7 +625,7 @@ checkboxStatus = app:createLabel({
     x = 2,
     y = 7,
     width = 26,
-    height = 3,
+    height = 4,
     wrap = true,
     align = "left",
     verticalAlign = "top",
@@ -2381,7 +2381,7 @@ tabState.instructions = app:createLabel({
     height = 3,
     wrap = true,
     align = "left",
-    text = "Tabs now show an indicator and close buttons. Try arrow keys or scroll to cycle selections, or click the x to dismiss a panel.",
+    text = "Tabs now shrink to fit and support horizontal scrolling. Toggle shrink or spin the scroll wheel over the strip to pan, and click the x to close panels.",
     bg = colors.gray,
     fg = colors.white
 })
@@ -2437,10 +2437,26 @@ tabState.widget = app:createTabControl({
             disabled = true,
             content = "Unlock to adjust notification routing and thresholds.",
             closeable = false
+        },
+        {
+            id = "reports",
+            label = "Reports",
+            content = "Scheduled exports: weekly executive deck, monthly SLA rollup."
+        },
+        {
+            id = "integrations",
+            label = "Integrations",
+            content = "Connected platforms: Slack, PagerDuty, Jira, Datadog."
+        },
+        {
+            id = "automation",
+            label = "Automation",
+            content = "Playbooks in queue: restart service, purge cache, scale workers."
         }
     }
 })
 tabStep:addChild(tabState.widget)
+tabState.widget:setAutoShrink(true)
 tabState.defaults.widget = {
     width = tabState.widget.width,
     height = tabState.widget.height
@@ -2458,6 +2474,20 @@ tabState.defaults.toggle = {
     width = tabState.toggleButton.width,
     height = tabState.toggleButton.height
 }
+
+tabState.shrinkButton = app:createButton({
+    width = 18,
+    height = 1,
+    label = "Auto Shrink: On",
+    bg = colors.lightGray,
+    fg = colors.black
+})
+tabStep:addChild(tabState.shrinkButton)
+tabState.defaults.shrink = {
+    width = tabState.shrinkButton.width,
+    height = tabState.shrinkButton.height
+}
+tabState.autoShrinkEnabled = true
 
 tabState.statusLabel = app:createLabel({
     width = 26,
@@ -2509,6 +2539,12 @@ local function updateTabStatus(tab)
         else
             summary = "Settings tab is locked until enabled."
         end
+    elseif tab.id == "reports" then
+        summary = "Reports tab queues scheduled exports."
+    elseif tab.id == "integrations" then
+        summary = "Integrations tab lists connected platforms."
+    elseif tab.id == "automation" then
+        summary = "Automation tab tracks upcoming playbooks."
     else
         summary = string.format("%s tab selected.", tab.label or "Tab")
     end
@@ -2519,6 +2555,12 @@ local function updateTabStatus(tab)
             summary = tabState.closureNotice
         end
         tabState.closureNotice = nil
+    end
+    if tabState.autoShrinkEnabled == false then
+        if summary ~= "" then
+            summary = summary .. "\n"
+        end
+        summary = summary .. "Auto shrink disabled; use scroll to view hidden tabs."
     end
     tabState.statusLabel:setText(summary)
 end
@@ -2559,6 +2601,19 @@ tabState.toggleButton:setOnClick(function()
     updateTabStatus(tabState.widget:getSelectedTab())
 end)
 
+tabState.shrinkButton:setOnClick(function()
+    tabState.autoShrinkEnabled = not tabState.autoShrinkEnabled
+    if tabState.widget then
+        tabState.widget:setAutoShrink(tabState.autoShrinkEnabled)
+    end
+    if tabState.autoShrinkEnabled then
+        tabState.shrinkButton:setLabel("Auto Shrink: On")
+    else
+        tabState.shrinkButton:setLabel("Auto Shrink: Off")
+    end
+    updateTabStatus(tabState.widget:getSelectedTab())
+end)
+
 updateTabStatus(tabState.widget:getSelectedTab())
 
 addStep(tabStep, function()
@@ -2574,6 +2629,16 @@ addStep(tabStep, function()
         if current and current.id == "settings" then
             tabState.widget:setSelectedIndex(1, true)
         end
+    end
+    if tabState.shrinkButton then
+        if tabState.autoShrinkEnabled then
+            tabState.shrinkButton:setLabel("Auto Shrink: On")
+        else
+            tabState.shrinkButton:setLabel("Auto Shrink: Off")
+        end
+    end
+    if tabState.widget then
+        tabState.widget:setAutoShrink(tabState.autoShrinkEnabled ~= false)
     end
     updateTabStatus(tabState.widget:getSelectedTab())
     if tabState.widget then
@@ -3457,6 +3522,18 @@ local function layoutTabControl(state, stepWidth, stepHeight, innerMargin)
         local toggleY = math.min(innerMargin + stepHeight - toggleHeight, cursorY)
         toggleButton:setPosition(toggleX, toggleY)
         cursorY = toggleY + toggleHeight + 1
+    end
+
+    local shrinkButton = tabState.shrinkButton
+    if shrinkButton then
+        local shrinkDefaults = defaults.shrink or { width = shrinkButton.width, height = shrinkButton.height }
+        local shrinkWidth = math.max(10, math.min(shrinkDefaults.width or shrinkButton.width, maxWidth))
+        local shrinkHeight = math.max(1, shrinkDefaults.height or shrinkButton.height)
+        shrinkButton:setSize(shrinkWidth, shrinkHeight)
+        local shrinkX = math.floor((tabStep.width - shrinkWidth) / 2) + 1
+        local shrinkY = math.min(innerMargin + stepHeight - shrinkHeight, cursorY)
+        shrinkButton:setPosition(shrinkX, shrinkY)
+        cursorY = shrinkY + shrinkHeight + 1
     end
 
     local statusLabel = tabState.statusLabel
