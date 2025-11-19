@@ -259,6 +259,7 @@ local shrekbox = require("shrekbox")
 ---@field axisColor PixelUI.Color # Color for axis lines
 ---@field lineColor PixelUI.Color # Color for line charts
 ---@field rangePadding number # Padding percentage for the value range
+---@field selectable boolean # Whether the chart allows selecting data points
 ---@field selectedIndex integer? # Currently selected data point index
 ---@field onSelect fun(self:PixelUI.Chart, index:integer?, value:number?)? # Callback fired when a data point is selected
 
@@ -9069,6 +9070,7 @@ function Chart:new(app, config)
 	instance.highlightColor = (config and config.highlightColor) or colors.orange
 	instance.axisColor = (config and config.axisColor) or (instance.fg or colors.white)
 	instance.lineColor = (config and config.lineColor) or (instance.fg or colors.white)
+	instance.selectable = not (config and config.selectable == false)
 	if config and type(config.rangePadding) == "number" then
 		instance.rangePadding = math.max(0, config.rangePadding)
 	else
@@ -9096,10 +9098,14 @@ function Chart:new(app, config)
 	if config and config.data then
 		instance:setData(config.data)
 	end
-	if config and config.selectedIndex then
-		instance:setSelectedIndex(config.selectedIndex, true)
+	if instance.selectable then
+		if config and config.selectedIndex then
+			instance:setSelectedIndex(config.selectedIndex, true)
+		else
+			instance:_clampSelection(true)
+		end
 	else
-		instance:_clampSelection(true)
+		instance.selectedIndex = nil
 	end
 	return instance
 end
@@ -9113,6 +9119,15 @@ function Chart:_emitSelect()
 end
 
 function Chart:_clampSelection(suppressEvent)
+	if not self.selectable then
+		if self.selectedIndex ~= nil then
+			self.selectedIndex = nil
+			if not suppressEvent then
+				self:_emitSelect()
+			end
+		end
+		return
+	end
 	local count = #self.data
 	if count == 0 then
 		if self.selectedIndex ~= nil then
@@ -9153,7 +9168,12 @@ function Chart:setData(data)
 		cleaned[i] = value
 	end
 	self.data = cleaned
-	self:_clampSelection(false)
+	if self.selectable then
+		self:_clampSelection(false)
+	elseif self.selectedIndex ~= nil then
+		self.selectedIndex = nil
+		self:_emitSelect()
+	end
 end
 
 function Chart:getData()
@@ -9217,6 +9237,28 @@ function Chart:setPlaceholder(text)
 	self.placeholder = text or ""
 end
 
+function Chart:setSelectable(selectable, suppressEvent)
+	if selectable == nil then
+		selectable = true
+	else
+		selectable = not not selectable
+	end
+	if self.selectable == selectable then
+		return
+	end
+	self.selectable = selectable
+	if not selectable then
+		if self.selectedIndex ~= nil then
+			self.selectedIndex = nil
+			if not suppressEvent then
+				self:_emitSelect()
+			end
+		end
+	else
+		self:_clampSelection(suppressEvent)
+	end
+end
+
 function Chart:setRange(minValue, maxValue)
 	if minValue ~= nil then
 		expect(1, minValue, "number")
@@ -9251,6 +9293,9 @@ function Chart:setSelectedIndex(index, suppressEvent)
 				self:_emitSelect()
 			end
 		end
+		return false
+	end
+	if not self.selectable then
 		return false
 	end
 	expect(1, index, "number")
@@ -9293,7 +9338,7 @@ function Chart:getSelectedValue()
 end
 
 function Chart:onFocusChanged(focused)
-	if focused then
+	if focused and self.selectable then
 		self:_clampSelection(true)
 	end
 end
@@ -9326,6 +9371,9 @@ end
 
 function Chart:_moveSelection(delta)
 	if delta == 0 then
+		return false
+	end
+	if not self.selectable then
 		return false
 	end
 	local count = #self.data
@@ -9507,7 +9555,7 @@ function Chart:draw(textLayer, pixelLayer)
 				barHeight = plotBottom - plotTop + 1
 			end
 			local color = self.barColor or fg
-			if self.selectedIndex == i then
+			if self.selectable and self.selectedIndex == i then
 				color = self.highlightColor or color
 			end
 			fill_rect(textLayer, bars[i].left, top, bars[i].width, barHeight, color, color)
@@ -9540,7 +9588,7 @@ function Chart:draw(textLayer, pixelLayer)
 			local point = points[i]
 			local color = self.lineColor or fg
 			local marker = "o"
-			if self.selectedIndex == i then
+			if self.selectable and self.selectedIndex == i then
 				color = self.highlightColor or colors.orange
 				marker = "O"
 			end
@@ -9573,7 +9621,7 @@ function Chart:draw(textLayer, pixelLayer)
 				if labelX + #label - 1 > span.right then
 					labelX = span.right - #label + 1
 				end
-				local color = (self.selectedIndex == i) and (self.highlightColor or colors.orange) or (self.axisColor or fg)
+				local color = (self.selectable and self.selectedIndex == i) and (self.highlightColor or colors.orange) or (self.axisColor or fg)
 				textLayer.text(labelX, labelY, label, color, bg)
 			end
 		end
@@ -9597,7 +9645,7 @@ function Chart:handleEvent(event, ...)
 		if self:containsPoint(x, y) then
 			self.app:setFocus(self)
 			local index = self:_indexFromPoint(x)
-			if index then
+			if index and self.selectable then
 				self:setSelectedIndex(index, false)
 			end
 			return true
@@ -9613,15 +9661,20 @@ function Chart:handleEvent(event, ...)
 					return true
 				end
 			end
-			if direction > 0 then
-				self:_moveSelection(1)
-			elseif direction < 0 then
-				self:_moveSelection(-1)
+			if self.selectable then
+				if direction > 0 then
+					self:_moveSelection(1)
+				elseif direction < 0 then
+					self:_moveSelection(-1)
+				end
 			end
 			return true
 		end
 	elseif event == "key" then
 		if not self:isFocused() then
+			return false
+		end
+		if not self.selectable then
 			return false
 		end
 		local keyCode = ...

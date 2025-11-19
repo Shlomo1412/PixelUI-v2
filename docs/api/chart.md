@@ -21,6 +21,7 @@ A data visualization widget supporting bar and line charts. Displays numeric dat
 | axisColor | `PixelUI.Color` | Color for axis lines |
 | lineColor | `PixelUI.Color` | Color for line charts |
 | rangePadding | `number` | Padding percentage for the value range |
+| selectable | `boolean` | Whether the chart allows selecting data points |
 | selectedIndex | `integer?` | Currently selected data point index |
 | onSelect | `fun(self:PixelUI.Chart,` |  |
 
@@ -98,6 +99,12 @@ setShowLabels()
 setPlaceholder()
 ```
 
+### setSelectable
+
+```lua
+setSelectable()
+```
+
 ### setRange
 
 ```lua
@@ -162,5 +169,22 @@ draw()
 
 ```lua
 handleEvent()
+```
+
+## Examples
+
+### Disable interactive selection
+
+```lua
+local chart = app:createChart({
+	width = 26,
+	height = 7,
+	data = { 12, 18, 9, 21, 15 },
+	labels = { "Mon", "Tue", "Wed", "Thu", "Fri" },
+	selectable = false,
+})
+
+-- Re-enable selection later without triggering onSelect
+chart:setSelectable(true, true)
 ```
 
