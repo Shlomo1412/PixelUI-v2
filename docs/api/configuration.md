@@ -87,6 +87,19 @@ Internal normalized border configuration.
 | offsetX | `integer?` | Horizontal offset applied after alignment |
 | offsetY | `integer?` | Vertical offset applied after alignment |
 
+## PixelUI.MsgBoxButtonConfig
+
+| Name | Type | Description |
+|------|------|-------------|
+| id | `string?` | Identifier returned when the button is pressed |
+| label | `string?` | Text displayed on the button |
+| bg | `PixelUI.Color?` | Custom background color |
+| fg | `PixelUI.Color?` | Custom foreground color |
+| width | `integer?` | Optional explicit button width |
+| height | `integer?` | Optional explicit button height |
+| onSelect | `fun(self:PixelUI.MsgBox,` |  |
+| autoClose | `boolean?` | Overrides the message box auto-close behaviour for this button |
+
 ## PixelUI.ThreadOptions
 
 Configuration options for spawning a background thread.

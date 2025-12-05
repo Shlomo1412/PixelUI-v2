@@ -80,3 +80,73 @@ handleEvent(event)
 |------|------|-------------|
 | event | `string` |  |
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Create a simple clickable button
+local button = app:button({
+    x = 5, y = 3,
+    width = 12, height = 3,
+    label = "Click Me",
+    bg = colors.blue,
+    fg = colors.white,
+    onClick = function(self)
+        self:setLabel("Clicked!")
+    end
+})
+app.root:addChild(button)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Button with all event callbacks and styling
+local counter = 0
+local countLabel = app:label({
+    x = 5, y = 8,
+    text = "Count: 0",
+    fg = colors.white
+})
+app.root:addChild(countLabel)
+
+local button = app:button({
+    x = 5, y = 3,
+    width = 15, height = 3,
+    label = "Press & Hold",
+    bg = colors.green,
+    fg = colors.white,
+    clickEffect = true,
+    border = { color = colors.lime },
+    onPress = function(self, btn, x, y)
+        self.bg = colors.lime
+    end,
+    onRelease = function(self, btn, x, y)
+        self.bg = colors.green
+    end,
+    onClick = function(self, btn, x, y)
+        counter = counter + 1
+        countLabel:setText("Count: " .. counter)
+    end
+})
+app.root:addChild(button)
+
+app:run()
+```
+
+</details>
+

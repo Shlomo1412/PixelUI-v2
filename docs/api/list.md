@@ -168,3 +168,77 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple list widget
+local list = app:list({
+    x = 2, y = 2,
+    width = 20, height = 8,
+    items = { "Apple", "Banana", "Cherry", "Date", "Elderberry" },
+    onSelect = function(self, item, index)
+        -- Handle selection
+    end
+})
+app.root:addChild(list)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- List with scrollbar and styling
+local selectionLabel = app:label({
+    x = 25, y = 2,
+    text = "Selected: none",
+    fg = colors.white
+})
+
+local list = app:list({
+    x = 2, y = 2,
+    width = 20, height = 10,
+    items = {},
+    placeholder = "No items",
+    highlightBg = colors.blue,
+    highlightFg = colors.white,
+    scrollbar = {
+        enabled = true,
+        alwaysVisible = false,
+        thumbColor = colors.lightGray,
+        trackColor = colors.gray
+    },
+    onSelect = function(self, item, index)
+        selectionLabel:setText("Selected: " .. (item or "none"))
+    end
+})
+
+-- Dynamically add items
+for i = 1, 20 do
+    list:addItem("Item " .. i)
+end
+
+-- Select first item programmatically
+list:setSelectedIndex(1)
+
+app.root:addChild(list)
+app.root:addChild(selectionLabel)
+
+app:run()
+```
+
+</details>
+

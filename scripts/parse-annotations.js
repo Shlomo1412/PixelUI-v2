@@ -30,17 +30,37 @@ class AnnotationParser {
       else if (line.match(/^---@alias\s+/)) {
         this.parseAlias(i);
       }
+      // Check for example blocks
+      else if (line.match(/^---@example-(basic|advanced)\s+/)) {
+        this.parseExample(i);
+      }
       // Check for function with annotations
   else if (line.match(/^function\s+(pixelui\.|App:|Frame:|Widget:|Window:|Dialog:|MsgBox:|Button:|Label:|CheckBox:|Toggle:|TextBox:|ComboBox:|List:|Table:|TreeView:|Chart:|RadioButton:|ProgressBar:|Slider:|NotificationToast:|LoadingRing:|FreeDraw:|TabControl:)/)) {
         this.parseFunction(i);
       }
     }
 
+    // Merge any examples that were parsed before their class definitions
+    this._mergePendingExamples();
+
     return {
       classes: Array.from(this.classes.values()),
       functions: this.functions,
       aliases: this.aliases
     };
+  }
+
+  // Call this after parse() to merge any pending examples
+  _mergePendingExamples() {
+    if (!this._pendingExamples) return;
+    
+    for (const [className, examples] of this._pendingExamples) {
+      if (this.classes.has(className)) {
+        const classData = this.classes.get(className);
+        classData.examples.basic.push(...examples.basic);
+        classData.examples.advanced.push(...examples.advanced);
+      }
+    }
   }
 
   parseClass(startIndex) {
@@ -55,7 +75,11 @@ class AnnotationParser {
       name: className,
       extends: extends_class,
       description: '',
-      fields: []
+      fields: [],
+      examples: {
+        basic: [],
+        advanced: []
+      }
     };
 
     // Look backwards for description comments
@@ -92,6 +116,57 @@ class AnnotationParser {
     }
 
     this.classes.set(className, classData);
+  }
+
+  parseExample(startIndex) {
+    const line = this.lines[startIndex];
+    const match = line.match(/^---@example-(basic|advanced)\s+([\w.]+)/);
+    if (!match) return;
+
+    const exampleType = match[1]; // 'basic' or 'advanced'
+    const className = match[2];
+    
+    // Collect the code block that follows
+    const codeLines = [];
+    let i = startIndex + 1;
+    
+    while (i < this.lines.length) {
+      const codeLine = this.lines[i];
+      
+      // Check if this is a continuation line (starts with ---@example-code or just --- followed by code)
+      if (codeLine.startsWith('---@example-code ')) {
+        codeLines.push(codeLine.substring('---@example-code '.length));
+      } else if (codeLine.startsWith('--- ') && !codeLine.match(/^---@/)) {
+        // Allow continuation with "--- " prefix for multi-line examples
+        codeLines.push(codeLine.substring(4));
+      } else if (codeLine === '---') {
+        // Empty line in example
+        codeLines.push('');
+      } else {
+        break;
+      }
+      i++;
+    }
+
+    // Find or create the class entry and add the example
+    if (this.classes.has(className)) {
+      const classData = this.classes.get(className);
+      if (codeLines.length > 0) {
+        classData.examples[exampleType].push(codeLines.join('\n'));
+      }
+    } else {
+      // Class might be defined later, store example to be added
+      // Create a placeholder that will be merged when class is parsed
+      if (!this._pendingExamples) {
+        this._pendingExamples = new Map();
+      }
+      if (!this._pendingExamples.has(className)) {
+        this._pendingExamples.set(className, { basic: [], advanced: [] });
+      }
+      if (codeLines.length > 0) {
+        this._pendingExamples.get(className)[exampleType].push(codeLines.join('\n'));
+      }
+    }
   }
 
   parseField(line) {

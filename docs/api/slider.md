@@ -207,3 +207,72 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple value slider
+local slider = app:slider({
+    x = 2, y = 2,
+    width = 25, height = 1,
+    min = 0,
+    max = 100,
+    value = 50,
+    showValue = true,
+    onChange = function(self, value)
+        -- Handle value change
+    end
+})
+app.root:addChild(slider)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Range slider with custom formatting
+local rangeLabel = app:label({
+    x = 2, y = 5,
+    text = "Range: $0 - $100",
+    fg = colors.white
+})
+
+local slider = app:slider({
+    x = 2, y = 2,
+    width = 30, height = 1,
+    min = 0,
+    max = 1000,
+    range = true,
+    lowerValue = 200,
+    upperValue = 800,
+    step = 50,
+    showValue = true,
+    formatValue = function(self, lower, upper)
+        return string.format("$%d - $%d", lower, upper)
+    end,
+    onChange = function(self, lower, upper)
+        rangeLabel:setText(string.format("Range: $%d - $%d", lower, upper))
+    end
+})
+
+app.root:addChild(slider)
+app.root:addChild(rangeLabel)
+
+app:run()
+```
+
+</details>
+

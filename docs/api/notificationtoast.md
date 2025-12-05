@@ -269,3 +269,61 @@ handleEvent()
 onFocusChanged()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple notification toast
+local toast = app:notificationtoast({
+    x = 2, y = 2,
+    width = 30, height = 3,
+    message = "File saved successfully",
+    severity = "success",
+    autoHide = true,
+    duration = 3
+})
+app.root:addChild(toast)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Multiple notification types
+local function showNotification(msg, severity, y)
+    local toast = app:notificationtoast({
+        x = 2, y = y,
+        width = 35, height = 4,
+        title = severity:upper(),
+        message = msg,
+        severity = severity,
+        autoHide = true,
+        duration = 5,
+        dismissOnClick = true
+    })
+    app.root:addChild(toast)
+end
+
+showNotification("Information message", "info", 2)
+showNotification("Operation successful", "success", 7)
+showNotification("Warning: Low memory", "warning", 12)
+showNotification("Error: Connection failed", "error", 17)
+
+app:run()
+```
+
+</details>
+

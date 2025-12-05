@@ -159,6 +159,19 @@ getAbsoluteRect()
 - `integer` - width
 - `integer` - height
 
+### getSize
+
+*Since: 0.1.0*
+
+```lua
+getSize()
+```
+
+**Returns:**
+
+- `integer` - width
+- `integer` - height
+
 ### containsPoint
 
 ```lua

@@ -116,3 +116,75 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple progress bar
+local progress = app:progressbar({
+    x = 2, y = 2,
+    width = 30, height = 1,
+    value = 50,
+    min = 0,
+    max = 100,
+    showPercent = true
+})
+app.root:addChild(progress)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Progress bar with animation and custom styling
+local progress = app:progressbar({
+    x = 2, y = 2,
+    width = 40, height = 2,
+    value = 0,
+    min = 0,
+    max = 100,
+    showPercent = true,
+    label = "Downloading...",
+    trackColor = colors.gray,
+    fillColor = colors.green,
+    textColor = colors.white
+})
+
+-- Indeterminate loading indicator
+local loadingBar = app:progressbar({
+    x = 2, y = 6,
+    width = 40, height = 1,
+    indeterminate = true,
+    fillColor = colors.cyan
+})
+
+-- Animate the determinate progress
+app:spawnThread(function(ctx)
+    for i = 0, 100, 2 do
+        progress:setValue(i)
+        ctx:sleep(0.1)
+    end
+    progress:setLabel("Complete!")
+end)
+
+app.root:addChild(progress)
+app.root:addChild(loadingBar)
+
+app:run()
+```
+
+</details>
+

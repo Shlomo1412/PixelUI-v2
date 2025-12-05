@@ -192,3 +192,82 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple tree view
+local tree = app:treeview({
+    x = 2, y = 2,
+    width = 25, height = 10,
+    onSelect = function(self, node, index)
+        -- Handle node selection
+    end
+})
+
+-- Add root nodes
+tree:addNode({ label = "Documents" })
+tree:addNode({ label = "Pictures" })
+tree:addNode({ label = "Music" })
+
+app.root:addChild(tree)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Hierarchical tree with nested nodes
+local infoLabel = app:label({
+    x = 30, y = 2,
+    text = "Select a file",
+    fg = colors.lightGray
+})
+
+local tree = app:treeview({
+    x = 2, y = 2,
+    width = 25, height = 12,
+    indentWidth = 2,
+    highlightBg = colors.blue,
+    highlightFg = colors.white,
+    scrollbar = { enabled = true },
+    onSelect = function(self, node, index)
+        if node then
+            infoLabel:setText("File: " .. node.label)
+        end
+    end,
+    onToggle = function(self, node, expanded)
+        -- Handle expand/collapse
+    end
+})
+
+-- Build file tree structure
+local docs = tree:addNode({ label = "Documents", expanded = true })
+tree:addChildNode(docs, { label = "report.txt", data = { size = 1024 } })
+tree:addChildNode(docs, { label = "notes.md", data = { size = 512 } })
+
+local pics = tree:addNode({ label = "Pictures", expanded = false })
+tree:addChildNode(pics, { label = "photo1.png" })
+tree:addChildNode(pics, { label = "photo2.png" })
+
+app.root:addChild(tree)
+app.root:addChild(infoLabel)
+
+app:run()
+```
+
+</details>
+

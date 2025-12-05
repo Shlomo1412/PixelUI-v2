@@ -16103,4 +16103,1296 @@ pixelui.threadStatus = {
 	cancelled = THREAD_STATUS_CANCELLED
 }
 
+--------------------------------------------------------------------------------
+-- WIDGET EXAMPLES
+-- These annotations provide example code for documentation generation
+--------------------------------------------------------------------------------
+
+---@example-basic PixelUI.App
+--- local pixelui = require("pixelui")
+--- 
+--- -- Create a simple application
+--- local app = pixelui.app({
+---     background = colors.black
+--- })
+--- 
+--- -- Add widgets to root frame
+--- app.root:addChild(app:label({
+---     text = "Hello PixelUI!",
+---     x = 2, y = 2,
+---     fg = colors.white
+--- }))
+--- 
+--- -- Start the application
+--- app:run()
+
+---@example-advanced PixelUI.App
+--- local pixelui = require("pixelui")
+--- 
+--- -- Create application with custom window and border
+--- local app = pixelui.app({
+---     background = colors.gray,
+---     rootBorder = {
+---         color = colors.lightGray,
+---         sides = { "top", "bottom", "left", "right" },
+---         thickness = 2
+---     },
+---     animationInterval = 0.05
+--- })
+--- 
+--- -- Create a frame with child widgets
+--- local mainFrame = app:frame({
+---     x = 2, y = 2,
+---     width = 30, height = 10,
+---     bg = colors.black
+--- })
+--- app.root:addChild(mainFrame)
+--- 
+--- -- Spawn a background thread
+--- app:spawnThread(function(ctx)
+---     for i = 1, 10 do
+---         ctx:setMetadata("progress", i * 10)
+---         ctx:sleep(0.5)
+---         if ctx:shouldCancel() then return end
+---     end
+--- end, {
+---     name = "BackgroundTask",
+---     onStatus = function(handle, status)
+---         -- Handle thread status changes
+---     end
+--- })
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Frame
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Create a simple frame container
+--- local frame = app:frame({
+---     x = 5, y = 3,
+---     width = 20, height = 8,
+---     bg = colors.blue,
+---     border = { color = colors.white }
+--- })
+--- app.root:addChild(frame)
+--- 
+--- -- Add a label inside the frame
+--- frame:addChild(app:label({
+---     x = 2, y = 2,
+---     text = "Inside frame"
+--- }))
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Frame
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Create nested frames with constraints
+--- local outerFrame = app:frame({
+---     x = 2, y = 2,
+---     width = 40, height = 15,
+---     bg = colors.gray,
+---     border = { color = colors.lightGray, thickness = 2 }
+--- })
+--- app.root:addChild(outerFrame)
+--- 
+--- -- Inner frame with percentage-based sizing
+--- local innerFrame = app:frame({
+---     constraints = {
+---         centerX = true,
+---         centerY = true,
+---         widthPercent = 0.8,
+---         heightPercent = 0.6
+---     },
+---     bg = colors.black
+--- })
+--- outerFrame:addChild(innerFrame)
+--- 
+--- -- Add title to outer frame
+--- outerFrame.title = "Nested Frames"
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Button
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Create a simple clickable button
+--- local button = app:button({
+---     x = 5, y = 3,
+---     width = 12, height = 3,
+---     label = "Click Me",
+---     bg = colors.blue,
+---     fg = colors.white,
+---     onClick = function(self)
+---         self:setLabel("Clicked!")
+---     end
+--- })
+--- app.root:addChild(button)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Button
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Button with all event callbacks and styling
+--- local counter = 0
+--- local countLabel = app:label({
+---     x = 5, y = 8,
+---     text = "Count: 0",
+---     fg = colors.white
+--- })
+--- app.root:addChild(countLabel)
+--- 
+--- local button = app:button({
+---     x = 5, y = 3,
+---     width = 15, height = 3,
+---     label = "Press & Hold",
+---     bg = colors.green,
+---     fg = colors.white,
+---     clickEffect = true,
+---     border = { color = colors.lime },
+---     onPress = function(self, btn, x, y)
+---         self.bg = colors.lime
+---     end,
+---     onRelease = function(self, btn, x, y)
+---         self.bg = colors.green
+---     end,
+---     onClick = function(self, btn, x, y)
+---         counter = counter + 1
+---         countLabel:setText("Count: " .. counter)
+---     end
+--- })
+--- app.root:addChild(button)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Label
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple text label
+--- local label = app:label({
+---     x = 2, y = 2,
+---     text = "Hello World!",
+---     fg = colors.yellow,
+---     bg = colors.black
+--- })
+--- app.root:addChild(label)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Label
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Multi-line label with wrapping and alignment
+--- local label = app:label({
+---     x = 2, y = 2,
+---     width = 25,
+---     height = 5,
+---     text = "This is a long text that will wrap automatically to fit within the bounds.",
+---     wrap = true,
+---     align = "center",
+---     verticalAlign = "middle",
+---     fg = colors.white,
+---     bg = colors.gray,
+---     border = { color = colors.lightGray }
+--- })
+--- app.root:addChild(label)
+--- 
+--- -- Update label dynamically
+--- label:setText("New text content")
+--- 
+--- app:run()
+
+---@example-basic PixelUI.CheckBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple checkbox
+--- local checkbox = app:checkbox({
+---     x = 2, y = 2,
+---     label = "Enable feature",
+---     checked = false,
+---     onChange = function(self, checked)
+---         -- Handle state change
+---     end
+--- })
+--- app.root:addChild(checkbox)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.CheckBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Checkbox with indeterminate state and focus styling
+--- local parentCheck = app:checkbox({
+---     x = 2, y = 2,
+---     label = "Select All",
+---     checked = false,
+---     allowIndeterminate = true,
+---     focusBg = colors.blue,
+---     focusFg = colors.white
+--- })
+--- 
+--- local child1 = app:checkbox({ x = 4, y = 4, label = "Option 1" })
+--- local child2 = app:checkbox({ x = 4, y = 6, label = "Option 2" })
+--- 
+--- -- Sync parent state with children
+--- local function updateParent()
+---     local c1, c2 = child1.checked, child2.checked
+---     if c1 and c2 then
+---         parentCheck:setChecked(true)
+---         parentCheck:setIndeterminate(false)
+---     elseif not c1 and not c2 then
+---         parentCheck:setChecked(false)
+---         parentCheck:setIndeterminate(false)
+---     else
+---         parentCheck:setIndeterminate(true)
+---     end
+--- end
+--- 
+--- child1.onChange = function() updateParent() end
+--- child2.onChange = function() updateParent() end
+--- 
+--- app.root:addChild(parentCheck)
+--- app.root:addChild(child1)
+--- app.root:addChild(child2)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Toggle
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple toggle switch
+--- local toggle = app:toggle({
+---     x = 2, y = 2,
+---     width = 8, height = 1,
+---     value = false,
+---     onChange = function(self, value)
+---         -- value is true or false
+---     end
+--- })
+--- app.root:addChild(toggle)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Toggle
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Customized toggle with labels and colors
+--- local statusLabel = app:label({
+---     x = 2, y = 5,
+---     text = "Status: OFF",
+---     fg = colors.white
+--- })
+--- 
+--- local toggle = app:toggle({
+---     x = 2, y = 2,
+---     width = 10, height = 1,
+---     value = false,
+---     labelOn = "ON",
+---     labelOff = "OFF",
+---     showLabel = true,
+---     trackColorOn = colors.green,
+---     trackColorOff = colors.red,
+---     thumbColor = colors.white,
+---     transitionDuration = 0.2,
+---     transitionEasing = pixelui.easings.easeOutQuad,
+---     onChange = function(self, value)
+---         statusLabel:setText("Status: " .. (value and "ON" or "OFF"))
+---     end
+--- })
+--- 
+--- app.root:addChild(toggle)
+--- app.root:addChild(statusLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Chart
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple bar chart
+--- local chart = app:chart({
+---     x = 2, y = 2,
+---     width = 30, height = 10,
+---     data = { 10, 25, 15, 30, 20 },
+---     labels = { "A", "B", "C", "D", "E" },
+---     chartType = "bar",
+---     barColor = colors.blue
+--- })
+--- app.root:addChild(chart)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Chart
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Interactive chart with selection and dynamic updates
+--- local infoLabel = app:label({
+---     x = 2, y = 14,
+---     text = "Click a bar to select",
+---     fg = colors.lightGray
+--- })
+--- 
+--- local chart = app:chart({
+---     x = 2, y = 2,
+---     width = 40, height = 10,
+---     data = { 45, 72, 38, 95, 60, 28 },
+---     labels = { "Jan", "Feb", "Mar", "Apr", "May", "Jun" },
+---     chartType = "bar",
+---     showAxis = true,
+---     showLabels = true,
+---     barColor = colors.cyan,
+---     highlightColor = colors.yellow,
+---     axisColor = colors.gray,
+---     selectable = true,
+---     minValue = 0,
+---     maxValue = 100,
+---     onSelect = function(self, index, value)
+---         if index then
+---             local label = self.labels[index]
+---             infoLabel:setText(label .. ": " .. value)
+---         else
+---             infoLabel:setText("Click a bar to select")
+---         end
+---     end
+--- })
+--- 
+--- -- Toggle chart type
+--- local typeToggle = app:button({
+---     x = 2, y = 16,
+---     width = 15, height = 1,
+---     label = "Toggle Line",
+---     onClick = function()
+---         chart.chartType = chart.chartType == "bar" and "line" or "bar"
+---     end
+--- })
+--- 
+--- app.root:addChild(chart)
+--- app.root:addChild(infoLabel)
+--- app.root:addChild(typeToggle)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.List
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple list widget
+--- local list = app:list({
+---     x = 2, y = 2,
+---     width = 20, height = 8,
+---     items = { "Apple", "Banana", "Cherry", "Date", "Elderberry" },
+---     onSelect = function(self, item, index)
+---         -- Handle selection
+---     end
+--- })
+--- app.root:addChild(list)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.List
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- List with scrollbar and styling
+--- local selectionLabel = app:label({
+---     x = 25, y = 2,
+---     text = "Selected: none",
+---     fg = colors.white
+--- })
+--- 
+--- local list = app:list({
+---     x = 2, y = 2,
+---     width = 20, height = 10,
+---     items = {},
+---     placeholder = "No items",
+---     highlightBg = colors.blue,
+---     highlightFg = colors.white,
+---     scrollbar = {
+---         enabled = true,
+---         alwaysVisible = false,
+---         thumbColor = colors.lightGray,
+---         trackColor = colors.gray
+---     },
+---     onSelect = function(self, item, index)
+---         selectionLabel:setText("Selected: " .. (item or "none"))
+---     end
+--- })
+--- 
+--- -- Dynamically add items
+--- for i = 1, 20 do
+---     list:addItem("Item " .. i)
+--- end
+--- 
+--- -- Select first item programmatically
+--- list:setSelectedIndex(1)
+--- 
+--- app.root:addChild(list)
+--- app.root:addChild(selectionLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.ComboBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple dropdown selection
+--- local combo = app:combobox({
+---     x = 2, y = 2,
+---     width = 15, height = 1,
+---     items = { "Small", "Medium", "Large" },
+---     placeholder = "Select size",
+---     onChange = function(self, item, index)
+---         -- Handle selection change
+---     end
+--- })
+--- app.root:addChild(combo)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.ComboBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Styled combobox with dynamic updates
+--- local selectedLabel = app:label({
+---     x = 2, y = 5,
+---     text = "Color: none",
+---     fg = colors.white
+--- })
+--- 
+--- local combo = app:combobox({
+---     x = 2, y = 2,
+---     width = 18, height = 1,
+---     items = { "Red", "Green", "Blue", "Yellow", "Purple" },
+---     selectedIndex = 0,
+---     placeholder = "Choose color",
+---     dropdownBg = colors.gray,
+---     dropdownFg = colors.white,
+---     highlightBg = colors.blue,
+---     highlightFg = colors.white,
+---     onChange = function(self, item, index)
+---         selectedLabel:setText("Color: " .. (item or "none"))
+---         local colorMap = {
+---             Red = colors.red,
+---             Green = colors.green,
+---             Blue = colors.blue,
+---             Yellow = colors.yellow,
+---             Purple = colors.purple
+---         }
+---         if item and colorMap[item] then
+---             selectedLabel.fg = colorMap[item]
+---         end
+---     end
+--- })
+--- 
+--- app.root:addChild(combo)
+--- app.root:addChild(selectedLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.TextBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple text input
+--- local textbox = app:textbox({
+---     x = 2, y = 2,
+---     width = 20, height = 1,
+---     placeholder = "Enter text...",
+---     onChange = function(self, text)
+---         -- Handle text changes
+---     end
+--- })
+--- app.root:addChild(textbox)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.TextBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Password input with validation
+--- local passwordBox = app:textbox({
+---     x = 2, y = 2,
+---     width = 25, height = 1,
+---     placeholder = "Enter password",
+---     mask = "*",
+---     maxLength = 20,
+---     focusBg = colors.gray,
+---     focusFg = colors.white
+--- })
+--- 
+--- local strengthLabel = app:label({
+---     x = 2, y = 4,
+---     text = "",
+---     fg = colors.lightGray
+--- })
+--- 
+--- passwordBox.onChange = function(self, text)
+---     local len = #text
+---     if len == 0 then
+---         strengthLabel:setText("")
+---     elseif len < 6 then
+---         strengthLabel:setText("Weak")
+---         strengthLabel.fg = colors.red
+---     elseif len < 10 then
+---         strengthLabel:setText("Medium")
+---         strengthLabel.fg = colors.yellow
+---     else
+---         strengthLabel:setText("Strong")
+---         strengthLabel.fg = colors.green
+---     end
+--- end
+--- 
+--- passwordBox.onSubmit = function(self, text)
+---     -- Handle form submission
+--- end
+--- 
+--- app.root:addChild(passwordBox)
+--- app.root:addChild(strengthLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.RadioButton
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Radio button group
+--- local radio1 = app:radiobutton({
+---     x = 2, y = 2,
+---     label = "Option A",
+---     value = "a",
+---     group = "options",
+---     selected = true
+--- })
+--- 
+--- local radio2 = app:radiobutton({
+---     x = 2, y = 4,
+---     label = "Option B",
+---     value = "b",
+---     group = "options"
+--- })
+--- 
+--- app.root:addChild(radio1)
+--- app.root:addChild(radio2)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.RadioButton
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Radio buttons with change handler and styling
+--- local selectionLabel = app:label({
+---     x = 2, y = 10,
+---     text = "Selected: Small",
+---     fg = colors.white
+--- })
+--- 
+--- local sizes = {
+---     { label = "Small", value = "sm" },
+---     { label = "Medium", value = "md" },
+---     { label = "Large", value = "lg" },
+---     { label = "Extra Large", value = "xl" }
+--- }
+--- 
+--- for i, size in ipairs(sizes) do
+---     local radio = app:radiobutton({
+---         x = 2, y = 1 + (i * 2),
+---         label = size.label,
+---         value = size.value,
+---         group = "size",
+---         selected = (i == 1),
+---         focusBg = colors.blue,
+---         focusFg = colors.white,
+---         onChange = function(self, selected, value)
+---             if selected then
+---                 selectionLabel:setText("Selected: " .. self.label)
+---             end
+---         end
+---     })
+---     app.root:addChild(radio)
+--- end
+--- 
+--- app.root:addChild(selectionLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.ProgressBar
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple progress bar
+--- local progress = app:progressbar({
+---     x = 2, y = 2,
+---     width = 30, height = 1,
+---     value = 50,
+---     min = 0,
+---     max = 100,
+---     showPercent = true
+--- })
+--- app.root:addChild(progress)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.ProgressBar
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Progress bar with animation and custom styling
+--- local progress = app:progressbar({
+---     x = 2, y = 2,
+---     width = 40, height = 2,
+---     value = 0,
+---     min = 0,
+---     max = 100,
+---     showPercent = true,
+---     label = "Downloading...",
+---     trackColor = colors.gray,
+---     fillColor = colors.green,
+---     textColor = colors.white
+--- })
+--- 
+--- -- Indeterminate loading indicator
+--- local loadingBar = app:progressbar({
+---     x = 2, y = 6,
+---     width = 40, height = 1,
+---     indeterminate = true,
+---     fillColor = colors.cyan
+--- })
+--- 
+--- -- Animate the determinate progress
+--- app:spawnThread(function(ctx)
+---     for i = 0, 100, 2 do
+---         progress:setValue(i)
+---         ctx:sleep(0.1)
+---     end
+---     progress:setLabel("Complete!")
+--- end)
+--- 
+--- app.root:addChild(progress)
+--- app.root:addChild(loadingBar)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Slider
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple value slider
+--- local slider = app:slider({
+---     x = 2, y = 2,
+---     width = 25, height = 1,
+---     min = 0,
+---     max = 100,
+---     value = 50,
+---     showValue = true,
+---     onChange = function(self, value)
+---         -- Handle value change
+---     end
+--- })
+--- app.root:addChild(slider)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Slider
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Range slider with custom formatting
+--- local rangeLabel = app:label({
+---     x = 2, y = 5,
+---     text = "Range: $0 - $100",
+---     fg = colors.white
+--- })
+--- 
+--- local slider = app:slider({
+---     x = 2, y = 2,
+---     width = 30, height = 1,
+---     min = 0,
+---     max = 1000,
+---     range = true,
+---     lowerValue = 200,
+---     upperValue = 800,
+---     step = 50,
+---     showValue = true,
+---     formatValue = function(self, lower, upper)
+---         return string.format("$%d - $%d", lower, upper)
+---     end,
+---     onChange = function(self, lower, upper)
+---         rangeLabel:setText(string.format("Range: $%d - $%d", lower, upper))
+---     end
+--- })
+--- 
+--- app.root:addChild(slider)
+--- app.root:addChild(rangeLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.TreeView
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple tree view
+--- local tree = app:treeview({
+---     x = 2, y = 2,
+---     width = 25, height = 10,
+---     onSelect = function(self, node, index)
+---         -- Handle node selection
+---     end
+--- })
+--- 
+--- -- Add root nodes
+--- tree:addNode({ label = "Documents" })
+--- tree:addNode({ label = "Pictures" })
+--- tree:addNode({ label = "Music" })
+--- 
+--- app.root:addChild(tree)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.TreeView
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Hierarchical tree with nested nodes
+--- local infoLabel = app:label({
+---     x = 30, y = 2,
+---     text = "Select a file",
+---     fg = colors.lightGray
+--- })
+--- 
+--- local tree = app:treeview({
+---     x = 2, y = 2,
+---     width = 25, height = 12,
+---     indentWidth = 2,
+---     highlightBg = colors.blue,
+---     highlightFg = colors.white,
+---     scrollbar = { enabled = true },
+---     onSelect = function(self, node, index)
+---         if node then
+---             infoLabel:setText("File: " .. node.label)
+---         end
+---     end,
+---     onToggle = function(self, node, expanded)
+---         -- Handle expand/collapse
+---     end
+--- })
+--- 
+--- -- Build file tree structure
+--- local docs = tree:addNode({ label = "Documents", expanded = true })
+--- tree:addChildNode(docs, { label = "report.txt", data = { size = 1024 } })
+--- tree:addChildNode(docs, { label = "notes.md", data = { size = 512 } })
+--- 
+--- local pics = tree:addNode({ label = "Pictures", expanded = false })
+--- tree:addChildNode(pics, { label = "photo1.png" })
+--- tree:addChildNode(pics, { label = "photo2.png" })
+--- 
+--- app.root:addChild(tree)
+--- app.root:addChild(infoLabel)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Table
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple data table
+--- local table = app:table({
+---     x = 2, y = 2,
+---     width = 40, height = 10,
+---     columns = {
+---         { id = "name", title = "Name", key = "name" },
+---         { id = "age", title = "Age", key = "age" }
+---     },
+---     data = {
+---         { name = "Alice", age = 25 },
+---         { name = "Bob", age = 30 },
+---         { name = "Charlie", age = 35 }
+---     }
+--- })
+--- app.root:addChild(table)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Table
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Sortable table with selection and formatting
+--- local table = app:table({
+---     x = 2, y = 2,
+---     width = 50, height = 12,
+---     columns = {
+---         { 
+---             id = "name", 
+---             title = "Product", 
+---             key = "name",
+---             width = 15,
+---             sortable = true
+---         },
+---         { 
+---             id = "price", 
+---             title = "Price", 
+---             key = "price",
+---             width = 10,
+---             align = "right",
+---             sortable = true,
+---             format = function(value)
+---                 return string.format("$%.2f", value)
+---             end
+---         },
+---         { 
+---             id = "qty", 
+---             title = "Qty", 
+---             key = "quantity",
+---             width = 8,
+---             align = "center"
+---         }
+---     },
+---     data = {
+---         { name = "Widget", price = 9.99, quantity = 100 },
+---         { name = "Gadget", price = 24.99, quantity = 50 },
+---         { name = "Gizmo", price = 14.99, quantity = 75 }
+---     },
+---     allowRowSelection = true,
+---     highlightBg = colors.blue,
+---     highlightFg = colors.white,
+---     scrollbar = { enabled = true },
+---     onSelect = function(self, row, index)
+---         if row then
+---             -- Handle row selection
+---         end
+---     end,
+---     onSort = function(self, columnId, direction)
+---         -- Handle sort change
+---     end
+--- })
+--- 
+--- app.root:addChild(table)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.TabControl
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple tab control
+--- local tabs = app:tabcontrol({
+---     x = 2, y = 2,
+---     width = 40, height = 12
+--- })
+--- 
+--- tabs:addTab({ id = "home", label = "Home" })
+--- tabs:addTab({ id = "settings", label = "Settings" })
+--- tabs:addTab({ id = "about", label = "About" })
+--- 
+--- app.root:addChild(tabs)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.TabControl
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Tab control with dynamic content and styling
+--- local tabs = app:tabcontrol({
+---     x = 2, y = 2,
+---     width = 45, height = 15,
+---     tabBg = colors.gray,
+---     tabFg = colors.white,
+---     selectedTabBg = colors.blue,
+---     selectedTabFg = colors.white,
+---     tabSpacing = 1,
+---     tabPadding = 2,
+---     onSelect = function(self, tabId, index)
+---         -- Handle tab selection
+---     end
+--- })
+--- 
+--- -- Add tabs with custom content renderers
+--- local homeTab = tabs:addTab({
+---     id = "home",
+---     label = "Home",
+---     closable = false
+--- })
+--- 
+--- local settingsTab = tabs:addTab({
+---     id = "settings",
+---     label = "Settings",
+---     closable = true,
+---     onClose = function(tab)
+---         -- Confirm before closing
+---         return true
+---     end
+--- })
+--- 
+--- -- Get tab body frame for adding content
+--- local homeBody = tabs:getTabBody("home")
+--- if homeBody then
+---     homeBody:addChild(app:label({
+---         x = 2, y = 2,
+---         text = "Welcome to the Home tab!"
+---     }))
+--- end
+--- 
+--- app.root:addChild(tabs)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Window
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple floating window
+--- local window = app:window({
+---     x = 5, y = 3,
+---     width = 30, height = 12,
+---     title = "My Window",
+---     bg = colors.gray
+--- })
+--- 
+--- window:addChild(app:label({
+---     x = 2, y = 2,
+---     text = "Window content here"
+--- }))
+--- 
+--- app.root:addChild(window)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Window
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Feature-rich window with all controls
+--- local window = app:window({
+---     x = 5, y = 3,
+---     width = 35, height = 15,
+---     title = "Advanced Window",
+---     draggable = true,
+---     resizable = true,
+---     closable = true,
+---     maximizable = true,
+---     minimizable = true,
+---     hideBorderWhenMaximized = true,
+---     bg = colors.black,
+---     border = { color = colors.gray }
+--- })
+--- 
+--- -- Configure title bar
+--- window:setTitleBar({
+---     enabled = true,
+---     height = 1,
+---     bg = colors.blue,
+---     fg = colors.white,
+---     align = "center"
+--- })
+--- 
+--- -- Add window content
+--- window:addChild(app:label({
+---     x = 2, y = 2,
+---     text = "Drag the title bar to move"
+--- }))
+--- 
+--- window:addChild(app:label({
+---     x = 2, y = 4,
+---     text = "Drag corners to resize"
+--- }))
+--- 
+--- -- Handle window events
+--- window.onClose = function()
+---     return true  -- Allow close
+--- end
+--- 
+--- window.onMaximize = function()
+---     -- Handle maximize
+--- end
+--- 
+--- app.root:addChild(window)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.Dialog
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple modal dialog
+--- local dialog = app:dialog({
+---     x = 10, y = 5,
+---     width = 30, height = 10,
+---     title = "Confirm",
+---     modal = true
+--- })
+--- 
+--- dialog:addChild(app:label({
+---     x = 2, y = 2,
+---     text = "Are you sure?"
+--- }))
+--- 
+--- app.root:addChild(dialog)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.Dialog
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Modal dialog with backdrop and escape handling
+--- local dialog = app:dialog({
+---     x = 10, y = 5,
+---     width = 35, height = 12,
+---     title = "Settings Dialog",
+---     modal = true,
+---     backdropColor = colors.black,
+---     backdropPixelColor = colors.gray,
+---     closeOnBackdrop = false,
+---     closeOnEscape = true,
+---     draggable = true,
+---     closable = true
+--- })
+--- 
+--- dialog:addChild(app:checkbox({
+---     x = 2, y = 2,
+---     label = "Enable notifications"
+--- }))
+--- 
+--- dialog:addChild(app:checkbox({
+---     x = 2, y = 4,
+---     label = "Auto-save"
+--- }))
+--- 
+--- local saveBtn = app:button({
+---     x = 2, y = 7,
+---     width = 10, height = 1,
+---     label = "Save",
+---     onClick = function()
+---         dialog:close()
+---     end
+--- })
+--- dialog:addChild(saveBtn)
+--- 
+--- app.root:addChild(dialog)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.MsgBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple message box
+--- local msgbox = app:msgbox({
+---     x = 10, y = 5,
+---     width = 30, height = 8,
+---     title = "Info",
+---     message = "Operation completed!"
+--- })
+--- 
+--- app.root:addChild(msgbox)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.MsgBox
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Message box with custom buttons and callbacks
+--- local msgbox = app:msgbox({
+---     x = 10, y = 5,
+---     width = 35, height = 10,
+---     title = "Confirm Action",
+---     message = "Do you want to save changes before closing?",
+---     autoClose = true,
+---     buttonAlign = "center",
+---     buttons = {
+---         {
+---             id = "save",
+---             label = "Save",
+---             bg = colors.green,
+---             fg = colors.white,
+---             onSelect = function(self, id, button)
+---                 -- Save logic here
+---             end
+---         },
+---         {
+---             id = "discard",
+---             label = "Discard",
+---             bg = colors.red,
+---             fg = colors.white
+---         },
+---         {
+---             id = "cancel",
+---             label = "Cancel",
+---             autoClose = false,  -- Don't close on this button
+---             onSelect = function(self, id, button)
+---                 -- Stay open
+---             end
+---         }
+---     }
+--- })
+--- 
+--- app.root:addChild(msgbox)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.NotificationToast
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple notification toast
+--- local toast = app:notificationtoast({
+---     x = 2, y = 2,
+---     width = 30, height = 3,
+---     message = "File saved successfully",
+---     severity = "success",
+---     autoHide = true,
+---     duration = 3
+--- })
+--- app.root:addChild(toast)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.NotificationToast
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Multiple notification types
+--- local function showNotification(msg, severity, y)
+---     local toast = app:notificationtoast({
+---         x = 2, y = y,
+---         width = 35, height = 4,
+---         title = severity:upper(),
+---         message = msg,
+---         severity = severity,
+---         autoHide = true,
+---         duration = 5,
+---         dismissOnClick = true
+---     })
+---     app.root:addChild(toast)
+--- end
+--- 
+--- showNotification("Information message", "info", 2)
+--- showNotification("Operation successful", "success", 7)
+--- showNotification("Warning: Low memory", "warning", 12)
+--- showNotification("Error: Connection failed", "error", 17)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.LoadingRing
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Simple loading indicator
+--- local loader = app:loadingring({
+---     x = 10, y = 5,
+---     width = 7, height = 3,
+---     color = colors.cyan,
+---     autoStart = true
+--- })
+--- app.root:addChild(loader)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.LoadingRing
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Customized loading ring with trail effect
+--- local loader = app:loadingring({
+---     x = 10, y = 5,
+---     width = 9, height = 5,
+---     segmentCount = 8,
+---     thickness = 2,
+---     color = colors.blue,
+---     trailColor = colors.lightBlue,
+---     speed = 1.5,
+---     direction = 1,
+---     fadeSteps = 4,
+---     autoStart = true
+--- })
+--- 
+--- -- Control loading state
+--- local btn = app:button({
+---     x = 2, y = 12,
+---     width = 15, height = 1,
+---     label = "Stop/Start",
+---     onClick = function()
+---         if loader:isAnimating() then
+---             loader:stop()
+---         else
+---             loader:start()
+---         end
+---     end
+--- })
+--- 
+--- app.root:addChild(loader)
+--- app.root:addChild(btn)
+--- 
+--- app:run()
+
+---@example-basic PixelUI.FreeDraw
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Custom drawing surface
+--- local canvas = app:freedraw({
+---     x = 2, y = 2,
+---     width = 20, height = 10,
+---     clear = true,
+---     onDraw = function(self, ctx)
+---         ctx.fill(colors.black)
+---         ctx.write(1, 1, "Custom Draw", colors.white)
+---     end
+--- })
+--- app.root:addChild(canvas)
+--- 
+--- app:run()
+
+---@example-advanced PixelUI.FreeDraw
+--- local pixelui = require("pixelui")
+--- local app = pixelui.app()
+--- 
+--- -- Pixel art drawing with ShrekBox layers
+--- local canvas = app:freedraw({
+---     x = 2, y = 2,
+---     width = 30, height = 15,
+---     clear = true,
+---     onDraw = function(self, ctx)
+---         -- Clear background
+---         ctx.fill(colors.black)
+---         
+---         -- Draw pixel pattern
+---         for px = 1, ctx.width * 2 do
+---             for py = 1, ctx.height * 3 do
+---                 if (px + py) % 4 == 0 then
+---                     ctx.pixel(px, py, colors.blue)
+---                 end
+---             end
+---         end
+---         
+---         -- Draw text overlay
+---         ctx.write(2, 2, "Pixel Art", colors.yellow, colors.black)
+---         
+---         -- Access raw layers for advanced drawing
+---         local layer = ctx.pixelLayer
+---         -- layer:pixel(x, y, color) for absolute coords
+---     end
+--- })
+--- 
+--- app.root:addChild(canvas)
+--- 
+--- app:run()
+
 return pixelui

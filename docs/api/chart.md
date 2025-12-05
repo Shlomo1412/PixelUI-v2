@@ -173,18 +173,84 @@ handleEvent()
 
 ## Examples
 
-### Disable interactive selection
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
 
 ```lua
-local chart = app:createChart({
-	width = 26,
-	height = 7,
-	data = { 12, 18, 9, 21, 15 },
-	labels = { "Mon", "Tue", "Wed", "Thu", "Fri" },
-	selectable = false,
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple bar chart
+local chart = app:chart({
+    x = 2, y = 2,
+    width = 30, height = 10,
+    data = { 10, 25, 15, 30, 20 },
+    labels = { "A", "B", "C", "D", "E" },
+    chartType = "bar",
+    barColor = colors.blue
+})
+app.root:addChild(chart)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Interactive chart with selection and dynamic updates
+local infoLabel = app:label({
+    x = 2, y = 14,
+    text = "Click a bar to select",
+    fg = colors.lightGray
 })
 
--- Re-enable selection later without triggering onSelect
-chart:setSelectable(true, true)
+local chart = app:chart({
+    x = 2, y = 2,
+    width = 40, height = 10,
+    data = { 45, 72, 38, 95, 60, 28 },
+    labels = { "Jan", "Feb", "Mar", "Apr", "May", "Jun" },
+    chartType = "bar",
+    showAxis = true,
+    showLabels = true,
+    barColor = colors.cyan,
+    highlightColor = colors.yellow,
+    axisColor = colors.gray,
+    selectable = true,
+    minValue = 0,
+    maxValue = 100,
+    onSelect = function(self, index, value)
+        if index then
+            local label = self.labels[index]
+            infoLabel:setText(label .. ": " .. value)
+        else
+            infoLabel:setText("Click a bar to select")
+        end
+    end
+})
+
+-- Toggle chart type
+local typeToggle = app:button({
+    x = 2, y = 16,
+    width = 15, height = 1,
+    label = "Toggle Line",
+    onClick = function()
+        chart.chartType = chart.chartType == "bar" and "line" or "bar"
+    end
+})
+
+app.root:addChild(chart)
+app.root:addChild(infoLabel)
+app.root:addChild(typeToggle)
+
+app:run()
 ```
+
+</details>
 

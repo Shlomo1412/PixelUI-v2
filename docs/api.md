@@ -11,6 +11,8 @@ Browse the complete API documentation for PixelUI v2.
 ## Widgets
 
 - [PixelUI.Window](/api/window) - A floating window widget with an optional title bar and dragging support. Extends Frame by adding chrome controls and layered ordering.
+- [PixelUI.Dialog](/api/dialog)
+- [PixelUI.MsgBox](/api/msgbox)
 - [PixelUI.Button](/api/button) - A clickable button widget with press effects and event callbacks. Supports click, press, and release events with visual feedback.
 - [PixelUI.Label](/api/label) - A text display widget with support for wrapping and alignment. Can display static or dynamic text with customizable alignment options.
 - [PixelUI.CheckBox](/api/checkbox) - A checkbox widget with support for checked, unchecked, and indeterminate states. Provides visual feedback and change callbacks.

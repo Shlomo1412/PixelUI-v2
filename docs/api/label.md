@@ -93,3 +93,57 @@ setBorder()
 draw()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple text label
+local label = app:label({
+    x = 2, y = 2,
+    text = "Hello World!",
+    fg = colors.yellow,
+    bg = colors.black
+})
+app.root:addChild(label)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Multi-line label with wrapping and alignment
+local label = app:label({
+    x = 2, y = 2,
+    width = 25,
+    height = 5,
+    text = "This is a long text that will wrap automatically to fit within the bounds.",
+    wrap = true,
+    align = "center",
+    verticalAlign = "middle",
+    fg = colors.white,
+    bg = colors.gray,
+    border = { color = colors.lightGray }
+})
+app.root:addChild(label)
+
+-- Update label dynamically
+label:setText("New text content")
+
+app:run()
+```
+
+</details>
+

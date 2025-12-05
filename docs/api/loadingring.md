@@ -137,3 +137,70 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple loading indicator
+local loader = app:loadingring({
+    x = 10, y = 5,
+    width = 7, height = 3,
+    color = colors.cyan,
+    autoStart = true
+})
+app.root:addChild(loader)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Customized loading ring with trail effect
+local loader = app:loadingring({
+    x = 10, y = 5,
+    width = 9, height = 5,
+    segmentCount = 8,
+    thickness = 2,
+    color = colors.blue,
+    trailColor = colors.lightBlue,
+    speed = 1.5,
+    direction = 1,
+    fadeSteps = 4,
+    autoStart = true
+})
+
+-- Control loading state
+local btn = app:button({
+    x = 2, y = 12,
+    width = 15, height = 1,
+    label = "Stop/Start",
+    onClick = function()
+        if loader:isAnimating() then
+            loader:stop()
+        else
+            loader:start()
+        end
+    end
+})
+
+app.root:addChild(loader)
+app.root:addChild(btn)
+
+app:run()
+```
+
+</details>
+

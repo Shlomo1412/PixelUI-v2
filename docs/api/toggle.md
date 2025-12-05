@@ -141,3 +141,68 @@ draw()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple toggle switch
+local toggle = app:toggle({
+    x = 2, y = 2,
+    width = 8, height = 1,
+    value = false,
+    onChange = function(self, value)
+        -- value is true or false
+    end
+})
+app.root:addChild(toggle)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Customized toggle with labels and colors
+local statusLabel = app:label({
+    x = 2, y = 5,
+    text = "Status: OFF",
+    fg = colors.white
+})
+
+local toggle = app:toggle({
+    x = 2, y = 2,
+    width = 10, height = 1,
+    value = false,
+    labelOn = "ON",
+    labelOff = "OFF",
+    showLabel = true,
+    trackColorOn = colors.green,
+    trackColorOff = colors.red,
+    thumbColor = colors.white,
+    transitionDuration = 0.2,
+    transitionEasing = pixelui.easings.easeOutQuad,
+    onChange = function(self, value)
+        statusLabel:setText("Status: " .. (value and "ON" or "OFF"))
+    end
+})
+
+app.root:addChild(toggle)
+app.root:addChild(statusLabel)
+
+app:run()
+```
+
+</details>
+

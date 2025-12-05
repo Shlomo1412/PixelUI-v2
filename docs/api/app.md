@@ -109,6 +109,38 @@ createWindow(config)
 
 - `PixelUI.Window`
 
+### createDialog
+
+```lua
+createDialog(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.Dialog`
+
+### createMsgBox
+
+```lua
+createMsgBox(config)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| config | `PixelUI.WidgetConfig?` |  |
+
+**Returns:**
+
+- `PixelUI.MsgBox`
+
 ### createButton
 
 *Since: 0.1.0*
@@ -521,6 +553,12 @@ _unregisterPopup()
 _drawPopups()
 ```
 
+### _dispatchPopupEvent
+
+```lua
+_dispatchPopupEvent()
+```
+
 ### _registerRadioButton
 
 ```lua
@@ -602,4 +640,75 @@ run()
 ```lua
 stop()
 ```
+
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+
+-- Create a simple application
+local app = pixelui.app({
+    background = colors.black
+})
+
+-- Add widgets to root frame
+app.root:addChild(app:label({
+    text = "Hello PixelUI!",
+    x = 2, y = 2,
+    fg = colors.white
+}))
+
+-- Start the application
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+
+-- Create application with custom window and border
+local app = pixelui.app({
+    background = colors.gray,
+    rootBorder = {
+        color = colors.lightGray,
+        sides = { "top", "bottom", "left", "right" },
+        thickness = 2
+    },
+    animationInterval = 0.05
+})
+
+-- Create a frame with child widgets
+local mainFrame = app:frame({
+    x = 2, y = 2,
+    width = 30, height = 10,
+    bg = colors.black
+})
+app.root:addChild(mainFrame)
+
+-- Spawn a background thread
+app:spawnThread(function(ctx)
+    for i = 1, 10 do
+        ctx:setMetadata("progress", i * 10)
+        ctx:sleep(0.5)
+        if ctx:shouldCancel() then return end
+    end
+end, {
+    name = "BackgroundTask",
+    onStatus = function(handle, status)
+        -- Handle thread status changes
+    end
+})
+
+app:run()
+```
+
+</details>
 

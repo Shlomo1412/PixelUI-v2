@@ -55,6 +55,7 @@ A tree node representing an item in a TreeView. Can have children nodes for hier
 | contentRenderer | `PixelUI.TabControlRenderer?` | Tab-specific renderer that overrides the widget default |
 | disabled | `boolean?` | When true the tab cannot be selected |
 | tooltip | `string?` | Optional tooltip text (reserved for future use) |
+| closeable | `boolean?` | When false the global close button does not appear for this tab |
 
 ## PixelUI.ContextMenu
 

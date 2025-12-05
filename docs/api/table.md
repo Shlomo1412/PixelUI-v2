@@ -220,3 +220,98 @@ onFocusChanged()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple data table
+local table = app:table({
+    x = 2, y = 2,
+    width = 40, height = 10,
+    columns = {
+        { id = "name", title = "Name", key = "name" },
+        { id = "age", title = "Age", key = "age" }
+    },
+    data = {
+        { name = "Alice", age = 25 },
+        { name = "Bob", age = 30 },
+        { name = "Charlie", age = 35 }
+    }
+})
+app.root:addChild(table)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Sortable table with selection and formatting
+local table = app:table({
+    x = 2, y = 2,
+    width = 50, height = 12,
+    columns = {
+        { 
+            id = "name", 
+            title = "Product", 
+            key = "name",
+            width = 15,
+            sortable = true
+        },
+        { 
+            id = "price", 
+            title = "Price", 
+            key = "price",
+            width = 10,
+            align = "right",
+            sortable = true,
+            format = function(value)
+                return string.format("$%.2f", value)
+            end
+        },
+        { 
+            id = "qty", 
+            title = "Qty", 
+            key = "quantity",
+            width = 8,
+            align = "center"
+        }
+    },
+    data = {
+        { name = "Widget", price = 9.99, quantity = 100 },
+        { name = "Gadget", price = 24.99, quantity = 50 },
+        { name = "Gizmo", price = 14.99, quantity = 75 }
+    },
+    allowRowSelection = true,
+    highlightBg = colors.blue,
+    highlightFg = colors.white,
+    scrollbar = { enabled = true },
+    onSelect = function(self, row, index)
+        if row then
+            -- Handle row selection
+        end
+    end,
+    onSort = function(self, columnId, direction)
+        -- Handle sort change
+    end
+})
+
+app.root:addChild(table)
+
+app:run()
+```
+
+</details>
+

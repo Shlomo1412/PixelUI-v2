@@ -2,114 +2,159 @@
 
 *Extends: PixelUI.Window*
 
-A modal window widget that optionally darkens the background and blocks interaction with the rest of the UI until it closes.
-
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| modal | `boolean` | Whether the dialog is currently modal. |
-| backdropColor | `PixelUI.Color?` | Default tint colour applied to the pixel layer when the dialog is modal (defaults to `colors.gray` when unset). |
-| backdropPixelColor | `PixelUI.Color?` | Pixel-layer colour drawn behind the dialog while it is modal. |
-| closeOnBackdrop | `boolean` | Close the dialog when the backdrop is clicked. |
-| closeOnEscape | `boolean` | Close the dialog when the Escape key is pressed. |
-
-Modal dialogs now tint only the pixel layer so the underlying background remains visible, and child widgets are clipped to the window bounds to prevent overflow.
+| modal | `boolean` | Whether the dialog should block interaction with other widgets |
+| backdropColor | `PixelUI.Color?` | Optional fill color drawn behind the dialog when modal |
+| backdropPixelColor | `PixelUI.Color?` | Pixel layer color for the backdrop when modal |
+| closeOnBackdrop | `boolean` | Whether clicking the backdrop should close the dialog |
+| closeOnEscape | `boolean` | Whether pressing escape closes the dialog |
 
 ## Methods
 
 ### new
 
 ```lua
-local dialog = app:createDialog({
-  title = "Confirm",
-  width = 28,
-  height = 9,
-  modal = true,
-  closeOnBackdrop = true
-})
+new()
 ```
 
 ### setModal
 
 ```lua
-dialog:setModal(true)
+setModal()
 ```
-Toggle modal behaviour dynamically.
 
 ### isModal
 
 ```lua
-local modal = dialog:isModal()
+isModal()
 ```
-Return the current modal state.
 
 ### setBackdropColor
 
 ```lua
-dialog:setBackdropColor(colors.gray, colors.gray)
+setBackdropColor()
 ```
-Set the modal backdrop tint; pass `false` to disable shading for either argument.
 
 ### getBackdropColor
 
 ```lua
-local color = dialog:getBackdropColor()
+getBackdropColor()
 ```
-Retrieve the active character-layer backdrop color.
 
 ### setCloseOnBackdrop
 
 ```lua
-dialog:setCloseOnBackdrop(true)
+setCloseOnBackdrop()
 ```
-Enable or disable closing when the backdrop is clicked.
 
 ### setCloseOnEscape
 
 ```lua
-dialog:setCloseOnEscape(true)
+setCloseOnEscape()
 ```
-Enable or disable closing via the Escape key.
+
+### draw
+
+```lua
+draw()
+```
+
+### _consumeModalEvent
+
+```lua
+_consumeModalEvent()
+```
 
 ### handleEvent
 
 ```lua
-local consumed = dialog:handleEvent(event, ...)
+handleEvent()
 ```
-Process events; modal dialogs consume keyboard and pointer input outside their bounds.
 
 ### close
 
 ```lua
-dialog:close()
+close()
 ```
-Close the dialog and release modal capture.
 
-## Example
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
 
 ```lua
-local dialog = app:createDialog({
-  title = "Example Dialog",
-  width = 32,
-  height = 10,
-  modal = true,
-  backdropColor = colors.gray,
-  closeOnBackdrop = true
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple modal dialog
+local dialog = app:dialog({
+    x = 10, y = 5,
+    width = 30, height = 10,
+    title = "Confirm",
+    modal = true
 })
 
-local offsetX, offsetY = dialog:getContentOffset()
-local contentLabel = app:createLabel({
-  x = offsetX + 1,
-  y = offsetY + 1,
-  width = dialog.width - offsetX - 1,
-  height = dialog.height - offsetY - 2,
-  wrap = true,
-  text = "Dialogs block interaction outside of their bounds.",
-  bg = colors.black,
-  fg = colors.white
-})
+dialog:addChild(app:label({
+    x = 2, y = 2,
+    text = "Are you sure?"
+}))
 
-dialog:addChild(contentLabel)
-root:addChild(dialog)
+app.root:addChild(dialog)
+
+app:run()
 ```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Modal dialog with backdrop and escape handling
+local dialog = app:dialog({
+    x = 10, y = 5,
+    width = 35, height = 12,
+    title = "Settings Dialog",
+    modal = true,
+    backdropColor = colors.black,
+    backdropPixelColor = colors.gray,
+    closeOnBackdrop = false,
+    closeOnEscape = true,
+    draggable = true,
+    closable = true
+})
+
+dialog:addChild(app:checkbox({
+    x = 2, y = 2,
+    label = "Enable notifications"
+}))
+
+dialog:addChild(app:checkbox({
+    x = 2, y = 4,
+    label = "Auto-save"
+}))
+
+local saveBtn = app:button({
+    x = 2, y = 7,
+    width = 10, height = 1,
+    label = "Save",
+    onClick = function()
+        dialog:close()
+    end
+})
+dialog:addChild(saveBtn)
+
+app.root:addChild(dialog)
+
+app:run()
+```
+
+</details>
+

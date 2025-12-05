@@ -2,105 +2,170 @@
 
 *Extends: PixelUI.Dialog*
 
-A specialised dialog that renders a message with a configurable set of action buttons. Buttons report a result identifier and can optionally keep the message box open.
-
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| autoClose | `boolean` | Automatically close after a button press when the handler does not return `false`. |
-| buttonAlign | `"left"|"center"|"right"` | Alignment for the button row. |
-
-Message boxes inherit the dialog backdrop tinting (default `colors.gray`): modal overlays affect only the pixel layer so the base UI stays visible, and button/content rendering is clipped to the message box bounds.
+| autoClose | `boolean` | Whether the dialog should close automatically after a button press |
+| buttonAlign | `"left"\|"center"\|"right"` | Horizontal alignment of the button row |
 
 ## Methods
 
 ### new
 
 ```lua
-local box = app:createMsgBox({
-  title = "Unsaved Changes",
-  message = "Save before closing?",
-  buttons = {
-    { id = "save", label = "Save" },
-    { id = "discard", label = "Discard" },
-    { id = "cancel", label = "Cancel", autoClose = true }
-  }
-})
+new()
 ```
 
 ### setMessage
 
 ```lua
-box:setMessage("Overwrite the existing record?")
+setMessage()
 ```
-Update the message text and reflow the layout.
 
 ### getMessage
 
 ```lua
-local text = box:getMessage()
+getMessage()
 ```
-Return the current message text.
 
 ### setOnResult
 
 ```lua
-box:setOnResult(function(_, id)
-  print("Pressed", id)
-end)
+setOnResult()
 ```
-Register a callback that receives the button identifier and widget instance.
+
+### _createButtonEntry
+
+```lua
+_createButtonEntry()
+```
 
 ### setButtons
 
 ```lua
-box:setButtons({
-  { id = "retry", label = "Retry" },
-  { id = "cancel", label = "Cancel", autoClose = true }
-})
+setButtons()
 ```
-Replace the button collection. Widths are normalised and the layout is refreshed.
+
+### _handleButtonSelection
+
+```lua
+_handleButtonSelection()
+```
 
 ### setButtonAlign
 
 ```lua
-box:setButtonAlign("right")
+setButtonAlign()
 ```
-Control horizontal alignment for the button bar.
 
 ### setAutoClose
 
 ```lua
-box:setAutoClose(false)
+setAutoClose()
 ```
-Toggle the default auto-close behaviour applied to new buttons.
 
 ### setButtonGap
 
 ```lua
-box:setButtonGap(1)
+setButtonGap()
 ```
-Adjust spacing between adjacent buttons.
 
-## Example
+### _updateLayout
 
 ```lua
-local box = app:createMsgBox({
-  title = "Delete",
-  message = "This action cannot be undone.",
-  buttonAlign = "right",
-  buttons = {
-    { id = "delete", label = "Delete", bg = colors.red, fg = colors.white },
-    { id = "cancel", label = "Cancel", autoClose = true }
-  }
+_updateLayout()
+```
+
+### setSize
+
+```lua
+setSize()
+```
+
+### setBorder
+
+```lua
+setBorder()
+```
+
+### setTitleBar
+
+```lua
+setTitleBar()
+```
+
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple message box
+local msgbox = app:msgbox({
+    x = 10, y = 5,
+    width = 30, height = 8,
+    title = "Info",
+    message = "Operation completed!"
 })
 
-box:setOnResult(function(_, id)
-  if id == "delete" then
-    performDeletion()
-  end
-end)
+app.root:addChild(msgbox)
 
-root:addChild(box)
+app:run()
 ```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Message box with custom buttons and callbacks
+local msgbox = app:msgbox({
+    x = 10, y = 5,
+    width = 35, height = 10,
+    title = "Confirm Action",
+    message = "Do you want to save changes before closing?",
+    autoClose = true,
+    buttonAlign = "center",
+    buttons = {
+        {
+            id = "save",
+            label = "Save",
+            bg = colors.green,
+            fg = colors.white,
+            onSelect = function(self, id, button)
+                -- Save logic here
+            end
+        },
+        {
+            id = "discard",
+            label = "Discard",
+            bg = colors.red,
+            fg = colors.white
+        },
+        {
+            id = "cancel",
+            label = "Cancel",
+            autoClose = false,  -- Don't close on this button
+            onSelect = function(self, id, button)
+                -- Stay open
+            end
+        }
+    }
+})
+
+app.root:addChild(msgbox)
+
+app:run()
+```
+
+</details>
+

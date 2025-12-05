@@ -45,6 +45,18 @@ setOnCursorMove()
 setScrollbar()
 ```
 
+### setPlaceholderColor
+
+```lua
+setPlaceholderColor()
+```
+
+### setNumericOnly
+
+```lua
+setNumericOnly()
+```
+
 ### onFocusChanged
 
 ```lua
@@ -55,6 +67,42 @@ onFocusChanged()
 
 ```lua
 _applyMaxLength()
+```
+
+### _positionToIndex
+
+```lua
+_positionToIndex()
+```
+
+### _getSelectionIndices
+
+```lua
+_getSelectionIndices()
+```
+
+### _simulateReplacementText
+
+```lua
+_simulateReplacementText()
+```
+
+### _sanitizeNumericInput
+
+```lua
+_sanitizeNumericInput()
+```
+
+### _isNumericText
+
+```lua
+_isNumericText()
+```
+
+### _allowsNumericInsertion
+
+```lua
+_allowsNumericInsertion()
 ```
 
 ### _syncTextFromLines
@@ -500,4 +548,82 @@ getText()
 ```lua
 setOnChange()
 ```
+
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple text input
+local textbox = app:textbox({
+    x = 2, y = 2,
+    width = 20, height = 1,
+    placeholder = "Enter text...",
+    onChange = function(self, text)
+        -- Handle text changes
+    end
+})
+app.root:addChild(textbox)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Password input with validation
+local passwordBox = app:textbox({
+    x = 2, y = 2,
+    width = 25, height = 1,
+    placeholder = "Enter password",
+    mask = "*",
+    maxLength = 20,
+    focusBg = colors.gray,
+    focusFg = colors.white
+})
+
+local strengthLabel = app:label({
+    x = 2, y = 4,
+    text = "",
+    fg = colors.lightGray
+})
+
+passwordBox.onChange = function(self, text)
+    local len = #text
+    if len == 0 then
+        strengthLabel:setText("")
+    elseif len < 6 then
+        strengthLabel:setText("Weak")
+        strengthLabel.fg = colors.red
+    elseif len < 10 then
+        strengthLabel:setText("Medium")
+        strengthLabel.fg = colors.yellow
+    else
+        strengthLabel:setText("Strong")
+        strengthLabel.fg = colors.green
+    end
+end
+
+passwordBox.onSubmit = function(self, text)
+    -- Handle form submission
+end
+
+app.root:addChild(passwordBox)
+app.root:addChild(strengthLabel)
+
+app:run()
+```
+
+</details>
 

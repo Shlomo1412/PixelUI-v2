@@ -109,3 +109,77 @@ _drawDropdown()
 handleEvent()
 ```
 
+## Examples
+
+<!-- Example tabs -->
+<details open>
+<summary><strong>Basic</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Simple dropdown selection
+local combo = app:combobox({
+    x = 2, y = 2,
+    width = 15, height = 1,
+    items = { "Small", "Medium", "Large" },
+    placeholder = "Select size",
+    onChange = function(self, item, index)
+        -- Handle selection change
+    end
+})
+app.root:addChild(combo)
+
+app:run()
+```
+
+</details>
+
+<details>
+<summary><strong>Advanced</strong></summary>
+
+```lua
+local pixelui = require("pixelui")
+local app = pixelui.app()
+
+-- Styled combobox with dynamic updates
+local selectedLabel = app:label({
+    x = 2, y = 5,
+    text = "Color: none",
+    fg = colors.white
+})
+
+local combo = app:combobox({
+    x = 2, y = 2,
+    width = 18, height = 1,
+    items = { "Red", "Green", "Blue", "Yellow", "Purple" },
+    selectedIndex = 0,
+    placeholder = "Choose color",
+    dropdownBg = colors.gray,
+    dropdownFg = colors.white,
+    highlightBg = colors.blue,
+    highlightFg = colors.white,
+    onChange = function(self, item, index)
+        selectedLabel:setText("Color: " .. (item or "none"))
+        local colorMap = {
+            Red = colors.red,
+            Green = colors.green,
+            Blue = colors.blue,
+            Yellow = colors.yellow,
+            Purple = colors.purple
+        }
+        if item and colorMap[item] then
+            selectedLabel.fg = colorMap[item]
+        end
+    end
+})
+
+app.root:addChild(combo)
+app.root:addChild(selectedLabel)
+
+app:run()
+```
+
+</details>
+

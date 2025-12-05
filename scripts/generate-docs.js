@@ -110,6 +110,52 @@ function generateClassDoc(cls, functions) {
     }
   }
 
+  // Examples section with Basic/Advanced tabs
+  if (cls.examples && (cls.examples.basic.length > 0 || cls.examples.advanced.length > 0)) {
+    markdown += '## Examples\n\n';
+    
+    const hasBasic = cls.examples.basic.length > 0;
+    const hasAdvanced = cls.examples.advanced.length > 0;
+    
+    if (hasBasic && hasAdvanced) {
+      // Both tabs available - use tabbed layout with HTML details/summary for compatibility
+      markdown += '<!-- Example tabs -->\n';
+      markdown += '<details open>\n';
+      markdown += '<summary><strong>Basic</strong></summary>\n\n';
+      for (const example of cls.examples.basic) {
+        markdown += '```lua\n';
+        markdown += example + '\n';
+        markdown += '```\n\n';
+      }
+      markdown += '</details>\n\n';
+      
+      markdown += '<details>\n';
+      markdown += '<summary><strong>Advanced</strong></summary>\n\n';
+      for (const example of cls.examples.advanced) {
+        markdown += '```lua\n';
+        markdown += example + '\n';
+        markdown += '```\n\n';
+      }
+      markdown += '</details>\n\n';
+    } else if (hasBasic) {
+      // Only basic examples
+      markdown += '### Basic Usage\n\n';
+      for (const example of cls.examples.basic) {
+        markdown += '```lua\n';
+        markdown += example + '\n';
+        markdown += '```\n\n';
+      }
+    } else if (hasAdvanced) {
+      // Only advanced examples
+      markdown += '### Advanced Usage\n\n';
+      for (const example of cls.examples.advanced) {
+        markdown += '```lua\n';
+        markdown += example + '\n';
+        markdown += '```\n\n';
+      }
+    }
+  }
+
   return markdown;
 }
 
