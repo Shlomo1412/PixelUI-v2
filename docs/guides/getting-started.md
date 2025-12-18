@@ -39,7 +39,7 @@ local button = app:createButton({
 })
 
 -- Add the button to the main frame
-root:addChild(btn)
+root:addChild(button)
 
 -- Run the application
 app:run()

@@ -39,7 +39,7 @@ features:
     details: Fully annotated with LuaDoc type hints for better development experience, IDE support, and autocomplete.
 ---
 
-<!-- ✨ Add Animate.css for beautiful animations -->
+
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css/animate.min.css">
 
 <style>
@@ -130,7 +130,6 @@ local root = app:getRoot()
 
 -- Create a button
 local button = app:createButton({
-  parent = root,
   x = 5,
   y = 5,
   width = 20,
@@ -140,6 +139,8 @@ local button = app:createButton({
     print("Button clicked!")
   end
 })
+-- Add the button to the main frame
+root:addChild(button)
 
 -- Run the app
 app:run()
